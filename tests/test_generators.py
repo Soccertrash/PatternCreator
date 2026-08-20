@@ -413,6 +413,27 @@ def test_leaf_veins_without_fine_cells_keeps_the_coarse_cells():
     assert all(el.closed and el.role == ir.ROLE_REGION for el in els)
 
 
+def _border_contours(scene):
+    return [el for el in scene.elements if isinstance(el, ir.Path)
+            and el.layer == ir.LAYER_BORDER and el.closed]
+
+
+def test_border_is_a_band_in_area_mode():
+    """Ohne Band haengen die Streifen eines Strich-Musters an nichts (3D-Druck)."""
+    scene = scene_for("waves", style={"mode": "area", "border": True,
+                                      "borderWidth": 0.3, "clip": "cut"})
+    contours = _border_contours(scene)
+    assert len(contours) == 2
+    widths = sorted(bbox(c.points)[2] - bbox(c.points)[0] for c in contours)
+    assert abs((widths[1] - widths[0]) - 0.6) < 1e-6      # 2 x Rahmenbreite
+
+
+def test_border_stays_a_single_line_in_stroke_mode():
+    scene = scene_for("waves", style={"mode": "line", "border": True,
+                                      "borderWidth": 0.3, "clip": "cut"})
+    assert len(_border_contours(scene)) == 1
+
+
 # --------------------------------------------------------- Natürliche Muster
 
 def test_herringbone_axis_count_and_curvature():

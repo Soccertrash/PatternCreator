@@ -260,7 +260,7 @@ def cell_params(default_count: int = 120, with_rows: bool = False,
     if with_smooth:
         ps.append(Param("roundness", "Rundheit", T_INT, default_roundness,
                         min=0, max=3, step=1,
-                        help="Chaikin-Eckenglättung: 0 = eckig, 3 = rund wie Kiesel."))
+                        help="Eckenrundung: 0 = eckig, 3 = rund wie Kiesel."))
     if with_inset:
         ps.append(Param("inset", "Fugenbreite", T_LENGTH, default_inset,
                         min=0.0, max=5.0, step=0.01,

@@ -17,7 +17,7 @@ class PebblesGenerator(OrganicGenerator):
     id = "pebbles"
     tiling = True
     label = "Kiesel"
-    description = ("Runde Steinzellen: Voronoi mit Chaikin-Rundung und Fuge. "
+    description = ("Runde Steinzellen: Voronoi mit Eckenrundung und Fuge. "
                    "Optional bekommt jede Zelle einen versetzten Kernpunkt.")
     icon = "M5 8a3 3 0 1 1 6 0 3 3 0 0 1-6 0M13 6a3 3 0 1 1 6 0 3 3 0 0 1-6 0M8 16a3 3 0 1 1 6 0 3 3 0 0 1-6 0"
     presets = {

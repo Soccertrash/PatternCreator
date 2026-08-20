@@ -279,7 +279,7 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | **Schraffur** | Optionale Füllung der offenen Zellflächen mit zusätzlichen, eigenständig dünnen Stegen – parallel oder gekreuzt. Nur im Flächenmodus mit *Stegen*. |
 | **Seed** | Gleicher Seed ⇒ identisches Muster in Vorschau, Skizze und nach dem Bearbeiten. |
 | **Knockout** | Das Muster wird im Bereich der Text-Bounding-Box (plus Rand) ausgestanzt. |
-| **Eine Fläche** | Bei den kachelnden Mustern (Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe) entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
+| **Eine Fläche** | Bei den kachelnden Mustern (Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe, Blattadern) entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
 
 ---
 
@@ -309,6 +309,13 @@ darstellbare Kanten.
 Motiv-Streuung) bestehen weiterhin aus mehreren Streifen. Sie
 lassen sich mit **Direkt extrudieren** trotzdem in einem Schritt zu **einem** Körper
 verschmelzen; die einzelne Auswahl im Skizzen-Modus ist dort noch offen.
+
+Damit dabei nicht lauter lose Teile herauskommen, ist der Rahmen im Flächenmodus ein
+**Band** in der eingestellten Rahmenbreite (Außen- und Innenkontur) und nicht nur ein
+Strich. Jeder Streifen endet am Umriss und läuft in dieses Band hinein – Fischgrät,
+Wellen, Schuppen und Spiralen hängen dadurch zusammen. Frei stehende Motive mitten in
+der Fläche (Motiv-Streuung, Phyllotaxis) berühren nichts und bleiben eigene Teile; für
+einen einteiligen Druck braucht es dort eine Grundplatte.
 
 ---
 
@@ -983,7 +990,7 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | **Hatching** (*Schraffur*) | Optional filling of the open cell faces with additional, independently thin webs — parallel or crossed. Face mode with *webs* only. |
 | **Seed** | Same seed ⇒ identical pattern in the preview, in the sketch and after re-editing. |
 | **Knockout** | The pattern is punched out within the text bounding box (plus margin). |
-| **One single face** | For the tiling patterns (grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles, tissue) face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
+| **One single face** | For the tiling patterns (grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles, tissue, leaf veins) face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
 
 ---
 
@@ -1010,7 +1017,11 @@ wins — that keeps brick dimensions exact. Clipped border cells that would leav
 hairline sliver are closed up: such edges could not be printed.
 
 **Stroke patterns** without cells (herringbone, waves, scales, phyllotaxis, spirals,
-motif scatter) still consist of several strips. With **Direkt
+motif scatter) still consist of several strips. In face mode the container frame is
+drawn as a **band** of the configured border width (outer *and* inner contour) rather
+than a single line, so every strip ends in that band and the parts hang together;
+free-standing motifs in the middle (motif scatter, phyllotaxis) touch nothing and stay
+separate. With **Direkt
 extrudieren** (extrude directly) they are still merged into **one** body in a single
 step; selecting them as one profile in the sketch is not implemented yet.
 

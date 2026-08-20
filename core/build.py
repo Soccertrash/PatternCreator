@@ -130,7 +130,16 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
             elements.extend(strips)
             elements = _knockout_sweep(elements, doc)
         if border_on:
-            elements = list(container.outline()) + elements
+            # Im Flaechenmodus ist der Rahmen ein Band, kein Strich: nur so haengen
+            # die Streifen eines Strich-Musters ueberhaupt zusammen. Jeder Streifen
+            # endet am Umriss und laeuft damit in das Band hinein - extrudiert wird
+            # daraus ein Koerper statt vieler loser Teile.
+            outline = list(container.outline())
+            if mode == "area" and border_width > 1e-9:
+                inner = container.shrunk(border_width)
+                if inner is not container:
+                    outline += list(inner.outline())
+            elements = outline + elements
 
     from text.text_layer import text_elements
     for layer in doc.get("textLayers", []):
