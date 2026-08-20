@@ -26,6 +26,7 @@
   var previewTimer = null;
   var historyTimer = null;
   var busy = false;
+  var gotInit = false;
   var lastUsed = loadLastUsed();
 
   var preview = null;
@@ -33,14 +34,40 @@
 
   /* ------------------------------------------------------- Fusion-Brücke */
 
+  function fusionReady() {
+    return !!(window.adsk && typeof window.adsk.fusionSendData === 'function');
+  }
+
   function sendToFusion(action, data) {
     try {
-      if (window.adsk && typeof window.adsk.fusionSendData === 'function') {
+      if (fusionReady()) {
         window.adsk.fusionSendData(action, JSON.stringify(data || {}));
+        return true;
       }
     } catch (e) {
       showGlobalError('Verbindung zu Fusion unterbrochen: ' + e);
     }
+    return false;
+  }
+
+  /* Fusion injiziert ``window.adsk`` erst nach dem Laden der Seite - beim ersten
+     Oeffnen der Palette oft nach ``DOMContentLoaded``. Ein einmalig gesendetes
+     ``ready`` ginge dann verloren und der Editor blieb ohne Schema leer. Deshalb
+     so lange wiederholen, bis ``init`` angekommen ist. */
+  var READY_RETRY_MS = 150;
+  var READY_TIMEOUT_MS = 15000;
+  var readyWaited = 0;
+
+  function sendReady() {
+    if (gotInit) { return; }
+    sendToFusion('ready', {});
+    if (readyWaited >= READY_TIMEOUT_MS) {
+      showGlobalError('Keine Verbindung zu Fusion - bitte den Editor schliessen '
+                      + 'und erneut oeffnen.');
+      return;
+    }
+    readyWaited += READY_RETRY_MS;
+    window.setTimeout(sendReady, READY_RETRY_MS);
   }
 
   window.fusionJavaScriptHandler = {
@@ -128,6 +155,8 @@
   /* --------------------------------------------------------- Initialisierung */
 
   function onInit(payload) {
+    gotInit = true;
+    clearGlobalError();
     schema = payload.schema;
     doc = payload.doc;
     mode = payload.mode || 'create';
@@ -549,6 +578,11 @@
     el.globalError.textContent = message;
   }
 
+  function clearGlobalError() {
+    el.globalError.hidden = true;
+    el.globalError.textContent = '';
+  }
+
   function setStatus(message, isError) {
     el.status.textContent = message || '';
     el.status.className = isError ? 'error' : '';
@@ -698,6 +732,6 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     bind();
-    sendToFusion('ready', {});
+    sendReady();
   });
 }());
