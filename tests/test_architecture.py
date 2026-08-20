@@ -25,12 +25,12 @@ def read(path):
         return fh.read()
 
 
-def test_project_layout_matches_the_plan():
+def test_project_layout_is_complete():
     for folder in ("commands", "core", "generators", "text", "fusion", "palette",
                    "resources", "tests"):
         assert os.path.isdir(os.path.join(ROOT, folder)), folder
     for name in ("PatternCreator.py", "PatternCreator.manifest", "README.md",
-                 "PLAN.md", "CHECKLIST.md"):
+                 "Context.md"):
         assert os.path.isfile(os.path.join(ROOT, name)), name
 
 
@@ -133,20 +133,10 @@ def test_readme_documents_both_platforms_and_limits():
         assert needle in readme, needle
 
 
-def test_readme_documents_the_connectors_and_their_limit():
-    """Verbinder ändern das gedruckte Ergebnis - das muss dokumentiert sein,
-    inklusive der bekannten Grenze gegenüber dem Text-Knockout."""
-    readme = read(os.path.join(ROOT, "README.md"))
-    for needle in ("## Verbinder", "connectorWidth", "Text-Knockout kann einen "
-                   "Verbinder durchtrennen", "## Connectors"):
-        assert needle in readme, needle
-
-
 def test_every_style_parameter_reaches_the_editor_schema():
     """Ein Stil-Parameter ohne Schema-Eintrag wäre im Editor unsichtbar."""
     import core.pattern_doc as pd
     keys = {p["key"] for p in pd.schema()["style"]}
-    assert {"connectors", "connectorWidth"} <= keys
     assert keys == {p.key for p in pd.STYLE_PARAMS}
 
 

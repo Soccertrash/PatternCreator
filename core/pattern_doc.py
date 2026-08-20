@@ -143,18 +143,6 @@ STYLE_PARAMS: List[Param] = [
                "eingestellte Rahmenmaß bleibt also das Außenmaß. 0 = nur so "
                "breit wie ein halber Steg."),
 
-    # -- Verbinder: nur bei Streu-Mustern sinnvoll (``Generator.scatter``).
-    # Kachelnde Muster haengen ueber das Flaechenmodell ohnehin zusammen, und
-    # Strich-Muster laufen in das Rahmenband hinein. Frei stehende Motive
-    # beruehren dagegen nichts - siehe ``core/connect.py``.
-    Param("connectors", "Verbinder", T_BOOL, True,
-          visible_if={"mode": ["area"]},
-          help="Verbindet frei stehende Motive untereinander und mit dem "
-               "Rahmen, damit das Muster als ein Teil druckbar ist."),
-    Param("connectorWidth", "Verbinder-Dicke", T_LENGTH, 0.08, min=0.02, max=1.0,
-          step=0.01, visible_if={"mode": ["area"], "connectors": [True]},
-          help="Breite der Stege zwischen den Motiven."),
-
     # -- Schraffur: fuellt die freien Zellflaechen mit zusaetzlichen Stegen.
     # Nur im Flaechenmodus mit Fuellung "Stege" sinnvoll - nur dort sind die
     # Zellen ueberhaupt offen. Geometrie siehe ``core/hatch.py``.

@@ -85,8 +85,8 @@ def test_knockout_without_boxes_is_a_noop():
     assert apply_knockout([line], []) == [line]
 
 
-@pytest.mark.parametrize("pattern_id", ["grid", "honeycomb", "voronoi", "waves",
-                                        "phyllotaxis", "motif_scatter"])
+@pytest.mark.parametrize("pattern_id", ["grid", "honeycomb", "voronoi",
+                                        "pebbles", "leaf_veins", "puzzle"])
 def test_knockout_clears_the_text_area_end_to_end(pattern_id):
     doc = pd.default_doc(pattern_id)
     doc["textLayers"][0].update({"enabled": True, "text": "MUSTER", "height": 1.2,

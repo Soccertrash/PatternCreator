@@ -12,21 +12,15 @@ from typing import Any, Dict, List, Type
 from .base import GenContext, Generator
 from .brick import BrickGenerator
 from .grid import GridGenerator
-from .herringbone import HerringboneGenerator
 from .honeycomb import HoneycombGenerator
 from .leaf_veins import LeafVeinsGenerator
-from .motif_scatter import MotifScatterGenerator
 from .pebbles import PebblesGenerator
-from .phyllotaxis import PhyllotaxisGenerator
 from .puzzle import PuzzleGenerator
 from .rhombus import RhombusGenerator
-from .scales import ScalesGenerator
-from .spirals import SpiralsGenerator
 from .tissue import TissueGenerator
 from .voronoi import VoronoiGenerator
-from .waves import WavesGenerator
 
-#: Reihenfolge = Reihenfolge im Editor-Dropdown (technisch, dann natuerlich)
+#: Reihenfolge = Reihenfolge im Editor-Dropdown (technisch, dann organisch)
 GENERATOR_CLASSES: List[Type[Generator]] = [
     GridGenerator,
     RhombusGenerator,
@@ -37,12 +31,6 @@ GENERATOR_CLASSES: List[Type[Generator]] = [
     PebblesGenerator,
     TissueGenerator,
     LeafVeinsGenerator,
-    HerringboneGenerator,
-    WavesGenerator,
-    ScalesGenerator,
-    PhyllotaxisGenerator,
-    SpiralsGenerator,
-    MotifScatterGenerator,
 ]
 
 REGISTRY: Dict[str, Type[Generator]] = {cls.id: cls for cls in GENERATOR_CLASSES}
@@ -51,8 +39,6 @@ REGISTRY: Dict[str, Type[Generator]] = {cls.id: cls for cls in GENERATOR_CLASSES
 GROUPS = [
     ("Technisch", ["grid", "rhombus", "honeycomb", "brick", "puzzle"]),
     ("Organische Zellen", ["voronoi", "pebbles", "tissue", "leaf_veins"]),
-    ("Natürlich", ["herringbone", "waves", "scales", "phyllotaxis", "spirals",
-                   "motif_scatter"]),
 ]
 
 

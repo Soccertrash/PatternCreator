@@ -3,16 +3,15 @@
 *🇬🇧 [English version below](#english) — the same documentation in English.*
 
 Fusion-360-Add-In für **parametrische 2D-Muster** in Skizzen: technische Raster
-(Gitter, Rauten, Wabe, Mauer, Puzzle) und natürliche Muster (Voronoi, Kiesel,
-Zellgewebe, Blattadern, Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
-Motiv-Streuung). Bedient wird alles über ein eigenes Editor-Fenster mit
+(Gitter, Rauten, Wabe, Mauer, Puzzle) und organische Zellmuster (Voronoi, Kiesel,
+Zellgewebe, Blattadern). Bedient wird alles über ein eigenes Editor-Fenster mit
 **Live-Vorschau**. Jedes Muster ist **extrudierbar** und **nachträglich bearbeitbar**.
 
 Zusätzlich lässt sich in jedes Muster eine **Text-Ebene** einbetten, die das Muster
 optional ausstanzt („Knockout“), damit der Text lesbar bleibt.
 
 **Inhalt:** [Installation](#installation) · [Erste Schritte](#erste-schritte-in-5-minuten) ·
-[Bedienung](#bedienung) · [Grundbegriffe](#grundbegriffe) · [Verbinder](#verbinder--frei-stehende-motive-zusammenhängen) ·
+[Bedienung](#bedienung) · [Grundbegriffe](#grundbegriffe) ·
 [Parameter-Referenz](#parameter-referenz) · [Fehlerbehebung](#fehlerbehebung) ·
 [Tests](#tests) · [Architektur](#architektur) ·
 [Einschränkungen](#bekannte-einschränkungen)
@@ -127,7 +126,7 @@ einmal **Ausführen** geklickt werden.
 3. **Ausführen** klicken.
 
 Ob die neue Fassung wirklich geladen ist, zeigt der Dialog *Skripte und Add-Ins*:
-das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.4.0).
+das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.5.0).
 
 Fusion cacht die HTML-Oberfläche der Palette. Das Add-In hängt deshalb automatisch
 eine Version an die URL an; sollte der Editor trotzdem in einem alten Stand hängen,
@@ -198,8 +197,8 @@ Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablau
 
 ### Schritt für Schritt
 
-1. **Muster wählen** – Dropdown oben, gruppiert in *Technisch*, *Organische Zellen*
-   und *Natürlich*, jeweils mit Piktogramm. Das **?** daneben blendet eine
+1. **Muster wählen** – Dropdown oben, gruppiert in *Technisch* und
+   *Organische Zellen*, jeweils mit Piktogramm. Das **?** daneben blendet eine
    Kurzbeschreibung mit allen Parametern ein.
 2. **Parameter einstellen** – die Formulare entstehen automatisch aus dem jeweiligen
    Muster. Schieberegler und Zahlenfelder sind auf den erlaubten Bereich begrenzt;
@@ -265,7 +264,7 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | Puzzle zum Lasercut | Puzzle · Linien (Schnittlinien) oder Flächen (einzelne Teile) |
 | Natürlich wirkender Rand | Beschnitt **Angeschnittene weglassen** |
 | Beschriftetes Muster-Panel | Text-Ebene an · Muster ausstanzen an · Flächen |
-| Deko-Fliese mit Blattmotiv | Motiv-Streuung · Poisson-Verteilung · Drehstreuung 30° |
+| Deko-Fliese mit organischer Optik | Kiesel · Rundheit 3 · Flächen · Stege |
 
 ---
 
@@ -279,17 +278,16 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | **Stege / Zellen** | Im Flächenmodus wahlweise die Wände *zwischen* den Zellen oder die Zellflächen selbst. |
 | **Beschnitt** | `Am Rand beschneiden` (cut), `Angeschnittene weglassen` (dropPartial – ergibt ausgefranste, natürliche Ränder) oder `Aus`. |
 | **Schraffur** | Optionale Füllung der offenen Zellflächen mit zusätzlichen, eigenständig dünnen Stegen – parallel oder gekreuzt. Nur im Flächenmodus mit *Stegen*. |
-| **Verbinder** | Dünne Stege, die frei stehende Motive untereinander und mit dem Rahmen verbinden. Nur bei den Streu-Mustern (Phyllotaxis, Motiv-Streuung), dort standardmäßig an. |
 | **Seed** | Gleicher Seed ⇒ identisches Muster in Vorschau, Skizze und nach dem Bearbeiten. |
 | **Knockout** | Das Muster wird im Bereich der Text-Bounding-Box (plus Rand) ausgestanzt. |
-| **Eine Fläche** | Bei den kachelnden Mustern (Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe, Blattadern) entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
+| **Eine Fläche** | Bei allen Mustern entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
 
 ---
 
 ## Eine Fläche statt vieler Streifen
 
-Bei **kachelnden** Mustern – Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel,
-Zellgewebe – ist das Stegnetz exakt *Rahmen minus verkleinerte Zellen*. Das Add-In
+Alle Muster kacheln die Fläche, das Stegnetz ist deshalb exakt *Rahmen minus
+verkleinerte Zellen*. Das Add-In
 erzeugt deshalb genau **eine** Außenkontur mit Löchern statt vieler sich
 überlappender Streifen:
 
@@ -308,49 +306,12 @@ beiden – so bleiben die Ziegelmaße exakt. Angeschnittene Randzellen, die nur 
 einen hauchdünnen Splitter ergäben, werden zugemacht: im Druck wären das nicht
 darstellbare Kanten.
 
-**Strich-Muster** ohne Zellen (Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
-Motiv-Streuung) bestehen weiterhin aus mehreren Streifen. Beim Extrudieren in Fusion
-verschmelzen die überlappenden Profile trotzdem zu **einem** Körper; die einzelne
-Auswahl im Skizzen-Modus ist dort noch offen.
-
-Damit dabei nicht lauter lose Teile herauskommen, ist der Rahmen im Flächenmodus ein
-**Band** in der eingestellten Rahmenbreite (Außen- und Innenkontur) und nicht nur ein
-Strich. Jeder Streifen endet am Umriss und läuft in dieses Band hinein – Fischgrät,
-Wellen, Schuppen und Spiralen hängen dadurch zusammen. Frei stehende Motive mitten in
-der Fläche (Motiv-Streuung, Phyllotaxis) berühren nichts – für die gibt es die
-**Verbinder**.
-
----
-
-## Verbinder – frei stehende Motive zusammenhängen
-
-Phyllotaxis und Motiv-Streuung verteilen einzelne Motive über die Fläche. Im
-Flächenmodus wird daraus ohne weiteres Zutun eine Wolke schwebender Einzelteile: die
-Sonnenblumen-Anordnung mit Standardwerten zerfällt in **220** Stück. Ausgedruckt fällt
-so etwas auseinander, sobald man es vom Druckbett nimmt.
-
-**Verbinder** ziehen dünne Stege dazwischen und machen daraus **ein** Teil:
-
-* **Nachbar-Netz** – jedes Motiv wird mit seinem nächsten Nachbarn verbunden. Es
-  entstehen genau so viele Stege wie nötig (bei *k* Inseln *k−1*), nicht mehr.
-* **Verankerung im Rahmen** – zusätzlich wird das Netz im Rahmenband festgemacht,
-  mindestens an zwei Stellen auf verschiedenen Seiten. Sonst hängt das Muster zwar
-  zusammen, schwebt aber frei im Rahmen.
-* **Motive, die sich schon berühren**, gelten als *eine* Insel und bekommen keinen
-  Steg. Bei der Motiv-Streuung überlappen sich die Blätter ohnehin größtenteils –
-  dort genügen wenige Stege.
-
-| Einstellung | Wirkung |
-| --- | --- |
-| **Verbinder** (`style.connectors`) | An/aus. Nur bei Streu-Mustern sichtbar, dort standardmäßig **an**. |
-| **Verbinder-Dicke** (`style.connectorWidth`) | Breite der Stege, Standard 0,8 mm. Dünner spart Material, dicker hält besser. |
-
-Die Stege kosten Skizzen-Elemente – bei der Phyllotaxis mit Standardwerten wächst die
-Zahl von 965 auf 1625. Das ist der Preis für ein druckbares Teil und bleibt unter der
-Warnschwelle von 2000.
-
-**Ohne Rahmen** (*Rahmen zeichnen* aus) hängen die Motive zwar untereinander zusammen,
-das Ganze ist dann aber ein loses Einzelteil – darauf weist eine Meldung hin.
+Greift das Flächenmodell nicht – etwa bei Füllung **Zellen** –, werden die Stege
+einzeln gestrokt und überlappen sich an den Knoten. Damit daraus keine losen Teile
+werden, ist der Rahmen im Flächenmodus ein **Band** in der eingestellten Rahmenbreite
+(Außen- und Innenkontur) und nicht nur ein Strich: jeder Streifen endet am Umriss und
+läuft in dieses Band hinein. Beim Extrudieren verschmelzen die überlappenden Profile
+in Fusion zu **einem** Körper.
 
 ---
 
@@ -389,7 +350,7 @@ Gut zu wissen:
 
 Gemeinsam für alle Muster: **Rahmen** (Form + Maße, Ursprung, Drehung von Rahmen und
 Muster), **Stil** (Modus, Dicke, Stege/Zellen, Beschnitt, Rahmen zeichnen,
-**Rahmendicke**, **Verbinder**, **Schraffur**), **Text-Ebene** und **Seed**.
+**Rahmendicke**, **Schraffur**), **Text-Ebene** und **Seed**.
 
 Die **Rahmendicke** (`style.borderWidth`, Standard 1,5 mm) wirkt im Flächenmodus und
 wird nach innen gemessen: ein Kreisrahmen mit 90 mm bleibt außen 90 mm groß.
@@ -514,91 +475,6 @@ entsteht geometrisch: jede Grobzelle wird vor dem Unterteilen um
   - **Dickenverhältnis** (`veinRatio`) – Standard 2.5 – Zwischen 1 und 8 – Wie viel dicker die Hauptadern gegenüber den Nebenadern sind.
   - **Rundheit** (`roundness`) – Standard 1 – Zwischen 0 und 3
 
-### Natürlich
-
-#### Fischgrät (`herringbone`)
-
-Rippen laufen beidseitig im Winkel auf eine Mittelachse zu. Eine Achse ergibt einen Palmwedel, mehrere ein Fischgrät-Feld.
-
-- Flächenmodus: Stege
-- Vorgaben: fein, mittel, grob
-- Parameter:
-  - **Mittelachsen** (`axisCount`) – Standard 1 – Zwischen 1 und 40 – 1 = Palmwedel, mehr = Fischgrät-Feld.
-  - **Rippenabstand** (`ribSpacing`) – Standard 5 mm – Zwischen 0,3 mm und 200 mm
-  - **Rippenwinkel** (`ribAngle`) – Standard 40 ° – Zwischen 5 ° und 85 ° – Winkel der Rippen gegen die Achse.
-  - **Rippenlänge** (`ribLength`) – Standard 18 mm – Zwischen 0,5 mm und 500 mm
-  - **Krümmung** (`curvature`) – Standard 0.15 – Zwischen 0 und 1 – 0 = gerade Rippen, > 0 = leicht gebogen.
-  - **Achse zeichnen** (`drawAxis`) – Standard True
-
-#### Wellen (`waves`)
-
-Parallele Wellenlinien mit einstellbarer Wellenlänge, Amplitude und Phasenversatz je Zeile.
-
-- Flächenmodus: Stege
-- Vorgaben: fein, mittel, grob
-- Parameter:
-  - **Wellenlänge** (`wavelength`) – Standard 25 mm – Zwischen 1 mm und 1000 mm
-  - **Amplitude** (`amplitude`) – Standard 5 mm – Zwischen 0 mm und 500 mm
-  - **Linienabstand** (`lineSpacing`) – Standard 7 mm – Zwischen 0,3 mm und 200 mm
-  - **Phasenversatz je Zeile** (`phaseShift`) – Standard 45 ° – Zwischen -180 ° und 180 °
-  - **Unruhe** (`jitter`) – Standard 0 – Zwischen 0 und 1 – Zufällige Abweichung von Amplitude und Phase je Zeile.
-
-#### Schuppen (`scales`)
-
-Fischschuppen: versetzte Reihen aus überlappenden Kreisbögen. Die Überlappung bestimmt, wie dicht die Reihen liegen.
-
-- Flächenmodus: Stege
-- Vorgaben: fein, mittel, grob
-- Parameter:
-  - **Schuppenbreite** (`scaleWidth`) – Standard 20 mm – Zwischen 0,5 mm und 500 mm
-  - **Überlappung** (`overlap`) – Standard 40 % – Zwischen 0 % und 80 % – Wie weit eine Reihe in die darunter liegende ragt.
-  - **Reihenversatz** (`rowOffset`) – Standard 50 % – Zwischen 0 % und 100 %
-
-#### Phyllotaxis (`phyllotaxis`)
-
-Elemente im Goldenen Winkel (137,508°) mit r = c·√n - die Spiralanordnung von Sonnenblumenkernen.
-
-- Flächenmodus: Stege, Zellen
-- Vorgaben: fein, mittel, grob
-- Parameter:
-  - **Elementanzahl** (`count`) – Standard 250 – Zwischen 5 und 2000
-  - **Skalierung c** (`scale`) – Standard 2.5 mm – Zwischen 0,1 mm und 100 mm – Radius = c · √n; bestimmt die Dichte der Anordnung.
-  - **Elementgröße** (`elementSize`) – Standard 1.6 mm – Zwischen 0,1 mm und 100 mm
-  - **Elementform** (`shape`) – Standard circle – Auswahl: Kreis, Sechseck, Tropfen
-  - **Größenverlauf** (`growth`) – Standard 0.5 – Zwischen -1 und 2 – 0 = konstant, > 0 = außen größer, < 0 = außen kleiner.
-
-#### Spiralen (`spirals`)
-
-Logarithmische Spiralen r = a·e^(b·θ), im Container gestreut. Drehrichtung wahlweise gemischt.
-
-- Flächenmodus: Stege
-- Vorgaben: fein, mittel, grob
-- Parameter:
-  - **Spiralanzahl** (`count`) – Standard 10 – Zwischen 1 und 300
-  - **Windungen** (`turns`) – Standard 2 – Zwischen 0,25 und 8
-  - **Startradius** (`startRadius`) – Standard 3 mm – Zwischen 0,1 mm und 200 mm
-  - **Wachstum b** (`growth`) – Standard 0.22 – Zwischen 0,02 und 1 – Je größer, desto schneller öffnet sich die Spirale.
-  - **Größenstreuung** (`sizeSpread`) – Standard 0.4 – Zwischen 0 und 1
-  - **Drehrichtung** (`handedness`) – Standard mixed – Auswahl: Linksdrehend, Rechtsdrehend, Gemischt
-
-#### Motiv-Streuung (`motif_scatter`)
-
-Ein parametrisches Motiv (Blatt, Tropfen, Feder) wird im Raster, versetzten Raster oder per Poisson-Streuung verteilt - mit Streuung von Größe und Drehung.
-
-- Flächenmodus: Stege, Zellen
-- Vorgaben: fein, mittel, grob
-- Parameter:
-  - **Motiv** (`motif`) – Standard leaf – Auswahl: Blatt, Tropfen, Feder
-  - **Motivgröße** (`size`) – Standard 20 mm – Zwischen 0,5 mm und 500 mm
-  - **Form schlank↔rund** (`shapeFactor`) – Standard 0.5 – Zwischen 0 und 1
-  - **Seitenrippen** (`ribs`) – Standard 4 – Zwischen 0 und 20 – 0 = nur Mittelrippe.
-  - **Verteilung** (`placement`) – Standard stagger – Auswahl: Raster, Versetztes Raster, Streuung
-  - **Abstand** (`spacing`) – Standard 24 mm – Zwischen 0,5 mm und 500 mm
-  - **Grunddrehung** (`baseAngle`) – Standard 0 ° – Zwischen -180 ° und 180 °
-  - **Drehstreuung** (`angleJitter`) – Standard 25 ° – Zwischen 0 ° und 180 °
-  - **Größenstreuung** (`sizeJitter`) – Standard 0.2 – Zwischen 0 und 1
-
-
 ---
 
 ## Manuelle Testmatrix (Fusion)
@@ -617,12 +493,6 @@ ersten Lauf auf der eigenen Installation nachvollziehen und das Ergebnis eintrag
 | Kiesel | 110 Zellen, Rundheit 2 | Rundheit 3, Kernpunkt an | runde Zellen, je ein Kreis pro Zelle |
 | Zellgewebe | 8 Reihen, Streckung 2,5 | 80 Reihen, Streckung 10 | deutlich längliche Zellen in Reihen |
 | Blattadern | 14 / 9 Zellen | 120 / 40, Verhältnis 8 | Hauptadern klar dicker als Nebenadern |
-| Fischgrät | 1 Achse | 40 Achsen, Krümmung 1,0 | Palmwedel bzw. Feld, Rippen als Bögen |
-| Wellen | λ 25 mm, A 5 mm | λ 1 mm, Unruhe 1,0 | glatte Splines, keine Knicke |
-| Schuppen | 20 mm, 40 % | 0,5 mm, 80 % Überlappung | Reihen versetzt und überlappend |
-| Phyllotaxis | 250 Elemente | 2000, Größenverlauf 2,0 | Goldener-Winkel-Spirale, außen größer |
-| Spiralen | 10 Stück | 300, 8 Windungen | logarithmische Spiralen, Drehrichtung gemischt |
-| Motiv-Streuung | Blatt, versetzt | Feder, Poisson, 20 Rippen | Motive gestreut, Rippen sichtbar |
 
 Zusätzlich zu prüfen:
 
@@ -647,7 +517,7 @@ Zusätzlich zu prüfen:
 | **Die Vorschau steht auf „Ungültige Werte“** | Mindestens ein Feld liegt außerhalb seines Bereichs – es ist rot markiert und nennt den erlaubten Bereich. Wert korrigieren oder **Zurücksetzen** in der Gruppe klicken. |
 | **Warnung „ca. N Skizzen-Elemente“** | Das Muster ist sehr fein. Zellgröße/Abstand vergrößern, Zellenzahl senken oder in den **Linienmodus** wechseln. Ab ca. 2000 Elementen fragt der Commit vor dem Erzeugen nach. |
 | **Erzeugen dauert sehr lange** | Gleiche Ursache. Fusion braucht pro Skizzenelement Zeit; die Elementzahl steht unter der Vorschau. |
-| **Das Muster lässt sich nicht in einem Zug auswählen** | Für die zusammenhängende Fläche müssen **Flächen** + **Stege** eingestellt, **Rahmen zeichnen** aktiv und der Beschnitt ≠ *Aus* sein. Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig – dort in Fusion alle Profile gemeinsam extrudieren, das verschmilzt sie zu einem Körper. |
+| **Das Muster lässt sich nicht in einem Zug auswählen** | Für die zusammenhängende Fläche müssen **Flächen** + **Stege** eingestellt, **Rahmen zeichnen** aktiv und der Beschnitt ≠ *Aus* sein. Mit Füllung **Zellen** bleibt das Muster mehrteilig – dort in Fusion alle Profile gemeinsam extrudieren, das verschmilzt sie zu einem Körper. |
 | **Extrusion findet keine Profile** | Der **Linienmodus** erzeugt offene Kurven. Für extrudierbare Profile den **Flächenmodus** verwenden. |
 | **Die Schriftart sieht in Fusion anders aus als in der Vorschau** | Die Vorschau rendert mit der Browser-Schrift. Unbekannte Schriftarten fallen in Fusion automatisch auf *Arial* zurück (mit Hinweis). |
 | **„Skizze wurde von Hand verändert“** | Erwartetes Verhalten: beim Neuaufbau gehen manuelle Änderungen an dieser Skizze verloren. Abbrechen und die Änderungen in eine eigene Skizze auslagern. |
@@ -722,15 +592,10 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
 * **Fusion cacht Palette-HTML.** Beim Weiterentwickeln der Oberfläche hängt
   `palette_bridge.py` automatisch eine Version an die URL an; bei hartnäckigem Cache
   hilft ein Neustart von Fusion.
-* **Strich-Muster ergeben noch keine einzelne Fläche.** Fischgrät, Wellen, Schuppen,
-  Phyllotaxis, Spiralen und Motiv-Streuung haben keine Zellen;
-  ihre Streifen überlappen sich echt. Eine einzelne Fläche bräuchte eine Boolesche
-  Vereinigung (siehe `PLAN.md`, Abschnitt 12, Stufe 2). Beim Extrudieren entsteht
-  trotzdem **ein** Körper – bei den Streu-Mustern sorgen dafür die **Verbinder**.
-* **Text-Knockout kann einen Verbinder durchtrennen.** Stege werden wie alles andere
-  im Textbereich ausgestanzt. Läuft ein Steg mitten durch die Text-Box, kann das
-  betroffene Motiv wieder ein loses Teil werden. Abhilfe: Text verschieben, *Muster
-  ausstanzen* abschalten oder den Steg-Verlauf über einen anderen Seed ändern.
+* **Ohne Flächenmodell überlappen sich die Stege.** Mit Füllung **Zellen**, ohne
+  Rahmen oder mit Beschnitt *Aus* wird jede Kante einzeln gestrokt; die Streifen
+  überlappen sich an den Knoten. Eine einzelne Fläche bräuchte dort eine Boolesche
+  Vereinigung (siehe `Context.md`). Beim Extrudieren entsteht trotzdem **ein** Körper.
 * **Der Optimierer arbeitet mit fester Toleranz** von 0,02 mm und lässt sich nicht
   einstellen. Er fasst Skizzen-Elemente zusammen, ohne die sichtbare Geometrie zu
   verändern (organische Muster: 10–25 % weniger Elemente). Glatte Konturen in
@@ -738,14 +603,14 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
   ein – das passiert deshalb nur dort, wo es nachweislich innerhalb der Toleranz
   bleibt.
 * Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster erscheint
-  nicht als eigener Timeline-Eintrag (siehe PLAN.md, Phase 6).
+  nicht als eigener Timeline-Eintrag (siehe `Context.md`).
 
 ---
 
 ## Lizenz / Herkunft
 
-MIT-Lizenz, siehe [`LICENSE`](LICENSE). Umsetzung nach `PLAN.md`; die
-Abnahmekriterien stehen in `CHECKLIST.md`.
+MIT-Lizenz, siehe [`LICENSE`](LICENSE). Die Entwurfsentscheidungen und die
+Abnahmekriterien stehen in [`Context.md`](Context.md).
 
 ---
 
@@ -754,9 +619,9 @@ Abnahmekriterien stehen in `CHECKLIST.md`.
 # PatternCreator — English
 
 Fusion 360 add-in for **parametric 2D patterns** in sketches: technical grids
-(grid, rhombus, honeycomb, brick, puzzle) and natural patterns (Voronoi, pebbles,
-tissue, leaf veins, herringbone, waves, scales, phyllotaxis,
-spirals, motif scatter). Everything is driven from a dedicated editor window with a
+(grid, rhombus, honeycomb, brick, puzzle) and organic cell patterns (Voronoi,
+pebbles, tissue, leaf veins). Everything is driven from a dedicated editor window
+with a
 **live preview**. Every pattern is **extrudable** and **re-editable afterwards**.
 
 On top of that, a **text layer** can be embedded into any pattern; it optionally
@@ -769,7 +634,7 @@ knocks the pattern out around the text so the lettering stays readable.
 > label you see on screen and the internal key.
 
 **Contents:** [Setup](#setup-and-installation) · [Quick start](#quick-start-in-5-minutes) ·
-[Using the add-in](#using-the-add-in) · [Concepts](#concepts) · [Connectors](#connectors--holding-free-standing-motifs-together) ·
+[Using the add-in](#using-the-add-in) · [Concepts](#concepts) ·
 [Parameter reference](#parameter-reference) · [Troubleshooting](#troubleshooting) ·
 [Tests](#running-the-tests) · [Architecture](#architecture) ·
 [Limitations](#known-limitations)
@@ -875,7 +740,7 @@ every Fusion start.
 
 To confirm the new build is actually loaded, open *Scripts and Add-Ins* and select
 the add-in — the details pane shows the **version** from the manifest (currently
-1.4.0).
+1.5.0).
 
 Fusion caches the palette's HTML interface. The add-in therefore appends a version
 to the URL automatically; if the editor still shows an old state, restarting Fusion
@@ -951,7 +816,7 @@ Goal: a coaster with a honeycomb pattern — as an example of the complete workf
 ### Step by step
 
 1. **Choose a pattern** — drop-down at the top, grouped into *Technisch*
-   (technical), *Organische Zellen* (organic cells) and *Natürlich* (natural), each
+   (technical) and *Organische Zellen* (organic cells), each
    with a pictogram. The **?** next to it shows a short description with all
    parameters.
 2. **Set the parameters** — the forms are generated automatically from the selected
@@ -1020,7 +885,7 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | Puzzle for laser cutting | puzzle · lines (cut lines) or faces (individual pieces) |
 | Naturally ragged border | clipping **drop partial** |
 | Labelled pattern panel | text layer on · knockout on · faces |
-| Decorative tile with leaf motif | motif scatter · Poisson distribution · angle jitter 30° |
+| Decorative tile with an organic look | pebbles · roundness 3 · faces · webs |
 
 ---
 
@@ -1034,17 +899,16 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | **Webs / cells** (*Stege / Zellen*) | In face mode either the walls *between* the cells or the cell faces themselves. |
 | **Clipping** (*Beschnitt*) | `cut at border` (cut), `drop partial` (ragged, natural edges) or `off`. |
 | **Hatching** (*Schraffur*) | Optional filling of the open cell faces with additional, independently thin webs — parallel or crossed. Face mode with *webs* only. |
-| **Connectors** (*Verbinder*) | Thin webs linking free-standing motifs to each other and to the frame. Scatter patterns only (phyllotaxis, motif scatter), where they default to on. |
 | **Seed** | Same seed ⇒ identical pattern in the preview, in the sketch and after re-editing. |
 | **Knockout** | The pattern is punched out within the text bounding box (plus margin). |
-| **One single face** | For the tiling patterns (grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles, tissue, leaf veins) face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
+| **One single face** | For every pattern, face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
 
 ---
 
 ## One face instead of many strips
 
-For **tiling** patterns — grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles,
-tissue — the web network is exactly *container minus shrunken cells*. The add-in
+Every pattern tiles the area, so the web network is exactly *container minus
+shrunken cells*. The add-in
 therefore produces a single outer contour with holes instead of many overlapping
 strips:
 
@@ -1063,45 +927,12 @@ The web width is the **Dicke** (thickness) you set. If a pattern brings its own 
 wins — that keeps brick dimensions exact. Clipped border cells that would leave only a
 hairline sliver are closed up: such edges could not be printed.
 
-**Stroke patterns** without cells (herringbone, waves, scales, phyllotaxis, spirals,
-motif scatter) still consist of several strips. In face mode the container frame is
-drawn as a **band** of the configured border width (outer *and* inner contour) rather
-than a single line, so every strip ends in that band and the parts hang together;
-free-standing motifs in the middle (motif scatter, phyllotaxis) touch nothing — that
-is what the **connectors** are for. Extruding them in Fusion still merges the
-overlapping profiles into **one** body; selecting them as one profile in the sketch
-is not implemented yet.
-
----
-
-## Connectors — holding free-standing motifs together
-
-Phyllotaxis and motif scatter spread individual motifs across the area. In face mode
-that turns into a cloud of floating parts without further help: the sunflower
-arrangement with default values falls apart into **220** pieces. Printed, such a thing
-comes apart the moment you lift it off the bed.
-
-**Verbinder** (connectors) draw thin webs in between and make it **one** part:
-
-* **Neighbour network** — every motif is linked to its nearest neighbour. Exactly as
-  many webs are created as needed (*k−1* for *k* islands), no more.
-* **Anchored in the frame** — the network is additionally fixed to the border band,
-  in at least two places on different sides. Otherwise the pattern does hang
-  together, but floats freely inside the frame.
-* **Motifs that already touch** count as *one* island and get no web. With motif
-  scatter the leaves mostly overlap anyway, so a handful of webs is enough.
-
-| Setting | Effect |
-| --- | --- |
-| **Verbinder** (`style.connectors`) | On/off. Only shown for scatter patterns, where it defaults to **on**. |
-| **Verbinder-Dicke** (`style.connectorWidth`) | Web width, default 0.8 mm. Thinner saves material, thicker holds better. |
-
-The webs cost sketch entities — for phyllotaxis with default values the count grows
-from 965 to 1625. That is the price of a printable part, and it stays below the
-warning threshold of 2000.
-
-**Without a frame** (*Rahmen zeichnen* off) the motifs do hang together, but the whole
-thing is a single loose part — a message points that out.
+Where the face model does not apply — with the *Zellen* (cells) fill target, for
+instance — every edge is stroked individually and the strips overlap at the junctions.
+So that this does not fall apart, in face mode the container frame is drawn as a
+**band** of the configured border width (outer *and* inner contour) rather than a
+single line: every strip ends at the outline and runs into that band. Extruding them
+in Fusion merges the overlapping profiles into **one** body.
 
 ---
 
@@ -1276,95 +1107,6 @@ before it is subdivided.
   - **Thickness ratio** / „Dickenverhältnis“ (`veinRatio`) – default 2.5 – 1 to 8 – how much thicker the main veins are than the secondary ones.
   - **Roundness** / „Rundheit“ (`roundness`) – default 1 – 0 to 3.
 
-### Natural
-
-#### Herringbone — „Fischgrät“ (`herringbone`)
-
-Ribs run towards a centre axis from both sides at an angle. One axis yields a palm
-frond, several a herringbone field.
-
-- Face mode: webs
-- Presets: fine, medium, coarse
-- Parameters:
-  - **Centre axes** / „Mittelachsen“ (`axisCount`) – default 1 – 1 to 40 – 1 = palm frond, more = herringbone field.
-  - **Rib spacing** / „Rippenabstand“ (`ribSpacing`) – default 5 mm – 0.3 mm to 200 mm.
-  - **Rib angle** / „Rippenwinkel“ (`ribAngle`) – default 40° – 5° to 85° – angle of the ribs against the axis.
-  - **Rib length** / „Rippenlänge“ (`ribLength`) – default 18 mm – 0.5 mm to 500 mm.
-  - **Curvature** / „Krümmung“ (`curvature`) – default 0.15 – 0 to 1 – 0 = straight ribs, > 0 = slightly curved.
-  - **Draw axis** / „Achse zeichnen“ (`drawAxis`) – default True.
-
-#### Waves — „Wellen“ (`waves`)
-
-Parallel wave lines with adjustable wavelength, amplitude and phase shift per row.
-
-- Face mode: webs
-- Presets: fine, medium, coarse
-- Parameters:
-  - **Wavelength** / „Wellenlänge“ (`wavelength`) – default 25 mm – 1 mm to 1000 mm.
-  - **Amplitude** / „Amplitude“ (`amplitude`) – default 5 mm – 0 mm to 500 mm.
-  - **Line spacing** / „Linienabstand“ (`lineSpacing`) – default 7 mm – 0.3 mm to 200 mm.
-  - **Phase shift per row** / „Phasenversatz je Zeile“ (`phaseShift`) – default 45° – −180° to 180°.
-  - **Restlessness** / „Unruhe“ (`jitter`) – default 0 – 0 to 1 – random deviation of amplitude and phase per row.
-
-#### Scales — „Schuppen“ (`scales`)
-
-Fish scales: staggered rows of overlapping circular arcs. The overlap determines how
-densely the rows sit.
-
-- Face mode: webs
-- Presets: fine, medium, coarse
-- Parameters:
-  - **Scale width** / „Schuppenbreite“ (`scaleWidth`) – default 20 mm – 0.5 mm to 500 mm.
-  - **Overlap** / „Überlappung“ (`overlap`) – default 40 % – 0 % to 80 % – how far a row reaches into the one below.
-  - **Row offset** / „Reihenversatz“ (`rowOffset`) – default 50 % – 0 % to 100 %.
-
-#### Phyllotaxis — „Phyllotaxis“ (`phyllotaxis`)
-
-Elements at the golden angle (137.508°) with r = c·√n — the spiral arrangement of
-sunflower seeds.
-
-- Face mode: webs, cells
-- Presets: fine, medium, coarse
-- Parameters:
-  - **Element count** / „Elementanzahl“ (`count`) – default 250 – 5 to 2000.
-  - **Scale c** / „Skalierung c“ (`scale`) – default 2.5 mm – 0.1 mm to 100 mm – radius = c · √n; sets the density of the arrangement.
-  - **Element size** / „Elementgröße“ (`elementSize`) – default 1.6 mm – 0.1 mm to 100 mm.
-  - **Element shape** / „Elementform“ (`shape`) – default circle – choice: circle, hexagon, drop.
-  - **Size gradient** / „Größenverlauf“ (`growth`) – default 0.5 – −1 to 2 – 0 = constant, > 0 = larger outwards, < 0 = smaller outwards.
-
-#### Spirals — „Spiralen“ (`spirals`)
-
-Logarithmic spirals r = a·e^(b·θ), scattered inside the container. Handedness
-optionally mixed.
-
-- Face mode: webs
-- Presets: fine, medium, coarse
-- Parameters:
-  - **Spiral count** / „Spiralanzahl“ (`count`) – default 10 – 1 to 300.
-  - **Turns** / „Windungen“ (`turns`) – default 2 – 0.25 to 8.
-  - **Start radius** / „Startradius“ (`startRadius`) – default 3 mm – 0.1 mm to 200 mm.
-  - **Growth b** / „Wachstum b“ (`growth`) – default 0.22 – 0.02 to 1 – the larger, the faster the spiral opens up.
-  - **Size spread** / „Größenstreuung“ (`sizeSpread`) – default 0.4 – 0 to 1.
-  - **Handedness** / „Drehrichtung“ (`handedness`) – default mixed – choice: left-handed, right-handed, mixed.
-
-#### Motif scatter — „Motiv-Streuung“ (`motif_scatter`)
-
-A parametric motif (leaf, drop, feather) is distributed in a grid, a staggered grid
-or via Poisson scattering — with jitter on size and rotation.
-
-- Face mode: webs, cells
-- Presets: fine, medium, coarse
-- Parameters:
-  - **Motif** / „Motiv“ (`motif`) – default leaf – choice: leaf, drop, feather.
-  - **Motif size** / „Motivgröße“ (`size`) – default 20 mm – 0.5 mm to 500 mm.
-  - **Shape slim↔round** / „Form schlank↔rund“ (`shapeFactor`) – default 0.5 – 0 to 1.
-  - **Side ribs** / „Seitenrippen“ (`ribs`) – default 4 – 0 to 20 – 0 = midrib only.
-  - **Placement** / „Verteilung“ (`placement`) – default stagger – choice: grid, staggered grid, scatter.
-  - **Spacing** / „Abstand“ (`spacing`) – default 24 mm – 0.5 mm to 500 mm.
-  - **Base rotation** / „Grunddrehung“ (`baseAngle`) – default 0° – −180° to 180°.
-  - **Angle jitter** / „Drehstreuung“ (`angleJitter`) – default 25° – 0° to 180°.
-  - **Size jitter** / „Größenstreuung“ (`sizeJitter`) – default 0.2 – 0 to 1.
-
 ---
 
 ## Manual test matrix (Fusion)
@@ -1384,12 +1126,6 @@ result.
 | Pebbles | 110 cells, roundness 2 | roundness 3, core point on | round cells, one circle per cell |
 | Tissue | 8 rows, stretch 2.5 | 80 rows, stretch 10 | clearly elongated cells in rows |
 | Leaf veins | 14 / 9 cells | 120 / 40, ratio 8 | main veins clearly thicker than secondary ones |
-| Herringbone | 1 axis | 40 axes, curvature 1.0 | palm frond resp. field, ribs as arcs |
-| Waves | λ 25 mm, A 5 mm | λ 1 mm, restlessness 1.0 | smooth splines, no kinks |
-| Scales | 20 mm, 40 % | 0.5 mm, 80 % overlap | rows staggered and overlapping |
-| Phyllotaxis | 250 elements | 2000, size gradient 2.0 | golden-angle spiral, larger outwards |
-| Spirals | 10 pieces | 300, 8 turns | logarithmic spirals, mixed handedness |
-| Motif scatter | leaf, staggered | feather, Poisson, 20 ribs | motifs scattered, ribs visible |
 
 Also worth checking:
 
@@ -1415,7 +1151,7 @@ Also worth checking:
 | **The preview says „Ungültige Werte“ (invalid values)** | At least one field is out of range — it is marked red and states the allowed range. Fix the value or click **Zurücksetzen** in that group. |
 | **Warning „ca. N Skizzen-Elemente“** | The pattern is very fine. Increase cell size/spacing, lower the cell count or switch to **line mode**. From roughly 2000 elements the commit asks before creating. |
 | **Creating takes very long** | Same cause. Fusion needs time per sketch element; the element count is shown below the preview. |
-| **The pattern cannot be selected in one go** | For the connected face you need **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw container) on and clipping ≠ *Aus* (off). Stroke patterns (waves, spirals, herringbone, scales, phyllotaxis, motif scatter) stay multi-part — extrude all their profiles together in Fusion, which merges them into one body. |
+| **The pattern cannot be selected in one go** | For the connected face you need **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw container) on and clipping ≠ *Aus* (off). With the *Zellen* (cells) fill target the pattern stays multi-part — extrude all its profiles together in Fusion, which merges them into one body. |
 | **The extrusion finds no profiles** | **Line mode** produces open curves. Use **face mode** for extrudable profiles. |
 | **The font looks different in Fusion than in the preview** | The preview renders with the browser font. Unknown fonts fall back to *Arial* in Fusion automatically (with a notice). |
 | **„Skizze wurde von Hand verändert“ (sketch was edited manually)** | Expected behaviour: manual changes to that sketch are lost on rebuild. Cancel and move your changes into a separate sketch. |
@@ -1490,26 +1226,22 @@ and help text are derived from the class.
 * **From roughly 2000 sketch elements** the commit warns and can be cancelled.
 * **Fusion caches the palette HTML.** While developing the UI, `palette_bridge.py`
   appends a version to the URL automatically; for a stubborn cache, restart Fusion.
-* **Stroke patterns do not form a single face yet.** Herringbone, waves, scales,
-  phyllotaxis, spirals and motif scatter have no cells, so their
-  strips genuinely overlap. A single face would need a boolean union (see `PLAN.md`,
-  section 13, stage 2). Extruding them still yields **one** body — for the scatter
-  patterns the **connectors** make sure of that.
-* **Text knockout can sever a connector.** Webs are punched out inside the text area
-  like everything else. If a web runs straight through the text box, the affected
-  motif can become a loose part again. Remedy: move the text, switch *Muster
-  ausstanzen* (knockout) off, or change the web layout via a different seed.
+* **Without the face model the webs overlap.** With the *Zellen* (cells) fill target,
+  without a container frame or with clipping *off*, every edge is stroked
+  individually and the strips genuinely overlap at the junctions. A single face would
+  need a boolean union there (see `Context.md`). Extruding them still yields **one**
+  body.
 * **The optimiser uses a fixed tolerance** of 0.02 mm and is not configurable. It
   merges sketch entities without changing the visible geometry (organic patterns:
   10–25 % fewer entities). Turning smooth contours into *splines* would save
   considerably more but would not hold that tolerance — so it only happens where it
   provably stays within it.
 * The add-in creates sketch geometry, **not** a CustomFeature — the pattern does not
-  appear as its own timeline entry (see PLAN.md, phase 6).
+  appear as its own timeline entry (see `Context.md`).
 
 ---
 
 ## License / origin
 
-MIT license, see [`LICENSE`](LICENSE). Implemented according to `PLAN.md`; the
-acceptance criteria are in `CHECKLIST.md`.
+MIT license, see [`LICENSE`](LICENSE). The design decisions and the acceptance
+criteria are recorded in [`Context.md`](Context.md).

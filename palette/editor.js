@@ -299,8 +299,6 @@
     });
   }
 
-  var CONNECTOR_KEYS = ['connectors', 'connectorWidth'];
-
   function buildSection(host, section) {
     host.innerHTML = '';
     var params = sectionParams(section);
@@ -309,12 +307,6 @@
       if (section === 'style' && param.key === 'fillTarget') {
         var ps = patternSchema(doc.pattern.type);
         if (ps && ps.fillTargets.length < 2) { return; }
-      }
-      // Verbinder gibt es nur bei Streu-Mustern - kachelnde Muster hängen über
-      // das Flächenmodell zusammen, Strich-Muster über das Rahmenband.
-      if (section === 'style' && CONNECTOR_KEYS.indexOf(param.key) >= 0) {
-        var gen = patternSchema(doc.pattern.type);
-        if (!gen || !gen.scatter) { return; }
       }
       host.appendChild(buildField(section, param, data));
     });

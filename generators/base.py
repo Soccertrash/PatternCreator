@@ -59,10 +59,6 @@ class Generator:
     #: Nur dann ist das Stegnetz exakt "Rahmen minus verkleinerte Zellen" und laesst
     #: sich als **eine** Flaeche mit Loechern erzeugen (siehe ``core/build.py``).
     tiling: bool = False
-    #: True, wenn der Generator frei stehende Motive streut statt eine Flaeche zu
-    #: fuellen. Nur dort entstehen im Flaechenmodus lose Inseln, und nur dort
-    #: bietet der Editor die Verbinder an (siehe ``core/connect.py``).
-    scatter: bool = False
     #: Voreinstellungen fuer den Editor
     presets: Dict[str, Dict[str, Any]] = {}
 
@@ -94,7 +90,6 @@ class Generator:
             "icon": cls.icon,
             "fillTargets": list(cls.fill_targets),
             "ownGap": cls.own_gap,
-            "scatter": cls.scatter,
             "presets": cls.presets,
             "params": [p.to_dict() for p in cls.params],
         }

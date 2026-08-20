@@ -34,9 +34,9 @@ def scene_for(pattern_id, **overrides):
 
 # ------------------------------------------------------------------ Registry
 
-def test_registry_has_all_fifteen_patterns():
-    assert len(generators.GENERATOR_CLASSES) == 15
-    assert len(generators.REGISTRY) == 15
+def test_registry_has_all_nine_patterns():
+    assert len(generators.GENERATOR_CLASSES) == 9
+    assert len(generators.REGISTRY) == 9
 
 
 def test_registry_entries_are_complete_and_unique():
@@ -77,8 +77,7 @@ def test_same_seed_gives_identical_geometry(pattern_id):
 
 
 @pytest.mark.parametrize("pattern_id", ["voronoi", "pebbles", "tissue",
-                                        "leaf_veins", "puzzle", "spirals",
-                                        "motif_scatter"])
+                                        "leaf_veins", "puzzle"])
 def test_different_seed_changes_random_patterns(pattern_id):
     a = json.dumps(scene_for(pattern_id, seed=1).to_dict())
     b = json.dumps(scene_for(pattern_id, seed=2).to_dict())
@@ -419,9 +418,10 @@ def _border_contours(scene):
 
 
 def test_border_is_a_band_in_area_mode():
-    """Ohne Band haengen die Streifen eines Strich-Musters an nichts (3D-Druck)."""
-    scene = scene_for("waves", style={"mode": "area", "border": True,
-                                      "borderWidth": 0.3, "clip": "cut"})
+    """Ohne Band enden die gestrokten Stege offen am Rand (3D-Druck)."""
+    scene = scene_for("grid", style={"mode": "area", "fillTarget": "cells",
+                                     "border": True, "borderWidth": 0.3,
+                                     "clip": "cut"})
     contours = _border_contours(scene)
     assert len(contours) == 2
     widths = sorted(bbox(c.points)[2] - bbox(c.points)[0] for c in contours)
@@ -429,114 +429,9 @@ def test_border_is_a_band_in_area_mode():
 
 
 def test_border_stays_a_single_line_in_stroke_mode():
-    scene = scene_for("waves", style={"mode": "line", "border": True,
-                                      "borderWidth": 0.3, "clip": "cut"})
+    scene = scene_for("grid", style={"mode": "line", "border": True,
+                                     "borderWidth": 0.3, "clip": "cut"})
     assert len(_border_contours(scene)) == 1
-
-
-# --------------------------------------------------------- Natürliche Muster
-
-def test_herringbone_axis_count_and_curvature():
-    one = scene_for("herringbone", style={"mode": "lines"}, params={"axisCount": 1})
-    many = scene_for("herringbone", style={"mode": "lines"}, params={"axisCount": 5})
-    assert many.counts()["contours"] > one.counts()["contours"]
-
-    straight = scene_for("herringbone", style={"mode": "lines"},
-                         params={"curvature": 0.0})
-    bowed = scene_for("herringbone", style={"mode": "lines"}, params={"curvature": 0.8})
-    assert not any(getattr(e, "curve", "line") == "spline" for e in straight.elements)
-    assert any(getattr(e, "curve", "line") == "spline" for e in bowed.elements)
-
-
-def test_waves_are_splines_and_react_to_parameters():
-    scene = scene_for("waves", style={"mode": "lines"})
-    assert all(e.curve == "spline" for e in scene.elements
-               if isinstance(e, ir.Path) and e.layer == ir.LAYER_PATTERN)
-    dense = scene_for("waves", style={"mode": "lines"}, params={"lineSpacing": 0.2})
-    assert dense.counts()["contours"] > scene.counts()["contours"]
-    tall = scene_for("waves", style={"mode": "lines"}, params={"amplitude": 2.0})
-    assert json.dumps(tall.to_dict()) != json.dumps(scene.to_dict())
-
-
-def test_scales_rows_are_offset_and_overlapping():
-    from generators import GenContext, get_generator
-    import random
-    gen = get_generator("scales")
-    ctx = GenContext(bbox=(-5, -3, 5, 3), rnd=random.Random(1))
-    arcs = gen.generate({"scaleWidth": 2.0, "overlap": 40.0, "rowOffset": 50.0}, ctx)
-    rows = {}
-    for a in arcs:
-        rows.setdefault(round(a.center[1], 4), []).append(a.center[0])
-    keys = sorted(rows)
-    assert len(keys) > 2
-    # Reihenabstand kleiner als der Radius -> Ueberlappung
-    assert keys[1] - keys[0] < 1.0
-    # benachbarte Reihen sind gegeneinander versetzt
-    assert abs((min(rows[keys[0]]) - min(rows[keys[1]])) % 2.0) > 1e-6
-
-
-def test_phyllotaxis_uses_the_golden_angle():
-    from generators import GenContext, get_generator
-    import random
-    gen = get_generator("phyllotaxis")
-    ctx = GenContext(bbox=(-5, -5, 5, 5), rnd=random.Random(1))
-    els = gen.generate({"count": 12, "scale": 0.5, "elementSize": 0.2,
-                        "shape": "circle", "growth": 0.0}, ctx)
-    a1 = math.atan2(els[0].center[1], els[0].center[0])
-    a2 = math.atan2(els[1].center[1], els[1].center[0])
-    delta = (a2 - a1) % (2 * math.pi)
-    assert delta == pytest.approx(math.radians(137.508), abs=1e-6)
-
-
-@pytest.mark.parametrize("shape", ["circle", "hexagon", "drop"])
-def test_phyllotaxis_element_shapes(shape):
-    scene = scene_for("phyllotaxis", params={"shape": shape, "count": 60})
-    assert scene.counts()["contours"] > 0
-
-
-def test_phyllotaxis_growth_changes_element_size():
-    from generators import GenContext, get_generator
-    import random
-    gen = get_generator("phyllotaxis")
-    ctx = GenContext(bbox=(-5, -5, 5, 5), rnd=random.Random(1))
-    els = gen.generate({"count": 100, "scale": 0.3, "elementSize": 0.2,
-                        "shape": "circle", "growth": 1.0}, ctx)
-    assert els[-1].radius > els[0].radius
-
-
-@pytest.mark.parametrize("hand", ["ccw", "cw", "mixed"])
-def test_spiral_handedness(hand):
-    scene = scene_for("spirals", style={"mode": "lines"}, params={"handedness": hand})
-    assert scene.counts()["contours"] > 0
-
-
-def test_spiral_turns_and_count():
-    few = scene_for("spirals", style={"mode": "lines"}, params={"count": 3})
-    many = scene_for("spirals", style={"mode": "lines"}, params={"count": 20})
-    assert many.counts()["contours"] > few.counts()["contours"]
-
-
-@pytest.mark.parametrize("placement", ["grid", "stagger", "poisson"])
-def test_motif_placements(placement):
-    scene = scene_for("motif_scatter", params={"placement": placement})
-    assert scene.counts()["contours"] > 0
-
-
-@pytest.mark.parametrize("motif", ["leaf", "drop", "feather"])
-def test_motif_shapes_and_ribs(motif):
-    with_ribs = scene_for("motif_scatter", style={"mode": "lines"},
-                          params={"motif": motif, "ribs": 5})
-    without = scene_for("motif_scatter", style={"mode": "lines"},
-                        params={"motif": motif, "ribs": 0})
-    assert with_ribs.counts()["contours"] > without.counts()["contours"]
-
-
-def test_motif_shape_factor_changes_the_outline():
-    slim = scene_for("motif_scatter", style={"mode": "lines"},
-                     params={"shapeFactor": 0.0, "angleJitter": 0.0, "sizeJitter": 0.0})
-    round_ = scene_for("motif_scatter", style={"mode": "lines"},
-                       params={"shapeFactor": 1.0, "angleJitter": 0.0, "sizeJitter": 0.0})
-    assert json.dumps(slim.to_dict()) != json.dumps(round_.to_dict())
 
 
 # ------------------------------------------------------------- Performance

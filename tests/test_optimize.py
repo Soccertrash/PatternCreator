@@ -214,10 +214,9 @@ def test_optimizing_never_creates_a_self_intersection(pattern_id):
 
 #: Die Fälle, in denen der Stroker vor dem Fix nachweislich Schleifen anlegte -
 #: immer der Strok-Pfad (``_to_areas``), nie das Flächenmodell (``_to_face``).
-LOOP_CASES = ([("phyllotaxis", {}), ("motif_scatter", {})]
-              + [(pid, style)
-                 for pid in ("tissue", "leaf_veins", "puzzle", "pebbles")
-                 for style in ({"border": False}, {"clip": "off"})])
+LOOP_CASES = [(pid, style)
+              for pid in ("tissue", "leaf_veins", "puzzle", "pebbles")
+              for style in ({"border": False}, {"clip": "off"})]
 
 
 def unguarded_stroker():

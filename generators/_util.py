@@ -1,12 +1,11 @@
-"""Gemeinsame Bausteine mehrerer Generatoren (Gitterlinien, Lattice-Zellen ...)."""
+"""Gemeinsame Bausteine mehrerer Generatoren (Lattice-Zellen, Wabenraster ...)."""
 
 from __future__ import annotations
 
 import math
 from typing import List, Sequence, Tuple
 
-from core.clip import clip_polyline
-from core.geom import EPS, add, dist
+from core.geom import EPS, add
 
 Point = Tuple[float, float]
 BBox = Tuple[float, float, float, float]
@@ -20,32 +19,6 @@ def bbox_polygon(bbox: BBox) -> List[Point]:
 def expand(bbox: BBox, margin: float) -> BBox:
     x0, y0, x1, y1 = bbox
     return (x0 - margin, y0 - margin, x1 + margin, y1 + margin)
-
-
-def parallel_lines(bbox: BBox, angle: float, spacing: float, phase: float = 0.0
-                   ) -> List[List[Point]]:
-    """Schar paralleler Linien (Richtung ``angle``, Abstand ``spacing``) im Bereich."""
-    if spacing <= EPS:
-        return []
-    u = (math.cos(angle), math.sin(angle))
-    n = (-u[1], u[0])
-    corners = bbox_polygon(bbox)
-    proj_n = [c[0] * n[0] + c[1] * n[1] for c in corners]
-    proj_u = [c[0] * u[0] + c[1] * u[1] for c in corners]
-    n0, n1 = min(proj_n), max(proj_n)
-    u0, u1 = min(proj_u) - spacing, max(proj_u) + spacing
-    k0 = int(math.floor((n0 - phase) / spacing)) - 1
-    k1 = int(math.ceil((n1 - phase) / spacing)) + 1
-    poly = bbox_polygon(bbox)
-    out: List[List[Point]] = []
-    for k in range(k0, k1 + 1):
-        d = phase + k * spacing
-        a = (n[0] * d + u[0] * u0, n[1] * d + u[1] * u0)
-        b = (n[0] * d + u[0] * u1, n[1] * d + u[1] * u1)
-        for piece in clip_polyline([a, b], poly):
-            if len(piece) >= 2 and dist(piece[0], piece[-1]) > EPS:
-                out.append(piece)
-    return out
 
 
 def lattice_cells(bbox: BBox, e1: Point, e2: Point, origin: Point = (0.0, 0.0),
@@ -118,14 +91,6 @@ def hex_centers(bbox: BBox, cell_size: float, flat_top: bool, margin: float = 0.
     return out
 
 
-def jitter_point(p: Point, amount: float, rnd) -> Point:
-    if amount <= 0:
-        return p
-    a = rnd.random() * 2 * math.pi
-    r = rnd.random() * amount
-    return (p[0] + r * math.cos(a), p[1] + r * math.sin(a))
-
-
 def bezier(p0: Point, p1: Point, p2: Point, p3: Point, samples: int = 12) -> List[Point]:
     """Kubische Bezier-Kurve abtasten (ohne Endpunkt ``p3``)."""
     out = []
@@ -138,10 +103,3 @@ def bezier(p0: Point, p1: Point, p2: Point, p3: Point, samples: int = 12) -> Lis
              + 3 * mt * t * t * p2[1] + t ** 3 * p3[1])
         out.append((x, y))
     return out
-
-
-def arc_points(center: Point, radius: float, a0: float, a1: float, segments: int = 16
-               ) -> List[Point]:
-    return [(center[0] + radius * math.cos(a0 + (a1 - a0) * i / segments),
-             center[1] + radius * math.sin(a0 + (a1 - a0) * i / segments))
-            for i in range(segments + 1)]

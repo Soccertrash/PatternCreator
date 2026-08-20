@@ -115,8 +115,8 @@ def unguarded():
 def clipped_circle(radius, cut, segments=48):
     """Kreis, an der Geraden ``y = cut`` beschnitten - die Sehne schließt ihn.
 
-    Genau diese Kontur liefert das Clipping an der Rahmenkante: ein
-    angeschnittener Phyllotaxis-Kreis. An den beiden Sehnenenden trifft die
+    Genau diese Kontur liefert das Clipping an der Rahmenkante bei einer
+    angeschnittenen runden Zelle. An den beiden Sehnenenden trifft die
     Sehne so flach auf den Bogen, dass der Gehrungs-Versatz dort eine Schleife
     anlegt.
     """
