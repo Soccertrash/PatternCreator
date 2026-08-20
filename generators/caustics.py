@@ -6,7 +6,7 @@ import math
 from typing import Any, Dict, List, Tuple
 
 from core import ir
-from core.geom import (chain_segments, dist, normalize, polygon_segments, resample,
+from core.geom import (chain_segments, normalize, polygon_segments, resample,
                        snap_segments, sub)
 from core.pattern_doc import Param, T_BOOL, T_FLOAT, T_INT, T_PERCENT
 

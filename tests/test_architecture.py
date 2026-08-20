@@ -5,8 +5,6 @@ import json
 import os
 import re
 
-import pytest
-
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FUSION_FREE = ("core", "generators", "text")
 

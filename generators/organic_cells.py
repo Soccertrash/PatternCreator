@@ -7,11 +7,10 @@ Chaikin-Rundung, Anisotropie und Inset. Darauf bauen ``voronoi``, ``pebbles``,
 
 from __future__ import annotations
 
-import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 from core.geom import EPS, centroid, chaikin, dist, inset_polygon, polygon_area
-from core.pattern_doc import Param, T_FLOAT, T_INT, T_LENGTH, T_PERCENT
+from core.pattern_doc import Param, T_FLOAT, T_INT, T_LENGTH
 
 from .base import GenContext, Generator
 

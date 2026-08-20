@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import traceback
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 import adsk.core
 import adsk.fusion

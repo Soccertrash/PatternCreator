@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 from core.clip import clip_polyline
-from core.geom import EPS, add, dist, mul, rotate, sub
+from core.geom import EPS, add, dist
 
 Point = Tuple[float, float]
 BBox = Tuple[float, float, float, float]

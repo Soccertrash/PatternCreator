@@ -6,7 +6,7 @@ import math
 from typing import Any, Dict, List
 
 from core import ir
-from core.geom import centroid, dist, polygon_area
+from core.geom import centroid, dist
 from core.pattern_doc import Param, T_BOOL, T_PERCENT
 
 from .base import GenContext

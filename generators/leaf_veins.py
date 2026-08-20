@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import math
 from typing import Any, Dict, List, Sequence, Tuple
 
 from core import ir
 from core.clip import clip_polygon
-from core.geom import (bbox, chain_segments, chaikin, dist, polygon_area,
+from core.geom import (bbox, chain_segments, dist, polygon_area,
                        polygon_segments, snap_segments)
 from core.pattern_doc import Param, T_FLOAT, T_INT
 
 from .base import GenContext
-from .organic_cells import MAX_CELLS, OrganicGenerator, build_cells, voronoi_cells
+from .organic_cells import OrganicGenerator, build_cells, voronoi_cells
 
 Point = Tuple[float, float]
 

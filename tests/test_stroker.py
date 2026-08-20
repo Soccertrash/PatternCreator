@@ -1,7 +1,5 @@
 """Stroker: Linien -> geschlossene, extrudierbare Profile."""
 
-import math
-
 import pytest
 
 from core.geom import bbox, polygon_area

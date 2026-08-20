@@ -8,7 +8,7 @@ import pytest
 import generators
 from core import ir, pattern_doc as pd
 from core.build import build_scene, entity_estimate
-from core.geom import bbox, dedupe_segments, polygon_segments
+from core.geom import bbox, polygon_segments
 
 ALL_IDS = list(generators.REGISTRY.keys())
 CONTAINERS = [

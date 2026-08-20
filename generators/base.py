@@ -9,8 +9,8 @@ Container-Form macht ``core/build.py`` zentral.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
 
 from core.pattern_doc import Param
 

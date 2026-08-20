@@ -1,7 +1,5 @@
 """Text-Ebene und Knockout."""
 
-import math
-
 import pytest
 
 from core import ir, pattern_doc as pd

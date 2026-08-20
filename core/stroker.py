@@ -76,7 +76,7 @@ def offset_polyline(pts: Sequence[Point], offsets: Sequence[float], closed: bool
     return out
 
 
-def _widths(pts: Sequence[Point], width, ) -> List[float]:
+def _widths(pts: Sequence[Point], width) -> List[float]:
     if isinstance(width, (int, float)):
         return [float(width)] * len(pts)
     w = list(width)

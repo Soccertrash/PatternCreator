@@ -7,7 +7,7 @@ import pytest
 from core import ir
 from core.containers import (CircleContainer, EllipseContainer, PolygonContainer,
                              RectContainer, make_container)
-from core.geom import bbox, polygon_area
+from core.geom import polygon_area
 
 SHAPES = [
     ("rect", {"shape": "rect", "width": 10.0, "height": 6.0}),

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from . import ir
 from .containers import Container, make_container
@@ -153,7 +153,6 @@ def _circle_to_points(el: ir.Circle, segments: int = 48) -> List[Point]:
 def _clip_elements(elements: Sequence[Any], container: Container, mode: str) -> List[Any]:
     if mode == "off":
         return list(elements)
-    poly = container.clip_polygon()
     out: List[Any] = []
     for el in elements:
         if isinstance(el, ir.Path):

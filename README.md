@@ -9,68 +9,187 @@ Spiralen, Motiv-Streuung). Bedient wird alles über ein eigenes Editor-Fenster m
 Zusätzlich lässt sich in jedes Muster eine **Text-Ebene** einbetten, die das Muster
 optional ausstanzt („Knockout“), damit der Text lesbar bleibt.
 
+**Inhalt:** [Installation](#installation) · [Erste Schritte](#erste-schritte-in-5-minuten) ·
+[Bedienung](#bedienung) · [Grundbegriffe](#grundbegriffe) ·
+[Parameter-Referenz](#parameter-referenz) · [Fehlerbehebung](#fehlerbehebung) ·
+[Tests](#tests) · [Architektur](#architektur) ·
+[Einschränkungen](#bekannte-einschränkungen)
+
 ---
 
 ## Installation
 
-Das Add-In braucht **keine externen Pakete** – weder Python (kein numpy/scipy/shapely)
-noch JavaScript (Vanilla JS + Canvas). Es funktioniert offline.
+### Voraussetzungen
 
-### macOS
+* **Autodesk Fusion 360** (macOS oder Windows) – das Add-In nutzt ausschließlich die
+  mitgelieferte Python-Umgebung.
+* **Keine externen Pakete.** Weder Python-Bibliotheken (kein numpy/scipy/shapely) noch
+  JavaScript-Bibliotheken. Es gibt keinen Build-Schritt, und alles läuft offline.
+
+### Schritt 1 – Dateien besorgen
+
+```bash
+git clone https://github.com/Soccertrash/PatternCreator.git
+```
+
+Alternativ das ZIP-Archiv herunterladen und entpacken. Der Ordner muss anschließend
+mindestens diese Dateien enthalten:
+
+```
+PatternCreator/
+├── PatternCreator.manifest     ← muss neben ...
+├── PatternCreator.py           ← ... dieser Datei liegen
+├── commands/  core/  generators/  text/  fusion/  palette/  resources/
+```
+
+> **Wichtig:** Der Ordner muss `PatternCreator` heißen – exakt so wie
+> `PatternCreator.py` und `PatternCreator.manifest`. Heißt er anders (z. B.
+> `PatternCreator-main` nach einem ZIP-Download), findet Fusion das Add-In nicht.
+> In dem Fall den Ordner umbenennen.
+
+### Schritt 2 – In den Add-Ins-Ordner kopieren
+
+**macOS**
 
 ```bash
 cp -R PatternCreator ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns/
 ```
 
-### Windows
+Zielpfad im Finder: `Gehe zu → Gehe zum Ordner …` (`⇧⌘G`) und
+`~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns` eingeben.
+
+**Windows**
 
 ```bat
 xcopy /E /I PatternCreator "%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\PatternCreator"
 ```
 
-Danach in Fusion: **Dienstprogramme → ADD-INS → Skripte und Add-Ins → Add-Ins →
-PatternCreator → Ausführen**. Die beiden Buttons **„Muster erstellen“** und
-**„Muster bearbeiten“** erscheinen im Reiter *Volumenkörper* in der Gruppe *Erstellen*.
+Zielpfad im Explorer: `%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns` in die
+Adresszeile eingeben.
 
-> Der Ordnername muss `PatternCreator` heißen (gleicher Name wie `PatternCreator.py`
-> und `PatternCreator.manifest`) – sonst findet Fusion das Add-In nicht.
+> Existiert der Ordner `AddIns` noch nicht, einfach anlegen.
+
+### Schritt 3 – Add-In in Fusion starten
+
+1. Fusion 360 starten (oder neu starten, falls es beim Kopieren schon lief).
+2. Reiter **Dienstprogramme → ADD-INS → Skripte und Add-Ins …** (`⇧S`).
+3. Registerkarte **Add-Ins** → in der Liste **PatternCreator** markieren.
+4. **Ausführen** klicken.
+
+Die beiden Buttons **„Muster erstellen“** und **„Muster bearbeiten“** erscheinen im
+Reiter **Volumenkörper** in der Gruppe **Erstellen** (ganz unten in der Liste).
+
+### Schritt 4 (optional) – Automatisch mit Fusion starten
+
+Im selben Dialog bei markiertem PatternCreator **„Beim Start ausführen“** aktivieren.
+Wer es lieber manuell hält, lässt die Option aus – dann muss nach jedem Fusion-Start
+einmal **Ausführen** geklickt werden.
+
+### Aktualisieren
+
+1. In **Skripte und Add-Ins** auf **Beenden** klicken (oder Fusion schließen).
+2. Den Ordner im `AddIns`-Verzeichnis durch die neue Version ersetzen.
+3. **Ausführen** klicken.
+
+Fusion cacht die HTML-Oberfläche der Palette. Das Add-In hängt deshalb automatisch
+eine Version an die URL an; sollte der Editor trotzdem in einem alten Stand hängen,
+hilft ein Neustart von Fusion.
+
+### Deinstallation
+
+**Beenden** in *Skripte und Add-Ins* klicken und den Ordner `PatternCreator` aus dem
+`AddIns`-Verzeichnis löschen. Bereits erzeugte Skizzen bleiben erhalten – sie sind
+ganz normale Fusion-Geometrie. Nur das nachträgliche Bearbeiten ist ohne das Add-In
+nicht mehr möglich.
+
+---
+
+## Erste Schritte in 5 Minuten
+
+Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablauf.
+
+1. **Neues Konstruktionsdokument** anlegen.
+2. **Volumenkörper → Erstellen → Muster erstellen** klicken.
+3. Im Dialog die Skizzenebene wählen (oder leer lassen für die XY-Ursprungsebene) und
+   **OK** klicken. Der **Muster-Editor** öffnet sich rechts als andockbare Palette.
+4. Oben im Dropdown **Wabe** wählen. Die Vorschau zeigt das Muster sofort.
+5. Gruppe **Rahmen** aufklappen → Form **Kreis**, Durchmesser **90 mm**.
+6. Gruppe **Muster-Parameter** → Vorgabe **Mittel**, Zellweite z. B. **10 mm**.
+7. Gruppe **Stil** → Modus **Flächen**, Füllung **Stege**, Dicke **1,2 mm**,
+   Beschnitt **Am Rand beschneiden**, **Rahmen zeichnen** an.
+8. Optional Gruppe **Text-Ebene** → aktivieren, Text eingeben. Mit aktivem
+   **Muster ausstanzen** bleibt der Text frei von Waben. Die Position lässt sich
+   direkt in der Vorschau mit der Maus ziehen.
+9. Optional Gruppe **Extrusion** → **Direkt extrudieren** an, Tiefe **3 mm**.
+10. **In Skizze erzeugen** klicken. Fusion legt die Skizze an, zeichnet das Muster und
+    extrudiert es – als **ein** Timeline-Schritt.
+11. Etwas ändern? **Muster bearbeiten** klicken, die Skizze wählen, Werte anpassen,
+    erneut erzeugen. Die Extrusion rechnet automatisch neu.
 
 ---
 
 ## Bedienung
 
-1. **Muster erstellen** anklicken → optional eine Ebene oder planare Fläche wählen
-   (leer = XY-Ursprungsebene) → **OK**.
-2. Der **Muster-Editor** öffnet sich als andockbare Palette:
+### Der Editor
 
-   ```
-   ┌──────────────────────────────────────┐
-   │ [Piktogramm] Wabe            ▾   [?] │  Mustertyp + Hilfe
-   │ Seed 42   🎲 Würfeln    Ebene: XY    │
-   ├──────────────────────────────────────┤
-   │                                      │
-   │          Live-Vorschau               │  Zoom = Mausrad, Pan = Ziehen
-   │          (Canvas)                    │  Text = direkt verschiebbar
-   │  382 Konturen · 382 Flächen · …      │
-   ├──────────────────────────────────────┤
-   │ ▾ Muster-Parameter  [fein|mittel|…]  │
-   │ ▸ Rahmen                             │
-   │ ▸ Stil                               │
-   │ ▸ Text-Ebene                         │
-   │ ▸ Extrusion                          │
-   ├──────────────────────────────────────┤
-   │ Zurücksetzen ↶ ↷   Abbrechen  [Erz.] │
-   └──────────────────────────────────────┘
-   ```
+```
+┌──────────────────────────────────────┐
+│ [Piktogramm] Wabe            ▾   [?] │  Mustertyp + Kurzhilfe
+│ Seed 42   🎲 Würfeln    Ebene: XY    │
+├──────────────────────────────────────┤
+│                                      │
+│          Live-Vorschau               │  Zoom = Mausrad, Verschieben = Ziehen
+│          (Canvas)                    │  Text = direkt verschiebbar
+│  382 Konturen · 382 Flächen · …      │  ⤢ = einpassen
+├──────────────────────────────────────┤
+│ ▾ Muster-Parameter  [fein|mittel|…]  │
+│ ▸ Rahmen                             │
+│ ▸ Stil                               │
+│ ▸ Text-Ebene                         │
+│ ▸ Extrusion                          │
+├──────────────────────────────────────┤
+│ Zurücksetzen ↶ ↷   Abbrechen  [Erz.] │
+└──────────────────────────────────────┘
+```
 
-   *(Screenshot-Platzhalter – bitte beim ersten Lauf ersetzen.)*
+*(Screenshot-Platzhalter – bitte beim ersten Lauf ersetzen.)*
 
-3. Parameter ändern → die Vorschau aktualisiert sich nach 150 ms.
-4. **In Skizze erzeugen** legt eine neue Skizze an, zeichnet das Muster, speichert
-   den kompletten Zustand als Attribut an der Skizze und extrudiert auf Wunsch direkt.
-5. **Muster bearbeiten** öffnet eine bestehende Muster-Skizze mit genau den
-   gespeicherten Werten. Beim erneuten Erzeugen wird **dieselbe** Skizze neu
-   aufgebaut – eine darauf aufgebaute Extrusion rechnet neu, statt zu verwaisen.
+### Schritt für Schritt
+
+1. **Muster wählen** – Dropdown oben, gruppiert in *Technisch*, *Organische Zellen*
+   und *Natürlich*, jeweils mit Piktogramm. Das **?** daneben blendet eine
+   Kurzbeschreibung mit allen Parametern ein.
+2. **Parameter einstellen** – die Formulare entstehen automatisch aus dem jeweiligen
+   Muster. Schieberegler und Zahlenfelder sind auf den erlaubten Bereich begrenzt;
+   die Vorschau aktualisiert sich 150 ms nach der letzten Änderung.
+   Über **Fein / Mittel / Grob** gibt es je Muster fertige Vorgaben.
+3. **Rahmen** – Form (Rechteck, Quadrat, Kreis, Ellipse, Vieleck), Maße, Ursprung,
+   Drehung des Rahmens und – davon unabhängig – Drehung des Musters im Rahmen.
+4. **Stil** – *Linien* für Gravuren, *Flächen* für extrudierbare Profile. Im
+   Flächenmodus bestimmt **Dicke** die Stegbreite; **Füllung** schaltet zwischen
+   *Stegen* (Wände zwischen den Zellen) und *Zellen* (die Zellflächen selbst) um.
+   Muster ohne Zellstruktur bieten nur *Stege* an – die Auswahl wird dann ausgeblendet.
+5. **Text-Ebene** – ein- oder mehrzeiliger Text mit Schriftart, Höhe, Position und
+   Winkel. **Muster ausstanzen** hält den Textbereich (plus einstellbaren Rand) frei.
+6. **Extrusion** – optional direkt mitextrudieren: Tiefe, Richtung und Vorgang
+   (Neuer Körper / Verbinden / Ausschneiden).
+7. **Seed** – jedes Zufallsmuster hängt allein am Seed. Gleicher Seed ⇒ identisches
+   Ergebnis in Vorschau, Skizze und nach dem Bearbeiten. **Würfeln** probiert Varianten.
+8. **In Skizze erzeugen** – erzeugt die Skizze, speichert alle Werte als Attribut an
+   der Skizze und extrudiert auf Wunsch. Danach wechselt der Button auf
+   **Skizze aktualisieren**, weitere Änderungen bauen dieselbe Skizze neu auf.
+9. **Abbrechen** schließt den Editor, ohne irgendetwas im Dokument zu hinterlassen.
+
+### Vorhandenes Muster bearbeiten
+
+**Volumenkörper → Erstellen → Muster bearbeiten** öffnet eine Liste aller
+Muster-Skizzen des Dokuments; alternativ die Skizze direkt im Modell anklicken
+(nur PatternCreator-Skizzen sind wählbar). Der Editor startet mit exakt den
+gespeicherten Werten. Beim erneuten Erzeugen wird **dieselbe** Skizze neu aufgebaut –
+eine darauf aufgebaute Extrusion rechnet neu, statt zu verwaisen.
+
+Wurde die Skizze zwischendurch von Hand verändert, warnt das Add-In vor dem
+Überschreiben und lässt sich abbrechen.
 
 ### Tastenkürzel
 
@@ -80,12 +199,26 @@ PatternCreator → Ausführen**. Die beiden Buttons **„Muster erstellen“** u
 | `Strg`/`Cmd` + `Umschalt` + `Z`, `Strg`/`Cmd` + `Y` | Wiederholen |
 | `Strg`/`Cmd` + `R` | Neuen Seed würfeln |
 | `Strg`/`Cmd` + `Enter` | In Skizze erzeugen |
+| Mausrad über der Vorschau | Zoomen |
+| Ziehen in der Vorschau | Verschieben – auf dem Text: Text verschieben |
 
 ### Einheiten
 
 Der Editor zeigt **Millimeter**, das Datenmodell rechnet in **Zentimetern**
 (interne Längeneinheit der Fusion-API). Umgerechnet wird ausschließlich an der
 Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternDoc.
+
+### Typische Anwendungen
+
+| Ziel | Einstellungen |
+| --- | --- |
+| Wabenplatte zum Extrudieren | Wabe · Flächen · Stege · Dicke 1–2 mm · Beschnitt *cut* |
+| Gitterrost / Lüftungsgitter | Gitter oder Rauten · Flächen · Stege · Rahmen an |
+| Gravur / Lasergravur | beliebiges Muster · **Linien** · Rahmen aus |
+| Puzzle zum Lasercut | Puzzle · Linien (Schnittlinien) oder Flächen (einzelne Teile) |
+| Natürlich wirkender Rand | Beschnitt **Angeschnittene weglassen** |
+| Beschriftetes Muster-Panel | Text-Ebene an · Muster ausstanzen an · Flächen |
+| Deko-Fliese mit Blattmotiv | Motiv-Streuung · Poisson-Verteilung · Drehstreuung 30° |
 
 ---
 
@@ -358,6 +491,23 @@ Zusätzlich zu prüfen:
 - **Undo/Redo im Editor:** `Cmd/Strg+Z` bzw. `+Umschalt+Z`.
 - **Zweimal Laden/Entladen** des Add-Ins ⇒ keine doppelten Buttons, keine Fehlermeldung.
 - **Alle Rahmenformen** mit Beschnitt `cut`, `dropPartial`, `off` (Stichprobe: Kreis + Wabe).
+
+---
+
+## Fehlerbehebung
+
+| Symptom | Ursache und Abhilfe |
+| --- | --- |
+| **PatternCreator taucht nicht in der Add-In-Liste auf** | Ordnername ≠ `PatternCreator` oder falscher Zielordner. Der Ordner muss direkt unter `…/API/AddIns/` liegen und genauso heißen wie `PatternCreator.py`/`.manifest`. Danach Fusion neu starten. |
+| **Die Buttons fehlen nach dem Ausführen** | Sie liegen im Reiter **Volumenkörper**, Gruppe **Erstellen**, ganz unten. In anderen Arbeitsbereichen (z. B. Rendern) erscheinen sie nicht. |
+| **Der Editor bleibt leer** | Fusion hat eine alte HTML-Version im Cache. Add-In beenden, Fusion neu starten, erneut ausführen. |
+| **Die Vorschau steht auf „Ungültige Werte“** | Mindestens ein Feld liegt außerhalb seines Bereichs – es ist rot markiert und nennt den erlaubten Bereich. Wert korrigieren oder **Zurücksetzen** in der Gruppe klicken. |
+| **Warnung „ca. N Skizzen-Elemente“** | Das Muster ist sehr fein. Zellgröße/Abstand vergrößern, Zellenzahl senken oder in den **Linienmodus** wechseln. Ab ca. 2000 Elementen fragt der Commit vor dem Erzeugen nach. |
+| **Erzeugen dauert sehr lange** | Gleiche Ursache. Fusion braucht pro Skizzenelement Zeit; die Elementzahl steht unter der Vorschau. |
+| **Extrusion findet keine Profile** | Der **Linienmodus** erzeugt offene Kurven. Für extrudierbare Profile den **Flächenmodus** verwenden. |
+| **Die Schriftart sieht in Fusion anders aus als in der Vorschau** | Die Vorschau rendert mit der Browser-Schrift. Unbekannte Schriftarten fallen in Fusion automatisch auf *Arial* zurück (mit Hinweis). |
+| **„Skizze wurde von Hand verändert“** | Erwartetes Verhalten: beim Neuaufbau gehen manuelle Änderungen an dieser Skizze verloren. Abbrechen und die Änderungen in eine eigene Skizze auslagern. |
+| **Nach dem Bearbeiten fehlt die Extrusion** | Sollte nicht vorkommen – der Re-Commit baut dieselbe Skizze neu auf. Falls doch: Fusion-Timeline auf Fehler prüfen und den Fall mit den verwendeten Parametern melden. |
 
 ---
 
