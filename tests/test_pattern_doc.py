@@ -10,8 +10,10 @@ from core import pattern_doc as pd
 def test_default_doc_has_all_sections():
     doc = pd.default_doc("honeycomb")
     for key in ("version", "container", "placement", "pattern", "style",
-                "textLayers", "extrude", "seed"):
+                "textLayers", "seed"):
         assert key in doc
+    # Das Add-in zeichnet nur Skizzen; extrudiert wird in Fusion selbst.
+    assert "extrude" not in doc
     assert doc["pattern"]["type"] == "honeycomb"
     assert doc["pattern"]["params"]["cellSize"] > 0
 
@@ -31,6 +33,16 @@ def test_text_layers_is_a_list_even_for_legacy_documents():
     assert errors == {}
     assert isinstance(doc["textLayers"], list)
     assert doc["textLayers"][0]["text"] == "alt"
+
+
+def test_legacy_extrude_section_is_dropped_without_error():
+    """Skizzen aus der Zeit der integrierten Extrusion müssen weiter laden."""
+    legacy = pd.default_doc("grid")
+    legacy["extrude"] = {"enabled": True, "depth": 0.3, "direction": "positive",
+                         "operation": "new"}
+    doc, errors = pd.parse(legacy)
+    assert errors == {}
+    assert "extrude" not in doc
 
 
 def test_out_of_range_value_reports_field_and_range_in_mm():

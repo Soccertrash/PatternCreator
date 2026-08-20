@@ -113,10 +113,41 @@ def test_compute_deferred_is_reset_in_a_finally_block():
                for t in finallys)
 
 
+def test_clearing_a_sketch_also_defers_compute():
+    """Re-Edit loescht tausende Elemente - ohne Defer rechnet Fusion jedes Mal neu."""
+    source = read(os.path.join(ROOT, "fusion", "renderer.py"))
+    tree = ast.parse(source)
+    fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+              and n.name == "clear_pattern_geometry")
+    body = ast.dump(fn)
+    assert "isComputeDeferred" in body
+    assert any(isinstance(n, ast.Try) and n.finalbody
+               and "isComputeDeferred" in ast.dump(ast.Module(body=n.finalbody,
+                                                              type_ignores=[]))
+               for n in ast.walk(fn))
+
+
 def test_readme_documents_both_platforms_and_limits():
     readme = read(os.path.join(ROOT, "README.md"))
     for needle in ("macOS", "Windows", "AddIns", "500", "pytest"):
         assert needle in readme, needle
+
+
+def test_readme_documents_the_connectors_and_their_limit():
+    """Verbinder ändern das gedruckte Ergebnis - das muss dokumentiert sein,
+    inklusive der bekannten Grenze gegenüber dem Text-Knockout."""
+    readme = read(os.path.join(ROOT, "README.md"))
+    for needle in ("## Verbinder", "connectorWidth", "Text-Knockout kann einen "
+                   "Verbinder durchtrennen", "## Connectors"):
+        assert needle in readme, needle
+
+
+def test_every_style_parameter_reaches_the_editor_schema():
+    """Ein Stil-Parameter ohne Schema-Eintrag wäre im Editor unsichtbar."""
+    import core.pattern_doc as pd
+    keys = {p["key"] for p in pd.schema()["style"]}
+    assert {"connectors", "connectorWidth"} <= keys
+    assert keys == {p.key for p in pd.STYLE_PARAMS}
 
 
 def test_manifest_carries_a_usable_version():

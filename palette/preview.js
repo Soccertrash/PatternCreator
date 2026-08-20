@@ -134,12 +134,13 @@
     return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',.18)';
   };
 
-  Preview.prototype._trace = function (pts, closed, spline) {
+  /**
+   * Segmente an den laufenden Pfad haengen (``moveTo`` ist schon geschehen).
+   * Splines als Catmull-Rom-Bezier - dieselbe Kurve, gegen die der Optimierer
+   * seine Toleranz prueft (``core/optimize.py::_spline_error``).
+   */
+  Preview.prototype._emit = function (pts, closed, spline) {
     var ctx = this.ctx, i;
-    if (!pts.length) { return; }
-    var p = this.toScreen(pts[0][0], pts[0][1]);
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
     if (spline && pts.length > 2) {
       var n = pts.length;
       var last = closed ? n : n - 1;
@@ -159,20 +160,28 @@
         ctx.lineTo(q.x, q.y);
       }
     }
+  };
+
+  Preview.prototype._trace = function (pts, closed, spline) {
+    var ctx = this.ctx;
+    if (!pts.length) { return; }
+    var p = this.toScreen(pts[0][0], pts[0][1]);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    this._emit(pts, closed, spline);
     if (closed) { ctx.closePath(); }
   };
 
   /** Element als Teilpfad an den laufenden Pfad haengen (ohne beginPath). */
   Preview.prototype._sub = function (el) {
-    var ctx = this.ctx, p, i;
+    var ctx = this.ctx, p;
     if (el.t === 'path') {
       if (!el.pts.length) { return; }
       p = this.toScreen(el.pts[0][0], el.pts[0][1]);
       ctx.moveTo(p.x, p.y);
-      for (i = 1; i < el.pts.length; i++) {
-        var q = this.toScreen(el.pts[i][0], el.pts[i][1]);
-        ctx.lineTo(q.x, q.y);
-      }
+      // Auch die gefuellte Flaeche muss dem Spline folgen, sonst zeigt die
+      // Vorschau eine gestrichene Kurve ueber einer eckigen Fuellung.
+      this._emit(el.pts, true, el.curve === 'spline');
       ctx.closePath();
     } else if (el.t === 'circle') {
       p = this.toScreen(el.c[0], el.c[1]);

@@ -68,6 +68,8 @@ class MotifScatterGenerator(Generator):
     description = ("Ein parametrisches Motiv (Blatt, Tropfen, Feder) wird im Raster, "
                    "versetzten Raster oder per Poisson-Streuung verteilt - mit "
                    "Streuung von Größe und Drehung.")
+    #: Frei stehende Motive - im Flaechenmodus lose Inseln, siehe core/connect.py
+    scatter = True
     icon = "M12 21c0-8 3-13 9-16-1 9-4 13-9 16zM12 21c0-8-3-13-9-16 1 9 4 13 9 16z"
     presets = {
         "fein": {"size": 0.8, "spacing": 0.9},

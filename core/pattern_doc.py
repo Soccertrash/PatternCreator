@@ -143,6 +143,18 @@ STYLE_PARAMS: List[Param] = [
                "eingestellte Rahmenmaß bleibt also das Außenmaß. 0 = nur so "
                "breit wie ein halber Steg."),
 
+    # -- Verbinder: nur bei Streu-Mustern sinnvoll (``Generator.scatter``).
+    # Kachelnde Muster haengen ueber das Flaechenmodell ohnehin zusammen, und
+    # Strich-Muster laufen in das Rahmenband hinein. Frei stehende Motive
+    # beruehren dagegen nichts - siehe ``core/connect.py``.
+    Param("connectors", "Verbinder", T_BOOL, True,
+          visible_if={"mode": ["area"]},
+          help="Verbindet frei stehende Motive untereinander und mit dem "
+               "Rahmen, damit das Muster als ein Teil druckbar ist."),
+    Param("connectorWidth", "Verbinder-Dicke", T_LENGTH, 0.08, min=0.02, max=1.0,
+          step=0.01, visible_if={"mode": ["area"], "connectors": [True]},
+          help="Breite der Stege zwischen den Motiven."),
+
     # -- Schraffur: fuellt die freien Zellflaechen mit zusaetzlichen Stegen.
     # Nur im Flaechenmodus mit Fuellung "Stege" sinnvoll - nur dort sind die
     # Zellen ueberhaupt offen. Geometrie siehe ``core/hatch.py``.
@@ -200,18 +212,6 @@ TEXT_PARAMS: List[Param] = [
           visible_if={"enabled": [True]}),
 ]
 
-EXTRUDE_PARAMS: List[Param] = [
-    Param("enabled", "Direkt extrudieren", T_BOOL, False),
-    Param("depth", "Tiefe", T_LENGTH, 0.3, min=0.01, max=100.0, step=0.05,
-          visible_if={"enabled": [True]}),
-    Param("direction", "Richtung", T_CHOICE, "positive", choices=[
-        ("positive", "Nach oben"), ("negative", "Nach unten"), ("symmetric", "Symmetrisch")],
-        visible_if={"enabled": [True]}),
-    Param("operation", "Vorgang", T_CHOICE, "new", choices=[
-        ("new", "Neuer Körper"), ("join", "Verbinden"), ("cut", "Ausschneiden")],
-        visible_if={"enabled": [True]}),
-]
-
 SEED_PARAM = Param("seed", "Seed", T_INT, 42, min=0, max=999999, step=1,
                    help="Gleicher Seed = gleiches Muster.")
 
@@ -239,7 +239,6 @@ def default_doc(pattern_type: str = "grid") -> dict:
         "pattern": {"type": pattern_type, "params": default_params(pattern_type)},
         "style": _defaults(STYLE_PARAMS),
         "textLayers": [default_text_layer()],
-        "extrude": _defaults(EXTRUDE_PARAMS),
         "seed": SEED_PARAM.default,
     }
 
@@ -328,7 +327,6 @@ def parse(raw: Any) -> Tuple[dict, Dict[str, str]]:
         "container": _apply_section(CONTAINER_PARAMS, raw.get("container"), "container", errors),
         "placement": _apply_section(PLACEMENT_PARAMS, raw.get("placement"), "placement", errors),
         "style": _apply_section(STYLE_PARAMS, raw.get("style"), "style", errors),
-        "extrude": _apply_section(EXTRUDE_PARAMS, raw.get("extrude"), "extrude", errors),
     }
 
     pparams = _apply_section(params_for(ptype), (raw.get("pattern") or {}).get("params"),
@@ -396,7 +394,6 @@ def schema() -> dict:
         "placement": [p.to_dict() for p in PLACEMENT_PARAMS],
         "style": [p.to_dict() for p in STYLE_PARAMS],
         "text": [p.to_dict() for p in TEXT_PARAMS],
-        "extrude": [p.to_dict() for p in EXTRUDE_PARAMS],
         "seed": SEED_PARAM.to_dict(),
         "patterns": registry_schema(),
     }

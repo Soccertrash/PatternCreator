@@ -10,13 +10,20 @@ Im Flaechenmodus wird jede Kurve zu einem geschlossenen, extrudierbaren Profil:
 Die Versaetze entstehen ueber Winkelhalbierende mit Gehrungsbegrenzung
 (``miter_limit``); zu spitze Ecken werden abgeschraegt (Bevel), damit keine
 selbstschneidenden Profile entstehen.
+
+Die Gehrungsbegrenzung allein reicht dafuer nicht: laeuft die Mittellinie in
+eine Einbuchtung hinein, die schmaler ist als der Versatz, legt der Offset dort
+eine Schleife an - besonders haeufig an Beschnittkanten. Jeder fertige Ring
+laeuft deshalb durch ``remove_loops``; ein sich selbst schneidendes Profil ist
+in Fusion unbrauchbar.
 """
 
 from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple
 
-from .geom import EPS, add, dist, length, mul, normalize, polygon_area, sub
+from .geom import (EPS, add, dist, length, mul, normalize, polygon_area,
+                   remove_loops, sub)
 
 Point = Tuple[float, float]
 
@@ -95,7 +102,7 @@ def stroke_open(pts: Sequence[Point], width, miter_limit: float = MITER_LIMIT
     left = offset_polyline(p, [+v / 2.0 for v in w], closed=False, miter_limit=miter_limit)
     right = offset_polyline(p, [-v / 2.0 for v in w], closed=False, miter_limit=miter_limit)
     ring = left + list(reversed(right))
-    ring = _clean(ring, closed=True)
+    ring = _clean(remove_loops(_clean(ring, closed=True)), closed=True)
     if len(ring) < 3 or abs(polygon_area(ring)) < 1e-10:
         return None
     return ring
@@ -113,8 +120,8 @@ def stroke_closed(pts: Sequence[Point], width, miter_limit: float = MITER_LIMIT
     outer = offset_polyline(p, [-v / 2.0 for v in w], closed=True, miter_limit=miter_limit)
     inner = offset_polyline(p, [+v / 2.0 for v in w], closed=True, miter_limit=miter_limit)
     rings: List[List[Point]] = []
-    outer = _clean(outer, closed=True)
-    inner = _clean(inner, closed=True)
+    outer = _clean(remove_loops(_clean(outer, closed=True)), closed=True)
+    inner = _clean(remove_loops(_clean(inner, closed=True)), closed=True)
     if len(outer) >= 3 and abs(polygon_area(outer)) > 1e-10:
         rings.append(outer)
     # Innenring nur, wenn er nicht kollabiert ist (Dicke >= Zellgroesse)

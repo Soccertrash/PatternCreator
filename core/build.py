@@ -12,6 +12,7 @@ nicht auseinanderlaufen):
    6a. Optionale Schraffur der freien Zellflaechen
 7. Containerumriss ergaenzen
 8. Platzierung (Ursprung + Rahmendrehung) anwenden
+9. Optimierung (``core/optimize.py``): weniger Skizzenelemente, gleiche Geometrie
 """
 
 from __future__ import annotations
@@ -21,11 +22,13 @@ import random
 from typing import Any, List, Optional, Sequence, Tuple
 
 from . import ir
+from .connect import connector_areas
 from .containers import Container, make_container
 from .geom import (chain_segments, clean_polygon, ensure_ccw, erode_convex,
                    is_convex, polygon_area, polygon_segments, polyline_length,
                    remove_loops, rotate, snap_segments)
 from .hatch import hatch_areas, style_from_doc
+from .optimize import optimize
 from .stroker import offset_polyline, stroke
 
 Point = Tuple[float, float]
@@ -128,6 +131,21 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
             elements = _to_areas(elements, thickness=thickness,
                                  fill_target=fill_target, own_gap=bool(gen.own_gap))
             elements.extend(strips)
+            # Verbinder vor dem Knockout: was durch den Textbereich liefe, faellt
+            # dort mit allem anderen weg (bekannte Grenze - ein durchtrennter
+            # Steg kann eine Insel wieder abhaengen, siehe README).
+            if bool(style.get("connectors")) and getattr(gen, "scatter", False):
+                inner = container.shrunk(border_width) if border_on else None
+                connector_width = float(style.get("connectorWidth", 0.08))
+                stegs, connect_warnings = connector_areas(
+                    elements,
+                    inner.clip_polygon() if inner is not None else None,
+                    width=connector_width,
+                    reach=max(connector_width, thickness) / 2.0,
+                    clip=(None if clip_mode == "off" else
+                          lambda paths: _clip_elements(paths, clip_container, "cut")))
+                elements.extend(stegs)
+                warnings.extend(connect_warnings)
             elements = _knockout_sweep(elements, doc)
         if border_on:
             # Im Flaechenmodus ist der Rahmen ein Band, kein Strich: nur so haengen
@@ -150,7 +168,9 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
     if abs(frame_angle) > 1e-12 or origin != (0.0, 0.0):
         elements = [_place_element(el, frame_angle, origin) for el in elements]
 
-    scene = ir.Scene(elements=elements, warnings=warnings)
+    # Zuletzt: Skizzenelemente zusammenfassen. Weil das vor der Scene-Erzeugung
+    # passiert, sehen Vorschau, ``entity_estimate`` und Fusion denselben Stand.
+    scene = ir.Scene(elements=optimize(elements), warnings=warnings)
     n = scene.counts()["contours"]
     if n > PREVIEW_WARN_LIMIT:
         warnings.append("Sehr viele Elemente (%d) – Erzeugen kann dauern." % n)

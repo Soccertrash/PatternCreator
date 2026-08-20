@@ -56,11 +56,10 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] **Motiv-Streuung:** Blattmotiv parametrisch (schlank↔rund, Rippen); Raster-, Versatz- und Poisson-Streuung; Rotation/Größen-Jitter per Seed.
 - [ ] Gleicher Seed ⇒ Vorschau, Commit und Re-Edit erzeugen identische Geometrie (bei allen Zufallsmustern stichprobenhaft geprüft).
 
-## G. Stil, Dicke & Extrusion
+## G. Stil & Dicke
 - [ ] Linien- und Flächenmodus bei jedem Muster wählbar; Dicke wirkt im Flächenmodus überall.
 - [ ] Flächenmodus erzeugt ausschließlich geschlossene, nicht selbst-schneidende Profile (Stichprobe: Wabe, Kiesel, Blattadern in Fusion extrudiert – ohne Profil-Fehler).
-- [ ] Integrierte Extrusion: Tiefe/Richtung/Operation wählbar; „Stege vs. Zellen" wählbar; Ergebnis entspricht manueller Profilauswahl.
-- [ ] Ein Commit = genau **ein** Timeline-Undo-Schritt (inkl. optionaler Extrusion).
+- [ ] Ein Commit = genau **ein** Timeline-Undo-Schritt.
 
 ## G2. Flächenmodell & 3D-Druck (kachelnde Muster)
 - [ ] Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe ergeben im Flächenmodus mit *Stege* + *Rahmen zeichnen* **eine** Kontur mit Löchern – in Fusion mit **einem** Klick auswählbar.
@@ -89,7 +88,36 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] Text-Knockout gilt auch für die Schraffur: kein Schraffursteg schneidet die Text-Box.
 - [ ] Sehr kleiner Abstand ⇒ Warnung („Schraffur bei 20000 Stegen abgebrochen") statt Einfrieren; Entity-Warnung beim Commit greift.
 - [ ] Ohne Rahmen (altes Stroken, Gravurfall) wird ebenfalls schraffiert.
-- [ ] **Direkt extrudieren** mit Schraffur liefert dasselbe wie die manuelle Profilauswahl: Stege **und** Schraffur massiv, die Restflächen bleiben offen (`fusion/extrude.py::_collect_profiles` sammelt alle Profile außer dem umschließenden – mit Schraffur entstehen deutlich mehr und kleinere Restprofile, das ist in Fusion zu prüfen).
+- [ ] Schraffierte Skizze in Fusion extrudieren: Stege **und** Schraffur werden massiv, die Restflächen bleiben offen (mit Schraffur entstehen deutlich mehr und kleinere Restprofile – die Profilauswahl ist in Fusion zu prüfen).
+
+## G4. Verbinder (Streu-Muster als ein Teil)
+- [ ] Schalter **Verbinder** erscheint **nur** bei Phyllotaxis und Motiv-Streuung und nur im Flächenmodus; bei allen anderen Mustern sind die beiden Felder ausgeblendet und wirkungslos.
+- [ ] Verbinder aus ⇒ exakt der Stand von vorher (Regressionsprüfung an einer bestehenden Skizze).
+- [ ] **Ein Körper**: Phyllotaxis (Seed 42, Standardwerte) extrudieren und in Fusion prüfen, dass **ein** Volumenkörper entsteht – nicht 220. Ebenso Motiv-Streuung.
+- [ ] Ausgedruckt hält das Teil zusammen: Stichprobe bei 0,8 mm Verbinder-Dicke vom Druckbett nehmen, nichts fällt ab.
+- [ ] **Verbinder-Dicke** wirkt und ist in Fusion nachmessbar (Stichprobe 0,4 / 0,8 / 2,0 mm).
+- [ ] **Rahmen-Verankerung**: das Muster hängt an mindestens zwei Stellen auf verschiedenen Seiten im Rahmenband, schwebt also nicht frei darin.
+- [ ] Ohne Rahmen: Muster hängt untereinander zusammen **und** es erscheint der Hinweis auf das lose Einzelteil.
+- [ ] Angeschnittene Randmotive (`Beschnitt = Am Rand beschneiden`, dichtes Muster) hinterlassen kein loses Teilstück; bleibt doch eines übrig, erscheint die Warnung statt stiller Einzelteile.
+- [ ] **Zellen-Modus** (`Füllung = Zellen`) ebenso: ein Körper.
+- [ ] Text-Knockout: läuft ein Steg durch die Text-Box, wird er ausgestanzt – das betroffene Motiv darf dabei wieder lose werden (dokumentierte Grenze, README „Bekannte Einschränkungen").
+- [ ] Linienmodus: keine Verbinder (nichts wird extrudiert).
+- [ ] Gleicher Seed ⇒ identische Steg-Geometrie in Vorschau, Commit und Re-Edit.
+- [ ] Elementzahl bleibt unter der 2000er-Warnschwelle (Phyllotaxis Standardwerte: ~1625).
+
+## G5. Skizzenelement-Optimierer
+- [ ] Kein UI-Element – der Optimierer läuft immer mit fester Toleranz 0,02 mm.
+- [ ] Sichtprüfung in Fusion: optimierte Kontur ist von der bisherigen nicht zu unterscheiden (Stichprobe Kiesel, Zellgewebe, Blattadern, Puzzle).
+- [ ] Elementzahl sinkt bei den organischen Mustern spürbar (Blattadern 2506 → 2071, Zellgewebe 3735 → 3232) – Zähler in der Vorschau vergleichen.
+- [ ] Zahl der Konturen bleibt gleich: kein Profil geht verloren.
+- [ ] Re-Edit-Zyklus: mehrfach bearbeiten und neu erzeugen verändert die Geometrie nicht weiter (kein Driften).
+- [ ] Re-Edit ist spürbar schneller als vorher (Löschen läuft jetzt ebenfalls unter `isComputeDeferred`).
+
+## G6. Strok-Profile ohne Selbstschnitt
+- [ ] **Angeschnittene Randmotive extrudieren sauber**: Phyllotaxis (Seed 42, Standardwerte, `Beschnitt = Am Rand beschneiden`) – die Kreise am Rahmenrand ergeben geschlossene Profile ohne Schleife an der Beschnittkante.
+- [ ] Ebenso ohne Rahmen bzw. mit `Beschnitt = Aus` bei Zellgewebe, Blattadern, Puzzle und Kiesel – dort saßen die meisten kaputten Profile.
+- [ ] Zahl der Konturen ist dieselbe wie vorher; die Elementzahl liegt leicht darunter (Phyllotaxis 1039 → 965 ohne Verbinder), weil die Schleifenpunkte wegfallen.
+- [ ] Schraffur-Streifen und Verbinder-Stege sehen unverändert aus (4-Punkt-Rechtecke, an denen die Schleifenentfernung nichts zu tun hat).
 
 ## H. Text-Layer
 - [ ] Text über jedem Mustertyp platzierbar; Schriftart, Höhe, Position, Winkel wirken; Position auch per Drag in der Vorschau.

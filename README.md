@@ -12,7 +12,7 @@ Zusätzlich lässt sich in jedes Muster eine **Text-Ebene** einbetten, die das M
 optional ausstanzt („Knockout“), damit der Text lesbar bleibt.
 
 **Inhalt:** [Installation](#installation) · [Erste Schritte](#erste-schritte-in-5-minuten) ·
-[Bedienung](#bedienung) · [Grundbegriffe](#grundbegriffe) ·
+[Bedienung](#bedienung) · [Grundbegriffe](#grundbegriffe) · [Verbinder](#verbinder--frei-stehende-motive-zusammenhängen) ·
 [Parameter-Referenz](#parameter-referenz) · [Fehlerbehebung](#fehlerbehebung) ·
 [Tests](#tests) · [Architektur](#architektur) ·
 [Einschränkungen](#bekannte-einschränkungen)
@@ -127,7 +127,7 @@ einmal **Ausführen** geklickt werden.
 3. **Ausführen** klicken.
 
 Ob die neue Fassung wirklich geladen ist, zeigt der Dialog *Skripte und Add-Ins*:
-das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.3.0).
+das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.4.0).
 
 Fusion cacht die HTML-Oberfläche der Palette. Das Add-In hängt deshalb automatisch
 eine Version an die URL an; sollte der Editor trotzdem in einem alten Stand hängen,
@@ -162,11 +162,12 @@ Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablau
 8. Optional Gruppe **Text-Ebene** → aktivieren, Text eingeben. Mit aktivem
    **Muster ausstanzen** bleibt der Text frei von Waben. Die Position lässt sich
    direkt in der Vorschau mit der Maus ziehen.
-9. Optional Gruppe **Extrusion** → **Direkt extrudieren** an, Tiefe **3 mm**.
-10. **In Skizze erzeugen** klicken. Fusion legt die Skizze an, zeichnet das Muster und
-    extrudiert es – als **ein** Timeline-Schritt.
+9. **In Skizze erzeugen** klicken. Fusion legt die Skizze an und zeichnet das Muster –
+   als **ein** Timeline-Schritt.
+10. Die fertige Skizze in Fusion wie gewohnt weiterverwenden, z. B. mit **Extrudieren**
+    (Taste **E**) die Profile auswählen und auf Tiefe bringen.
 11. Etwas ändern? **Muster bearbeiten** klicken, die Skizze wählen, Werte anpassen,
-    erneut erzeugen. Die Extrusion rechnet automatisch neu.
+    erneut erzeugen. Eine darauf aufgebaute Extrusion rechnet automatisch neu.
 
 ---
 
@@ -188,7 +189,6 @@ Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablau
 │ ▸ Rahmen                             │
 │ ▸ Stil                               │
 │ ▸ Text-Ebene                         │
-│ ▸ Extrusion                          │
 ├──────────────────────────────────────┤
 │ Zurücksetzen ↶ ↷   Abbrechen  [Erz.] │
 └──────────────────────────────────────┘
@@ -215,14 +215,16 @@ Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablau
    innen** gemessen, das eingestellte Rahmenmaß bleibt also das Außenmaß.
 5. **Text-Ebene** – ein- oder mehrzeiliger Text mit Schriftart, Höhe, Position und
    Winkel. **Muster ausstanzen** hält den Textbereich (plus einstellbaren Rand) frei.
-6. **Extrusion** – optional direkt mitextrudieren: Tiefe, Richtung und Vorgang
-   (Neuer Körper / Verbinden / Ausschneiden).
-7. **Seed** – jedes Zufallsmuster hängt allein am Seed. Gleicher Seed ⇒ identisches
+6. **Seed** – jedes Zufallsmuster hängt allein am Seed. Gleicher Seed ⇒ identisches
    Ergebnis in Vorschau, Skizze und nach dem Bearbeiten. **Würfeln** probiert Varianten.
-8. **In Skizze erzeugen** – erzeugt die Skizze, speichert alle Werte als Attribut an
-   der Skizze und extrudiert auf Wunsch. Danach wechselt der Button auf
-   **Skizze aktualisieren**, weitere Änderungen bauen dieselbe Skizze neu auf.
-9. **Abbrechen** schließt den Editor, ohne irgendetwas im Dokument zu hinterlassen.
+7. **In Skizze erzeugen** – erzeugt die Skizze und speichert alle Werte als Attribut
+   an der Skizze. Danach wechselt der Button auf **Skizze aktualisieren**, weitere
+   Änderungen bauen dieselbe Skizze neu auf.
+8. **Abbrechen** schließt den Editor, ohne irgendetwas im Dokument zu hinterlassen.
+
+Das Add-In erzeugt ausschließlich Skizzen. Zum Volumenkörper wird das Muster mit
+Fusions eigenem **Extrudieren** – so bleibt die volle Kontrolle über Tiefe,
+Richtung und Vorgang bei dir.
 
 ### Vorhandenes Muster bearbeiten
 
@@ -277,6 +279,7 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | **Stege / Zellen** | Im Flächenmodus wahlweise die Wände *zwischen* den Zellen oder die Zellflächen selbst. |
 | **Beschnitt** | `Am Rand beschneiden` (cut), `Angeschnittene weglassen` (dropPartial – ergibt ausgefranste, natürliche Ränder) oder `Aus`. |
 | **Schraffur** | Optionale Füllung der offenen Zellflächen mit zusätzlichen, eigenständig dünnen Stegen – parallel oder gekreuzt. Nur im Flächenmodus mit *Stegen*. |
+| **Verbinder** | Dünne Stege, die frei stehende Motive untereinander und mit dem Rahmen verbinden. Nur bei den Streu-Mustern (Phyllotaxis, Motiv-Streuung), dort standardmäßig an. |
 | **Seed** | Gleicher Seed ⇒ identisches Muster in Vorschau, Skizze und nach dem Bearbeiten. |
 | **Knockout** | Das Muster wird im Bereich der Text-Bounding-Box (plus Rand) ausgestanzt. |
 | **Eine Fläche** | Bei den kachelnden Mustern (Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe, Blattadern) entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
@@ -306,16 +309,48 @@ einen hauchdünnen Splitter ergäben, werden zugemacht: im Druck wären das nich
 darstellbare Kanten.
 
 **Strich-Muster** ohne Zellen (Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
-Motiv-Streuung) bestehen weiterhin aus mehreren Streifen. Sie
-lassen sich mit **Direkt extrudieren** trotzdem in einem Schritt zu **einem** Körper
-verschmelzen; die einzelne Auswahl im Skizzen-Modus ist dort noch offen.
+Motiv-Streuung) bestehen weiterhin aus mehreren Streifen. Beim Extrudieren in Fusion
+verschmelzen die überlappenden Profile trotzdem zu **einem** Körper; die einzelne
+Auswahl im Skizzen-Modus ist dort noch offen.
 
 Damit dabei nicht lauter lose Teile herauskommen, ist der Rahmen im Flächenmodus ein
 **Band** in der eingestellten Rahmenbreite (Außen- und Innenkontur) und nicht nur ein
 Strich. Jeder Streifen endet am Umriss und läuft in dieses Band hinein – Fischgrät,
 Wellen, Schuppen und Spiralen hängen dadurch zusammen. Frei stehende Motive mitten in
-der Fläche (Motiv-Streuung, Phyllotaxis) berühren nichts und bleiben eigene Teile; für
-einen einteiligen Druck braucht es dort eine Grundplatte.
+der Fläche (Motiv-Streuung, Phyllotaxis) berühren nichts – für die gibt es die
+**Verbinder**.
+
+---
+
+## Verbinder – frei stehende Motive zusammenhängen
+
+Phyllotaxis und Motiv-Streuung verteilen einzelne Motive über die Fläche. Im
+Flächenmodus wird daraus ohne weiteres Zutun eine Wolke schwebender Einzelteile: die
+Sonnenblumen-Anordnung mit Standardwerten zerfällt in **220** Stück. Ausgedruckt fällt
+so etwas auseinander, sobald man es vom Druckbett nimmt.
+
+**Verbinder** ziehen dünne Stege dazwischen und machen daraus **ein** Teil:
+
+* **Nachbar-Netz** – jedes Motiv wird mit seinem nächsten Nachbarn verbunden. Es
+  entstehen genau so viele Stege wie nötig (bei *k* Inseln *k−1*), nicht mehr.
+* **Verankerung im Rahmen** – zusätzlich wird das Netz im Rahmenband festgemacht,
+  mindestens an zwei Stellen auf verschiedenen Seiten. Sonst hängt das Muster zwar
+  zusammen, schwebt aber frei im Rahmen.
+* **Motive, die sich schon berühren**, gelten als *eine* Insel und bekommen keinen
+  Steg. Bei der Motiv-Streuung überlappen sich die Blätter ohnehin größtenteils –
+  dort genügen wenige Stege.
+
+| Einstellung | Wirkung |
+| --- | --- |
+| **Verbinder** (`style.connectors`) | An/aus. Nur bei Streu-Mustern sichtbar, dort standardmäßig **an**. |
+| **Verbinder-Dicke** (`style.connectorWidth`) | Breite der Stege, Standard 0,8 mm. Dünner spart Material, dicker hält besser. |
+
+Die Stege kosten Skizzen-Elemente – bei der Phyllotaxis mit Standardwerten wächst die
+Zahl von 965 auf 1625. Das ist der Preis für ein druckbares Teil und bleibt unter der
+Warnschwelle von 2000.
+
+**Ohne Rahmen** (*Rahmen zeichnen* aus) hängen die Motive zwar untereinander zusammen,
+das Ganze ist dann aber ein loses Einzelteil – darauf weist eine Meldung hin.
 
 ---
 
@@ -354,7 +389,7 @@ Gut zu wissen:
 
 Gemeinsam für alle Muster: **Rahmen** (Form + Maße, Ursprung, Drehung von Rahmen und
 Muster), **Stil** (Modus, Dicke, Stege/Zellen, Beschnitt, Rahmen zeichnen,
-**Rahmendicke**, **Schraffur**), **Text-Ebene**, **Extrusion** und **Seed**.
+**Rahmendicke**, **Verbinder**, **Schraffur**), **Text-Ebene** und **Seed**.
 
 Die **Rahmendicke** (`style.borderWidth`, Standard 1,5 mm) wirkt im Flächenmodus und
 wird nach innen gemessen: ein Kreisrahmen mit 90 mm bleibt außen 90 mm groß.
@@ -591,9 +626,9 @@ ersten Lauf auf der eigenen Installation nachvollziehen und das Ergebnis eintrag
 
 Zusätzlich zu prüfen:
 
-- **Re-Edit-Zyklus:** erzeugen → extrudieren → *Muster bearbeiten* → Parameter ändern →
-  erzeugen ⇒ die Extrusion rechnet neu.
-- **Undo:** ein Commit ist **ein** Timeline-Schritt (auch mit integrierter Extrusion).
+- **Re-Edit-Zyklus:** erzeugen → in Fusion extrudieren → *Muster bearbeiten* →
+  Parameter ändern → erzeugen ⇒ die Extrusion rechnet neu.
+- **Undo:** ein Commit ist **ein** Timeline-Schritt.
 - **Undo/Redo im Editor:** `Cmd/Strg+Z` bzw. `+Umschalt+Z`.
 - **Zweimal Laden/Entladen** des Add-Ins ⇒ keine doppelten Buttons, keine Fehlermeldung.
 - **Alle Rahmenformen** mit Beschnitt `cut`, `dropPartial`, `off` (Stichprobe: Kreis + Wabe).
@@ -612,11 +647,11 @@ Zusätzlich zu prüfen:
 | **Die Vorschau steht auf „Ungültige Werte“** | Mindestens ein Feld liegt außerhalb seines Bereichs – es ist rot markiert und nennt den erlaubten Bereich. Wert korrigieren oder **Zurücksetzen** in der Gruppe klicken. |
 | **Warnung „ca. N Skizzen-Elemente“** | Das Muster ist sehr fein. Zellgröße/Abstand vergrößern, Zellenzahl senken oder in den **Linienmodus** wechseln. Ab ca. 2000 Elementen fragt der Commit vor dem Erzeugen nach. |
 | **Erzeugen dauert sehr lange** | Gleiche Ursache. Fusion braucht pro Skizzenelement Zeit; die Elementzahl steht unter der Vorschau. |
-| **Das Muster lässt sich nicht in einem Zug auswählen** | Für die zusammenhängende Fläche müssen **Flächen** + **Stege** eingestellt, **Rahmen zeichnen** aktiv und der Beschnitt ≠ *Aus* sein. Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig – dort **Direkt extrudieren** verwenden, das verschmilzt alle Profile zu einem Körper. |
+| **Das Muster lässt sich nicht in einem Zug auswählen** | Für die zusammenhängende Fläche müssen **Flächen** + **Stege** eingestellt, **Rahmen zeichnen** aktiv und der Beschnitt ≠ *Aus* sein. Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig – dort in Fusion alle Profile gemeinsam extrudieren, das verschmilzt sie zu einem Körper. |
 | **Extrusion findet keine Profile** | Der **Linienmodus** erzeugt offene Kurven. Für extrudierbare Profile den **Flächenmodus** verwenden. |
 | **Die Schriftart sieht in Fusion anders aus als in der Vorschau** | Die Vorschau rendert mit der Browser-Schrift. Unbekannte Schriftarten fallen in Fusion automatisch auf *Arial* zurück (mit Hinweis). |
 | **„Skizze wurde von Hand verändert“** | Erwartetes Verhalten: beim Neuaufbau gehen manuelle Änderungen an dieser Skizze verloren. Abbrechen und die Änderungen in eine eigene Skizze auslagern. |
-| **Nach dem Bearbeiten fehlt die Extrusion** | Sollte nicht vorkommen – der Re-Commit baut dieselbe Skizze neu auf. Falls doch: Fusion-Timeline auf Fehler prüfen und den Fall mit den verwendeten Parametern melden. |
+| **Nach dem Bearbeiten verwaist die Extrusion** | Sollte nicht vorkommen – der Re-Commit baut dieselbe Skizze neu auf, eine darauf aufgebaute Extrusion rechnet neu. Falls doch: Fusion-Timeline auf Fehler prüfen und den Fall mit den verwendeten Parametern melden. |
 
 ---
 
@@ -691,7 +726,17 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
   Phyllotaxis, Spiralen und Motiv-Streuung haben keine Zellen;
   ihre Streifen überlappen sich echt. Eine einzelne Fläche bräuchte eine Boolesche
   Vereinigung (siehe `PLAN.md`, Abschnitt 12, Stufe 2). Beim Extrudieren entsteht
-  trotzdem **ein** Körper.
+  trotzdem **ein** Körper – bei den Streu-Mustern sorgen dafür die **Verbinder**.
+* **Text-Knockout kann einen Verbinder durchtrennen.** Stege werden wie alles andere
+  im Textbereich ausgestanzt. Läuft ein Steg mitten durch die Text-Box, kann das
+  betroffene Motiv wieder ein loses Teil werden. Abhilfe: Text verschieben, *Muster
+  ausstanzen* abschalten oder den Steg-Verlauf über einen anderen Seed ändern.
+* **Der Optimierer arbeitet mit fester Toleranz** von 0,02 mm und lässt sich nicht
+  einstellen. Er fasst Skizzen-Elemente zusammen, ohne die sichtbare Geometrie zu
+  verändern (organische Muster: 10–25 % weniger Elemente). Glatte Konturen in
+  *Splines* umzuwandeln würde deutlich mehr sparen, hielte diese Toleranz aber nicht
+  ein – das passiert deshalb nur dort, wo es nachweislich innerhalb der Toleranz
+  bleibt.
 * Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster erscheint
   nicht als eigener Timeline-Eintrag (siehe PLAN.md, Phase 6).
 
@@ -723,7 +768,7 @@ knocks the pattern out around the text so the lettering stays readable.
 > label you see on screen and the internal key.
 
 **Contents:** [Setup](#setup-and-installation) · [Quick start](#quick-start-in-5-minutes) ·
-[Using the add-in](#using-the-add-in) · [Concepts](#concepts) ·
+[Using the add-in](#using-the-add-in) · [Concepts](#concepts) · [Connectors](#connectors--holding-free-standing-motifs-together) ·
 [Parameter reference](#parameter-reference) · [Troubleshooting](#troubleshooting) ·
 [Tests](#running-the-tests) · [Architecture](#architecture) ·
 [Limitations](#known-limitations)
@@ -829,7 +874,7 @@ every Fusion start.
 
 To confirm the new build is actually loaded, open *Scripts and Add-Ins* and select
 the add-in — the details pane shows the **version** from the manifest (currently
-1.3.0).
+1.4.0).
 
 Fusion caches the palette's HTML interface. The add-in therefore appends a version
 to the URL automatically; if the editor still shows an old state, restarting Fusion
@@ -868,12 +913,12 @@ Goal: a coaster with a honeycomb pattern — as an example of the complete workf
 8. Optional group **Text-Ebene** (text layer) → enable it and type your text. With
    **Muster ausstanzen** (knock out pattern) active the text stays free of cells.
    The position can be dragged with the mouse directly in the preview.
-9. Optional group **Extrusion** → **Direkt extrudieren** (extrude directly) on,
-   depth **3 mm**.
-10. Click **In Skizze erzeugen** (create in sketch). Fusion creates the sketch, draws
-    the pattern and extrudes it — as **one** timeline step.
+9. Click **In Skizze erzeugen** (create in sketch). Fusion creates the sketch and draws
+   the pattern — as **one** timeline step.
+10. Use the finished sketch in Fusion as usual, e.g. **Extrude** (key **E**): select
+    the profiles and give them a depth.
 11. Want to change something? Click **Muster bearbeiten**, pick the sketch, adjust
-    the values and create it again. The extrusion recomputes automatically.
+    the values and create it again. An extrusion built on top recomputes automatically.
 
 ---
 
@@ -895,7 +940,6 @@ Goal: a coaster with a honeycomb pattern — as an example of the complete workf
 │ ▸ Rahmen                             │  container
 │ ▸ Stil                               │  style
 │ ▸ Text-Ebene                         │  text layer
-│ ▸ Extrusion                          │  extrusion
 ├──────────────────────────────────────┤
 │ Zurücksetzen ↶ ↷   Abbrechen  [Erz.] │  reset · undo/redo · cancel · create
 └──────────────────────────────────────┘
@@ -926,15 +970,16 @@ Goal: a coaster with a honeycomb pattern — as an example of the complete workf
 5. **Text layer** (*Text-Ebene*) — single- or multi-line text with font, height,
    position and angle. **Muster ausstanzen** (knock out) keeps the text area (plus an
    adjustable margin) free of pattern.
-6. **Extrusion** — optionally extrude straight away: depth, direction and operation
-   (new body / join / cut).
-7. **Seed** — every random pattern depends on the seed alone. Same seed ⇒ identical
+6. **Seed** — every random pattern depends on the seed alone. Same seed ⇒ identical
    result in the preview, in the sketch and after re-editing. **Würfeln** (dice)
    tries out variants.
-8. **In Skizze erzeugen** (create in sketch) — creates the sketch, stores all values
-   as an attribute on that sketch and extrudes on request. The button then changes to
+7. **In Skizze erzeugen** (create in sketch) — creates the sketch and stores all values
+   as an attribute on that sketch. The button then changes to
    **Skizze aktualisieren** (update sketch); further changes rebuild the same sketch.
-9. **Abbrechen** (cancel) closes the editor without leaving anything in the document.
+8. **Abbrechen** (cancel) closes the editor without leaving anything in the document.
+
+The add-in only ever creates sketches. Turning the pattern into a solid is done with
+Fusion's own **Extrude** — depth, direction and operation stay fully under your control.
 
 ### Editing an existing pattern
 
@@ -988,6 +1033,7 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | **Webs / cells** (*Stege / Zellen*) | In face mode either the walls *between* the cells or the cell faces themselves. |
 | **Clipping** (*Beschnitt*) | `cut at border` (cut), `drop partial` (ragged, natural edges) or `off`. |
 | **Hatching** (*Schraffur*) | Optional filling of the open cell faces with additional, independently thin webs — parallel or crossed. Face mode with *webs* only. |
+| **Connectors** (*Verbinder*) | Thin webs linking free-standing motifs to each other and to the frame. Scatter patterns only (phyllotaxis, motif scatter), where they default to on. |
 | **Seed** | Same seed ⇒ identical pattern in the preview, in the sketch and after re-editing. |
 | **Knockout** | The pattern is punched out within the text bounding box (plus margin). |
 | **One single face** | For the tiling patterns (grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles, tissue, leaf veins) face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
@@ -1020,10 +1066,41 @@ hairline sliver are closed up: such edges could not be printed.
 motif scatter) still consist of several strips. In face mode the container frame is
 drawn as a **band** of the configured border width (outer *and* inner contour) rather
 than a single line, so every strip ends in that band and the parts hang together;
-free-standing motifs in the middle (motif scatter, phyllotaxis) touch nothing and stay
-separate. With **Direkt
-extrudieren** (extrude directly) they are still merged into **one** body in a single
-step; selecting them as one profile in the sketch is not implemented yet.
+free-standing motifs in the middle (motif scatter, phyllotaxis) touch nothing — that
+is what the **connectors** are for. Extruding them in Fusion still merges the
+overlapping profiles into **one** body; selecting them as one profile in the sketch
+is not implemented yet.
+
+---
+
+## Connectors — holding free-standing motifs together
+
+Phyllotaxis and motif scatter spread individual motifs across the area. In face mode
+that turns into a cloud of floating parts without further help: the sunflower
+arrangement with default values falls apart into **220** pieces. Printed, such a thing
+comes apart the moment you lift it off the bed.
+
+**Verbinder** (connectors) draw thin webs in between and make it **one** part:
+
+* **Neighbour network** — every motif is linked to its nearest neighbour. Exactly as
+  many webs are created as needed (*k−1* for *k* islands), no more.
+* **Anchored in the frame** — the network is additionally fixed to the border band,
+  in at least two places on different sides. Otherwise the pattern does hang
+  together, but floats freely inside the frame.
+* **Motifs that already touch** count as *one* island and get no web. With motif
+  scatter the leaves mostly overlap anyway, so a handful of webs is enough.
+
+| Setting | Effect |
+| --- | --- |
+| **Verbinder** (`style.connectors`) | On/off. Only shown for scatter patterns, where it defaults to **on**. |
+| **Verbinder-Dicke** (`style.connectorWidth`) | Web width, default 0.8 mm. Thinner saves material, thicker holds better. |
+
+The webs cost sketch entities — for phyllotaxis with default values the count grows
+from 965 to 1625. That is the price of a printable part, and it stays below the
+warning threshold of 2000.
+
+**Without a frame** (*Rahmen zeichnen* off) the motifs do hang together, but the whole
+thing is a single loose part — a message points that out.
 
 ---
 
@@ -1315,9 +1392,9 @@ result.
 
 Also worth checking:
 
-- **Re-edit cycle:** create → extrude → *Muster bearbeiten* → change parameters →
-  create ⇒ the extrusion recomputes.
-- **Undo:** one commit is **one** timeline step (including an integrated extrusion).
+- **Re-edit cycle:** create → extrude in Fusion → *Muster bearbeiten* → change
+  parameters → create ⇒ the extrusion recomputes.
+- **Undo:** one commit is **one** timeline step.
 - **Undo/redo inside the editor:** `Cmd/Ctrl+Z` resp. `+Shift+Z`.
 - **Loading/unloading the add-in twice** ⇒ no duplicated buttons, no error message.
 - **All container shapes** with clipping `cut`, `dropPartial`, `off` (spot check:
@@ -1337,11 +1414,11 @@ Also worth checking:
 | **The preview says „Ungültige Werte“ (invalid values)** | At least one field is out of range — it is marked red and states the allowed range. Fix the value or click **Zurücksetzen** in that group. |
 | **Warning „ca. N Skizzen-Elemente“** | The pattern is very fine. Increase cell size/spacing, lower the cell count or switch to **line mode**. From roughly 2000 elements the commit asks before creating. |
 | **Creating takes very long** | Same cause. Fusion needs time per sketch element; the element count is shown below the preview. |
-| **The pattern cannot be selected in one go** | For the connected face you need **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw container) on and clipping ≠ *Aus* (off). Stroke patterns (waves, spirals, herringbone, scales, phyllotaxis, motif scatter) stay multi-part — use **Direkt extrudieren** there, which merges all profiles into one body. |
+| **The pattern cannot be selected in one go** | For the connected face you need **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw container) on and clipping ≠ *Aus* (off). Stroke patterns (waves, spirals, herringbone, scales, phyllotaxis, motif scatter) stay multi-part — extrude all their profiles together in Fusion, which merges them into one body. |
 | **The extrusion finds no profiles** | **Line mode** produces open curves. Use **face mode** for extrudable profiles. |
 | **The font looks different in Fusion than in the preview** | The preview renders with the browser font. Unknown fonts fall back to *Arial* in Fusion automatically (with a notice). |
 | **„Skizze wurde von Hand verändert“ (sketch was edited manually)** | Expected behaviour: manual changes to that sketch are lost on rebuild. Cancel and move your changes into a separate sketch. |
-| **The extrusion is gone after editing** | Should not happen — the re-commit rebuilds the same sketch. If it does: check the Fusion timeline for errors and report the case with the parameters you used. |
+| **The extrusion is orphaned after editing** | Should not happen — the re-commit rebuilds the same sketch, so an extrusion built on top recomputes. If it does: check the Fusion timeline for errors and report the case with the parameters you used. |
 
 ---
 
@@ -1415,7 +1492,17 @@ and help text are derived from the class.
 * **Stroke patterns do not form a single face yet.** Herringbone, waves, scales,
   phyllotaxis, spirals and motif scatter have no cells, so their
   strips genuinely overlap. A single face would need a boolean union (see `PLAN.md`,
-  section 13, stage 2). Extruding them still yields **one** body.
+  section 13, stage 2). Extruding them still yields **one** body — for the scatter
+  patterns the **connectors** make sure of that.
+* **Text knockout can sever a connector.** Webs are punched out inside the text area
+  like everything else. If a web runs straight through the text box, the affected
+  motif can become a loose part again. Remedy: move the text, switch *Muster
+  ausstanzen* (knockout) off, or change the web layout via a different seed.
+* **The optimiser uses a fixed tolerance** of 0.02 mm and is not configurable. It
+  merges sketch entities without changing the visible geometry (organic patterns:
+  10–25 % fewer entities). Turning smooth contours into *splines* would save
+  considerably more but would not hold that tolerance — so it only happens where it
+  provably stays within it.
 * The add-in creates sketch geometry, **not** a CustomFeature — the pattern does not
   appear as its own timeline entry (see PLAN.md, phase 6).
 

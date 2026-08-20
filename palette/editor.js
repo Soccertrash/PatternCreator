@@ -133,7 +133,6 @@
       case 'style': return doc.style;
       case 'pattern': return doc.pattern.params;
       case 'text': return doc.textLayers[0];
-      case 'extrude': return doc.extrude;
       default: return {};
     }
   }
@@ -272,7 +271,6 @@
     buildSection(el.placementFields, 'placement');
     buildSection(el.styleFields, 'style');
     buildSection(el.textFields, 'text');
-    buildSection(el.extrudeFields, 'extrude');
     buildPresets();
     el.seedInput.value = doc.seed;
     updateHelp();
@@ -301,6 +299,8 @@
     });
   }
 
+  var CONNECTOR_KEYS = ['connectors', 'connectorWidth'];
+
   function buildSection(host, section) {
     host.innerHTML = '';
     var params = sectionParams(section);
@@ -309,6 +309,12 @@
       if (section === 'style' && param.key === 'fillTarget') {
         var ps = patternSchema(doc.pattern.type);
         if (ps && ps.fillTargets.length < 2) { return; }
+      }
+      // Verbinder gibt es nur bei Streu-Mustern - kachelnde Muster hängen über
+      // das Flächenmodell zusammen, Strich-Muster über das Rahmenband.
+      if (section === 'style' && CONNECTOR_KEYS.indexOf(param.key) >= 0) {
+        var gen = patternSchema(doc.pattern.type);
+        if (!gen || !gen.scatter) { return; }
       }
       host.appendChild(buildField(section, param, data));
     });
@@ -444,7 +450,6 @@
     applyVisibility(el.placementFields, 'placement');
     applyVisibility(el.styleFields, 'style');
     applyVisibility(el.textFields, 'text');
-    applyVisibility(el.extrudeFields, 'extrude');
   }
 
   /* ------------------------------------------------------------- Hilfe */
@@ -616,7 +621,7 @@
   }
 
   function resetAll() {
-    ['pattern', 'container', 'placement', 'style', 'text', 'extrude'].forEach(function (s) {
+    ['pattern', 'container', 'placement', 'style', 'text'].forEach(function (s) {
       var params = sectionParams(s);
       var data = sectionData(s);
       params.forEach(function (p) { data[p.key] = p.default; });
@@ -650,7 +655,6 @@
     el.placementFields = document.getElementById('placementFields');
     el.styleFields = document.getElementById('styleFields');
     el.textFields = document.getElementById('textFields');
-    el.extrudeFields = document.getElementById('extrudeFields');
     el.presetRow = document.getElementById('presetRow');
     el.stats = document.getElementById('stats');
     el.banner = document.getElementById('banner');

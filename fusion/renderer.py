@@ -1,8 +1,9 @@
 """IR -> Skizzengeometrie.
 
 Wichtig fuer die Performance: ``sketch.isComputeDeferred`` wird um den gesamten
-Zeichenvorgang gelegt (immer in ``try/finally`` zurueckgesetzt) und
-``sketch.areProfilesShown`` waehrend des Aufbaus abgeschaltet.
+Zeichenvorgang **und** um das Loeschen gelegt (immer in ``try/finally``
+zurueckgesetzt); ``areProfilesShown`` und ``arePointsShown`` sind waehrend des
+Aufbaus abgeschaltet.
 """
 
 from __future__ import annotations
@@ -31,28 +32,38 @@ def _p3(x: float, y: float) -> "adsk.core.Point3D":
 
 
 def clear_pattern_geometry(sketch: "adsk.fusion.Sketch") -> int:
-    """Alle Kurven und Texte der Skizze loeschen (Re-Generate)."""
+    """Alle Kurven und Texte der Skizze loeschen (Re-Generate).
+
+    Wie beim Zeichnen laeuft auch das Loeschen unter ``isComputeDeferred``:
+    sonst rechnet Fusion nach **jedem** einzelnen ``deleteMe()`` die Profile neu,
+    und ein Re-Edit dauert bei mehreren tausend Elementen genauso lange wie der
+    Aufbau selbst.
+    """
     removed = 0
-    curves = list(sketch.sketchCurves)
-    for c in curves:
-        try:
-            c.deleteMe()
-            removed += 1
-        except Exception:
-            pass
-    for t in list(sketch.sketchTexts):
-        try:
-            t.deleteMe()
-            removed += 1
-        except Exception:
-            pass
-    for p in list(sketch.sketchPoints):
-        if p == sketch.originPoint:
-            continue
-        try:
-            p.deleteMe()
-        except Exception:
-            pass
+    previous_defer = sketch.isComputeDeferred
+    try:
+        sketch.isComputeDeferred = True
+        for c in list(sketch.sketchCurves):
+            try:
+                c.deleteMe()
+                removed += 1
+            except Exception:
+                pass
+        for t in list(sketch.sketchTexts):
+            try:
+                t.deleteMe()
+                removed += 1
+            except Exception:
+                pass
+        for p in list(sketch.sketchPoints):
+            if p == sketch.originPoint:
+                continue
+            try:
+                p.deleteMe()
+            except Exception:
+                pass
+    finally:
+        sketch.isComputeDeferred = previous_defer
     return removed
 
 
@@ -61,10 +72,17 @@ def render_scene(sketch: "adsk.fusion.Sketch", scene: ir.Scene) -> RenderResult:
     result = RenderResult()
     previous_defer = sketch.isComputeDeferred
     previous_profiles = sketch.areProfilesShown
+    previous_points = getattr(sketch, "arePointsShown", None)
     try:
         sketch.isComputeDeferred = True
         try:
             sketch.areProfilesShown = False
+        except Exception:
+            pass
+        try:
+            # Jede Linie bringt zwei Skizzenpunkte mit - bei tausenden Elementen
+            # kostet allein deren Darstellung spuerbar Zeit.
+            sketch.arePointsShown = False
         except Exception:
             pass
         curves = sketch.sketchCurves
@@ -93,6 +111,11 @@ def render_scene(sketch: "adsk.fusion.Sketch", scene: ir.Scene) -> RenderResult:
             sketch.areProfilesShown = previous_profiles
         except Exception:
             pass
+        if previous_points is not None:
+            try:
+                sketch.arePointsShown = previous_points
+            except Exception:
+                pass
         sketch.isComputeDeferred = previous_defer
     return result
 

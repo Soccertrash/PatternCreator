@@ -21,7 +21,6 @@ import adsk.core
 import adsk.fusion
 
 from core import build, pattern_doc
-from fusion import extrude as extrude_mod
 from fusion import renderer, storage
 
 PALETTE_ID = "PatternCreatorEditorPalette"
@@ -212,8 +211,8 @@ def _handle_commit(ui: "adsk.core.UserInterface", data: dict) -> None:
 # ------------------------------------------------------- Commit als Command
 #
 # Der eigentliche Commit laeuft als Fusion-Command. Nur so wird der gesamte
-# Vorgang (Skizze + Geometrie + Attribute + optionale Extrusion) zu **einem**
-# Timeline-/Undo-Schritt zusammengefasst.
+# Vorgang (Skizze + Geometrie + Attribute) zu **einem** Timeline-/Undo-Schritt
+# zusammengefasst.
 
 class _CommitCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
@@ -294,17 +293,6 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
     storage.save(sketch, doc, sketch.sketchCurves.count + sketch.sketchTexts.count)
 
     message = "Muster erzeugt: %d Elemente in „%s“." % (result.entities, sketch.name)
-    if doc.get("extrude", {}).get("enabled"):
-        feature, error = extrude_mod.extrude_sketch(
-            sketch,
-            depth=float(doc["extrude"].get("depth", 0.3)),
-            operation=str(doc["extrude"].get("operation", "new")),
-            direction=str(doc["extrude"].get("direction", "positive")),
-            fill_target=str(doc["style"].get("fillTarget", "webs")))
-        if error:
-            message += " Extrusion: " + error
-        elif feature:
-            message += " Extrusion erstellt."
     for warn in result.warnings:
         message += "\n" + warn
     return message

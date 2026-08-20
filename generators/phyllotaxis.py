@@ -19,6 +19,8 @@ class PhyllotaxisGenerator(Generator):
     label = "Phyllotaxis"
     description = ("Elemente im Goldenen Winkel (137,508°) mit r = c·√n - die "
                    "Spiralanordnung von Sonnenblumenkernen.")
+    #: Frei stehende Motive - im Flaechenmodus lose Inseln, siehe core/connect.py
+    scatter = True
     icon = "M12 12m-9 0a9 9 0 1 0 18 0 9 9 0 1 0-18 0M12 12l4-6M12 12l-6-3M12 12l3 7"
     presets = {
         "fein": {"count": 600, "scale": 0.16, "elementSize": 0.1},

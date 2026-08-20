@@ -63,8 +63,7 @@ PatternCreator/
 │   └── text_layer.py              # Additive Text-Ebene inkl. Knockout (Abschnitt 7)
 ├── fusion/
 │   ├── renderer.py                # IR -> Skizzengeometrie (isComputeDeferred, Batching)
-│   ├── storage.py                 # PatternDoc <-> Fusion-Attribute an der Skizze
-│   └── extrude.py                 # Optionale integrierte Extrusion (Abschnitt 8)
+│   └── storage.py                 # PatternDoc <-> Fusion-Attribute an der Skizze
 ├── palette/
 │   ├── editor.html  editor.css  editor.js   # Editor-UI (Vanilla JS)
 │   └── preview.js                 # Canvas-Renderer für die IR (JSON vom Python-Backend)
@@ -266,19 +265,19 @@ brechen Profile bei der Extrusion.
 - Mehrere Text-Layer: MVP **ein** Layer; Datenmodell als Liste anlegen (`textLayers: [...]`),
   damit mehrere später ohne Migration möglich sind.
 
-## 8. Skizze, Extrusion & Commit – `fusion/renderer.py`, `fusion/extrude.py`
+## 8. Skizze & Commit – `fusion/renderer.py`
 
 - Commit-Ablauf: neue Skizze auf gewählter Ebene/Fläche (Auswahl vor Palette-Öffnung; Standard
   XY-Ursprungsebene) → `isComputeDeferred = True` → IR zeichnen → Text-Layer → Attribute
   schreiben → `isComputeDeferred = False`. Alles innerhalb eines Commands ⇒ **ein Undo-Schritt**.
 - IR-Abbildung: Linien → `sketchLines`, Bögen → `sketchArcs`, Kreise → `sketchCircles`,
   Splines → `sketchFittedSplines`, Polygone → Linienzug (geschlossen), Text → `sketchTexts`.
-- **Optionale integrierte Extrusion:** Checkbox „Direkt extrudieren" + Tiefe + Richtung
-  (Neuer Körper / Verbinden / Ausschneiden). Umsetzung: nach dem Zeichnen alle geschlossenen
-  Profile der Skizze einsammeln (`sketch.profiles`), nach Flächenmodus-Logik filtern
-  (Stege vs. Zellen: Auswahl „Stege extrudieren" oder „Zellen extrudieren") und ein
-  `extrudeFeature` erzeugen. Wer manuell extrudieren will, lässt die Checkbox aus – die
-  Profile sind dank Flächenmodus sauber wählbar.
+- **Keine integrierte Extrusion.** Ursprünglich war eine Checkbox „Direkt extrudieren"
+  samt Tiefe, Richtung und Vorgang vorgesehen und auch umgesetzt (`fusion/extrude.py`);
+  sie ist bewusst wieder entfernt worden. Das Add-In erzeugt ausschließlich Skizzen,
+  extrudiert wird mit Fusions eigenem Befehl – die Profile sind dank Flächenmodus
+  sauber wählbar. Alte Skizzen mit gespeichertem `extrude`-Abschnitt laden weiterhin,
+  der Abschnitt wird beim Einlesen verworfen.
 
 ## 9. Nachträgliches Bearbeiten – `fusion/storage.py`, `commands/edit_command.py`
 
@@ -323,7 +322,7 @@ brechen Profile bei der Extrusion.
 4. **Phase 4 – Natürliche Muster + Text:** Voronoi → organische Zellen-Familie
    (Kiesel, Zellgewebe) → Blattadern → Fischgrät → Wellen → Schuppen →
    Phyllotaxis → Spiralen → Motiv-Streuung; alle Containerformen; Text-Layer mit
-   Knockout; integrierte Extrusion.
+   Knockout.
 5. **Phase 5 – Re-Edit + Qualität:** edit_command, Re-Generate-Logik, Tests, Entity-Schutz,
    Presets, Hilfe-Icons, README, Icons.
 6. **Phase 6 (Stretch, nur nach Freigabe):** Profil/Fläche als Container, CustomFeature,
