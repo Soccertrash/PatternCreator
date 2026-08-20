@@ -1,15 +1,17 @@
 """Gemeinsamer Kern der organischen Muster.
 
 Enthaelt Voronoi (Halbebenen-Schnitt, reines Python), Lloyd-Relaxation,
-Chaikin-Rundung, Anisotropie und Inset. Darauf bauen ``voronoi``, ``pebbles``,
+Eckenrundung, Anisotropie und Fuge. Darauf bauen ``voronoi``, ``pebbles``,
 ``tissue``, ``caustics`` und ``leaf_veins`` auf - kein Copy-Paste.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Sequence, Tuple
 
-from core.geom import EPS, centroid, chaikin, dist, inset_polygon, polygon_area
+from core.geom import (EPS, centroid, clip_half_plane, convex_hull, dist,
+                       erode_convex, polygon_area)
 from core.pattern_doc import Param, T_FLOAT, T_INT, T_LENGTH
 
 from .base import GenContext, Generator
@@ -21,25 +23,6 @@ MAX_CELLS = 500          # harte Obergrenze (Performance-Schutz, siehe README)
 
 
 # ------------------------------------------------------------------ Voronoi
-
-def _clip_half_plane(poly: Sequence[Point], a: float, b: float, c: float) -> List[Point]:
-    """Polygon auf ``a*x + b*y + c <= 0`` beschneiden."""
-    out: List[Point] = []
-    n = len(poly)
-    if n == 0:
-        return out
-    for i in range(n):
-        p = poly[i]
-        q = poly[(i + 1) % n]
-        dp = a * p[0] + b * p[1] + c
-        dq = a * q[0] + b * q[1] + c
-        if dp <= 0:
-            out.append(p)
-        if (dp < 0 < dq) or (dq < 0 < dp):
-            t = dp / (dp - dq)
-            out.append((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t))
-    return out
-
 
 def voronoi_cells(sites: Sequence[Point], bbox: BBox) -> List[List[Point]]:
     """Voronoi-Zellen der Punkte, begrenzt durch ``bbox``.
@@ -64,7 +47,12 @@ def voronoi_cells(sites: Sequence[Point], bbox: BBox) -> List[List[Point]]:
                 break                    # alle weiteren Punkte koennen nicht mehr schneiden
             ax, ay = o[0] - s[0], o[1] - s[1]
             mx, my = (o[0] + s[0]) / 2.0, (o[1] + s[1]) / 2.0
-            poly = _clip_half_plane(poly, ax, ay, -(ax * mx + ay * my))
+            poly = clip_half_plane(poly, ax, ay, -(ax * mx + ay * my))
+        # Der wiederholte Schnitt hinterlaesst winzige Faltungen (Punkte, die um
+        # Bruchteile eines Hundertstel Millimeters zurueckspringen). Eine
+        # Voronoi-Zelle ist konvex - die Huelle ist also nicht nur eine Naeherung,
+        # sondern die exakte Zelle, nur ohne diese Artefakte.
+        poly = convex_hull(poly)
         if len(poly) >= 3 and abs(polygon_area(poly)) > 1e-9:
             cells.append(poly)
     return cells
@@ -98,12 +86,107 @@ def sample_sites(bbox: BBox, count: int, rnd, anisotropy: float = 1.0,
                 py = y0 + (j + 0.5) * dy + (rnd.random() - 0.5) * dy * jitter * 0.4
                 pts.append((px, py))
         return pts
-    return [(x0 + rnd.random() * (x1 - x0), y0 + rnd.random() * (y1 - y0))
-            for _ in range(count)]
+    return scatter_sites(bbox, count, rnd)
+
+
+def scatter_sites(bbox: BBox, count: int, rnd) -> List[Point]:
+    """``count`` Punkte mit Mindestabstand streuen.
+
+    Rein zufaellige Punkte liegen paarweise fast aufeinander; die Voronoi-Zelle
+    dazwischen wird zum Splitter (gemessen: Groessenverhaeltnis 1:1000 innerhalb
+    eines Musters). Hier wird jeder Kandidat verworfen, der einem schon gesetzten
+    Punkt zu nahe kommt. Klappt das mehrfach nicht, sinkt der Mindestabstand -
+    so kommen immer genau ``count`` Punkte heraus, auch in engen Rahmen.
+    """
+    x0, y0, x1, y1 = bbox
+    w, h = x1 - x0, y1 - y0
+    if count <= 1 or w <= 0 or h <= 0:
+        return [(x0 + rnd.random() * w, y0 + rnd.random() * h) for _ in range(max(1, count))]
+    radius = 0.75 * math.sqrt(w * h / float(count))
+    cell = max(radius, 1e-9)
+    grid: Dict[Tuple[int, int], List[Point]] = {}
+    pts: List[Point] = []
+    misses = 0
+    while len(pts) < count:
+        p = (x0 + rnd.random() * w, y0 + rnd.random() * h)
+        gx, gy = int((p[0] - x0) / cell), int((p[1] - y0) / cell)
+        ok = True
+        for iy in range(gy - 1, gy + 2):
+            for ix in range(gx - 1, gx + 2):
+                for q in grid.get((ix, iy), ()):
+                    if dist(p, q) < radius:
+                        ok = False
+                        break
+                if not ok:
+                    break
+            if not ok:
+                break
+        if ok:
+            pts.append(p)
+            grid.setdefault((gx, gy), []).append(p)
+            misses = 0
+        else:
+            misses += 1
+            if misses >= 24:            # Rahmen ist voll -> Anspruch senken
+                radius *= 0.8
+                misses = 0
+    return pts
 
 
 def scale_points(pts: Sequence[Point], sx: float, sy: float) -> List[Point]:
     return [(p[0] * sx, p[1] * sy) for p in pts]
+
+
+#: "Rundheit" 0..3 -> Anteil der halben Kantenlaenge, der je Ecke verrundet wird.
+#: 1.0 entspricht der maximalen Rundung (Grenzkurve von Chaikin).
+ROUND_FACTORS = (0.0, 0.4, 0.7, 1.0)
+
+
+def round_corners(poly: Sequence[Point], factor: float, samples: int = 4) -> List[Point]:
+    """Ecken mit **begrenztem** Radius ausrunden.
+
+    Chaikin schneidet jede Ecke um ein Viertel der Kantenlaenge ab und zieht damit
+    die ganze Kontur nach innen - je groesser die Zelle, desto mehr Material bleibt
+    zwischen den Zellen stehen. Hier wird nur die Ecke selbst verrundet, die
+    Kantenmitten bleiben liegen. Die gerundete Zelle fuellt ihre Voronoi-Zelle
+    dadurch fast vollstaendig aus, und benachbarte Zellen beruehren sich weiterhin
+    entlang ihrer gemeinsamen Kante (die Fuge kommt allein aus ``inset``).
+    """
+    n = len(poly)
+    if n < 3 or factor <= 0.0:
+        return list(poly)
+    lens = [dist(poly[i], poly[(i + 1) % n]) for i in range(n)]
+    f = min(1.0, float(factor)) * 0.5      # 0.5 => Schnitt bis zur Kantenmitte
+    cut = [f * min(lens[(i - 1) % n], lens[i]) for i in range(n)]
+    # Zwei benachbarte Ecken duerfen dieselbe Kante nicht doppelt verbrauchen -
+    # sonst ueberschlagen sich die Rundungen und es entstehen Zacken.
+    limit = [1.0] * n
+    for i in range(n):
+        j = (i + 1) % n
+        total = cut[i] + cut[j]
+        if total > lens[i] * 0.98 and total > EPS:
+            k = lens[i] * 0.98 / total
+            limit[i] = min(limit[i], k)
+            limit[j] = min(limit[j], k)
+    out: List[Point] = []
+    for i in range(n):
+        p = poly[i]
+        t = cut[i] * limit[i]
+        d0 = lens[(i - 1) % n]
+        d1 = lens[i]
+        if t < EPS or d0 < EPS or d1 < EPS:
+            out.append(p)
+            continue
+        a = poly[(i - 1) % n]
+        b = poly[(i + 1) % n]
+        p0 = (p[0] + (a[0] - p[0]) * t / d0, p[1] + (a[1] - p[1]) * t / d0)
+        p1 = (p[0] + (b[0] - p[0]) * t / d1, p[1] + (b[1] - p[1]) * t / d1)
+        for k in range(samples + 1):       # quadratische Bezier p0 -> p -> p1
+            u = k / float(samples)
+            v = 1.0 - u
+            out.append((v * v * p0[0] + 2 * v * u * p[0] + u * u * p1[0],
+                        v * v * p0[1] + 2 * v * u * p[1] + u * u * p1[1]))
+    return [q for i, q in enumerate(out) if dist(q, out[i - 1]) > EPS]
 
 
 def build_cells(ctx: GenContext, count: int, relax: int = 0, anisotropy: float = 1.0,
@@ -122,14 +205,15 @@ def build_cells(ctx: GenContext, count: int, relax: int = 0, anisotropy: float =
     cells = voronoi_cells(sites, work_bbox)
     out: List[List[Point]] = []
     for cell in cells:
-        poly = scale_points(cell, ax, 1.0)
+        # Reihenfolge: erst die konvexe Zelle verkleinern, dann runden. Umgekehrt
+        # muesste eine gerundete (und damit fast punktdichte) Kontur versetzt
+        # werden - genau daran sind vorher die halben Zellen zerbrochen.
+        poly = erode_convex(scale_points(cell, ax, 1.0), inset)
+        if poly is None:
+            continue
         if smooth > 0:
-            poly = chaikin(poly, smooth, closed=True)
-        if inset > 0:
-            reduced = inset_polygon(poly, inset)
-            if reduced is None:
-                continue
-            poly = reduced
+            idx = min(int(smooth), len(ROUND_FACTORS) - 1)
+            poly = round_corners(poly, ROUND_FACTORS[idx])
         if len(poly) >= 3 and abs(polygon_area(poly)) > 1e-9:
             out.append(poly)
     return out

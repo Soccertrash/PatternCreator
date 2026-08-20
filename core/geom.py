@@ -295,6 +295,116 @@ def polygon_segments(poly: Sequence[Point]) -> List[Tuple[Point, Point]]:
     return [(poly[i], poly[(i + 1) % n]) for i in range(n)]
 
 
+def clip_half_plane(poly: Sequence[Point], a: float, b: float, c: float) -> List[Point]:
+    """Polygon auf die Halbebene ``a*x + b*y + c <= 0`` beschneiden."""
+    out: List[Point] = []
+    n = len(poly)
+    if n == 0:
+        return out
+    for i in range(n):
+        p = poly[i]
+        q = poly[(i + 1) % n]
+        dp = a * p[0] + b * p[1] + c
+        dq = a * q[0] + b * q[1] + c
+        if dp <= 0:
+            out.append(p)
+        if (dp < 0 < dq) or (dq < 0 < dp):
+            t = dp / (dp - dq)
+            out.append((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t))
+    return out
+
+
+def is_convex(pts: Sequence[Point], tol: float = 1e-9) -> bool:
+    """True, wenn das Polygon (bis auf Rundungsreste) konvex ist."""
+    n = len(pts)
+    if n < 3:
+        return False
+    sign = 0
+    for i in range(n):
+        z = cross(sub(pts[(i + 1) % n], pts[i]), sub(pts[(i + 2) % n], pts[(i + 1) % n]))
+        if abs(z) <= tol:
+            continue
+        s = 1 if z > 0 else -1
+        if sign and s != sign:
+            return False
+        sign = s
+    return sign != 0
+
+
+def erode_convex(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
+    """Konvexes Polygon exakt um ``delta`` verkleinern (Halbebenen-Erosion).
+
+    Jede Kante wird um ``delta`` nach innen geschoben und das Polygon daran
+    beschnitten. Anders als ein Gehrungs-Offset kann das Ergebnis nicht
+    ueberschlagen: eine Spitze, die schmaler als ``2 * delta`` ist, faellt einfach
+    weg, statt eine Schleife zu bilden. ``None`` heisst: nichts bleibt uebrig.
+    """
+    if delta <= 1e-12:
+        cleaned = clean_polygon(pts)
+        return cleaned or None
+    src = clean_polygon(ensure_ccw(pts))
+    if len(src) < 3:
+        return None
+    out = list(src)
+    n = len(src)
+    for i in range(n):
+        a, b = src[i], src[(i + 1) % n]
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        ll = math.hypot(ex, ey)
+        if ll < EPS:
+            continue
+        nx, ny = -ey / ll, ex / ll                  # Innen-Normale (CCW)
+        cx, cy = a[0] + nx * delta, a[1] + ny * delta
+        out = clip_half_plane(out, -nx, -ny, nx * cx + ny * cy)
+        if len(out) < 3:
+            return None
+    out = clean_polygon(out)
+    if len(out) < 3 or abs(polygon_area(out)) <= 1e-9:
+        return None
+    return out
+
+
+def convex_hull(pts: Sequence[Point]) -> List[Point]:
+    """Konvexe Huelle (Monotone Chain), gegen den Uhrzeigersinn."""
+    uniq = sorted(set((round(p[0], 12), round(p[1], 12)) for p in pts))
+    if len(uniq) < 3:
+        return [tuple(p) for p in uniq]
+    def half(points):
+        out: List[Point] = []
+        for p in points:
+            while len(out) >= 2 and cross(sub(out[-1], out[-2]), sub(p, out[-2])) <= 0:
+                out.pop()
+            out.append(p)
+        return out
+    lower = half(uniq)
+    upper = half(list(reversed(uniq)))
+    return lower[:-1] + upper[:-1]
+
+
+def clean_polygon(pts: Sequence[Point], tol: float = 1e-9) -> List[Point]:
+    """Doppelte und (nahezu) kollineare Punkte entfernen.
+
+    Voronoi-Zellen aus wiederholtem Halbebenen-Schnitt enthalten regelmaessig
+    Punktpaare, die praktisch aufeinander liegen. Fuer die Flaeche sind sie
+    harmlos, fuer jeden Offset nicht: die Normale eines Null-Segments ist
+    undefiniert, und der Versatz schlaegt dort zu einer Zacke um.
+    """
+    pts = [p for i, p in enumerate(pts) if dist(p, pts[i - 1]) > tol]
+    if len(pts) < 3:
+        return []
+    out: List[Point] = []
+    n = len(pts)
+    for i in range(n):
+        a, p, b = pts[i - 1], pts[i], pts[(i + 1) % n]
+        d0, d1 = dist(a, p), dist(p, b)
+        if d0 < tol or d1 < tol:
+            continue
+        area2 = abs((p[0] - a[0]) * (b[1] - a[1]) - (p[1] - a[1]) * (b[0] - a[0]))
+        if area2 > tol * max(d0, d1):
+            out.append(p)
+    return out if len(out) >= 3 else []
+
+
 def inset_polygon(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
     """Konvexes/leicht konkaves Polygon um ``delta`` nach innen versetzen.
 

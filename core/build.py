@@ -22,8 +22,9 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from . import ir
 from .containers import Container, make_container
-from .geom import (chain_segments, ensure_ccw, polygon_area, polygon_segments,
-                   polyline_length, rotate, snap_segments)
+from .geom import (chain_segments, clean_polygon, ensure_ccw, erode_convex,
+                   is_convex, polygon_area, polygon_segments, polyline_length,
+                   rotate, snap_segments)
 from .hatch import hatch_areas, style_from_doc
 from .stroker import offset_polyline, stroke
 
@@ -393,12 +394,19 @@ def _shrink_cell(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
     ``inset_polygon`` arbeitet mit Winkelhalbierenden und kollabiert an starken
     Einbuchtungen (Puzzle-Nasen). Der Offset des Strokers kommt damit zurecht;
     das Ergebnis wird verworfen, wenn es umklappt oder groesser wird.
+
+    Konvexe Zellen - also alle Gitter-, Waben- und Voronoi-Muster - gehen den
+    exakten Weg ueber die Halbebenen-Erosion. Der Gehrungs-Offset legt an einer
+    spitz zulaufenden Zelle sonst eine kleine Schleife an, und ein sich selbst
+    schneidendes Profil ist in Fusion unbrauchbar.
     """
     if delta <= 1e-12:
         return list(pts)
-    src = ensure_ccw(pts)
+    src = clean_polygon(ensure_ccw(pts))
     if len(src) < 3:
         return None
+    if is_convex(src):
+        return erode_convex(src, delta)
     poly = offset_polyline(src, [delta] * len(src), closed=True)
     if not poly or len(poly) < 3:
         return None
