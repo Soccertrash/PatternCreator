@@ -13,6 +13,7 @@ from .base import GenContext, Generator
 
 class BrickGenerator(Generator):
     id = "brick"
+    tiling = True
     label = "Mauer"
     description = ("Ziegelverband mit einstellbarer Fugenbreite und Reihenversatz "
                    "(Läuferverband 1/2, Drittelverband 1/3 oder frei).")
@@ -36,6 +37,10 @@ class BrickGenerator(Generator):
               visible_if={"bond": ["free"]},
               help="Anteil der Ziegelbreite, um den jede Reihe versetzt wird."),
     ]
+
+    def gap(self, params):
+        # Jeder Ziegel ist um joint/2 verkleinert -> Abstand = jointWidth
+        return max(0.0, float(params.get("jointWidth", 0.0)))
 
     def generate(self, params: Dict[str, Any], ctx: GenContext) -> List[Any]:
         bw = float(params["brickWidth"])

@@ -13,6 +13,7 @@ from .organic_cells import OrganicGenerator, cell_params
 
 class TissueGenerator(OrganicGenerator):
     id = "tissue"
+    tiling = True
     label = "Zellgewebe"
     description = ("Geschichtete, in X gestreckte Zellen in Reihen - die typische "
                    "Optik pflanzlicher Gewebeschnitte.")

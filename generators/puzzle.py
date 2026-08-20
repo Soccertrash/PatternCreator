@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from typing import Any, Dict, List, Tuple
 
 from core import ir
@@ -12,18 +14,26 @@ from .base import GenContext, Generator
 
 Point = Tuple[float, float]
 
-# Normalisierte Nasenkontur: x entlang der Kante (0..1), y quer (Spitze = 1.0)
-_LEAD_IN = 0.35
-_TAB = [
-    # (c1, c2, p) je kubischem Bezier-Abschnitt
-    ((0.42, 0.00), (0.32, 0.43), (0.42, 0.52)),
-    ((0.30, 1.00), (0.70, 1.00), (0.58, 0.52)),
-    ((0.68, 0.43), (0.58, 0.00), (0.65, 0.00)),
-]
+#: Stuetzpunkte je Kurvenabschnitt. Wenige reichen fuer eine glatte Kontur,
+#: viele treiben die Zahl der Skizzenlinien hoch (jeder Punkt = eine Linie).
+_SAMPLES = 6
+
+#: Verhaeltnis Kopfbreite zu Halsbreite - der Kopf muss breiter sein als der Hals,
+#: sonst greifen die Teile nicht ineinander und es sieht nicht nach Puzzle aus.
+_HEAD_FACTOR = 1.75
+
+#: Wo der Hals den Kopfkreis beruehrt (Winkel am Kopfmittelpunkt). 205 Grad liegt
+#: unten links - von dort laeuft der Bogen ueber den Scheitel nach unten rechts.
+_TANGENT_ANGLE = math.radians(205.0)
+
+#: Tiefe des Unterschnitts am Nasenfuss in Einheiten der Halsbreite - die
+#: charakteristische kleine S-Kurve, mit der die Kontur in den Hals einschwenkt.
+_UNDERCUT = 0.35
 
 
 class PuzzleGenerator(Generator):
     id = "puzzle"
+    tiling = True
     label = "Puzzle"
     description = ("Puzzleteile im Raster X×Y. Jede Innenkante bekommt eine Nase, "
                    "deren Richtung der Seed bestimmt. Im Flächenmodus ist jedes Teil "
@@ -38,10 +48,12 @@ class PuzzleGenerator(Generator):
     params = [
         Param("countX", "Teile X", T_INT, 5, min=1, max=60, step=1),
         Param("countY", "Teile Y", T_INT, 4, min=1, max=60, step=1),
-        Param("tabSize", "Nasengröße", T_PERCENT, 22.0, min=2.0, max=45.0, step=1.0,
-              help="Höhe der Nase in Prozent der Kantenlänge."),
-        Param("neckWidth", "Halsbreite", T_PERCENT, 16.0, min=6.0, max=40.0, step=1.0,
-              help="Breite des Nasenhalses in Prozent der Kantenlänge."),
+        Param("tabSize", "Nasengröße", T_PERCENT, 28.0, min=2.0, max=45.0, step=1.0,
+              help="Gesamthöhe der Nase (Hals + Kopf) in Prozent der Kantenlänge. "
+                   "Zu kleine Werte werden auf die Kopfgröße angehoben."),
+        Param("neckWidth", "Halsbreite", T_PERCENT, 18.0, min=6.0, max=40.0, step=1.0,
+              help="Breite des Nasenhalses in Prozent der Kantenlänge. Der Kopf "
+                   "ist ein Kreis und rund 1,75-mal so breit."),
         Param("shapeJitter", "Formstreuung", T_FLOAT, 0.15, min=0.0, max=1.0, step=0.05,
               help="Zufällige Variation von Nasengröße und -position."),
     ]
@@ -88,6 +100,12 @@ class PuzzleGenerator(Generator):
     @staticmethod
     def _edge(a: Point, b: Point, inner: bool, tab: float, neck: float,
               jitter: float, rnd) -> List[Point]:
+        """Eine Kante als Polylinie - aussen gerade, innen mit klassischer Nase.
+
+        Der Kopf ist ein **echter Kreis** (Radius = halbe Kopfbreite); der Hals
+        laeuft tangential in ihn hinein, damit es keinen Knick gibt. Alle Masse
+        sind Bruchteile der Kantenlaenge.
+        """
         if not inner:
             return [a, b]
         ux, uy = b[0] - a[0], b[1] - a[1]
@@ -96,24 +114,53 @@ class PuzzleGenerator(Generator):
             return [a, b]
         ux, uy = ux / length, uy / length
         nx, ny = -uy, ux
+
         direction = 1.0 if rnd.random() < 0.5 else -1.0
-        size = tab * (1.0 + jitter * (rnd.random() - 0.5) * 1.2)
-        k = max(0.5, min(2.5, neck / 0.16))
-        shift = jitter * (rnd.random() - 0.5) * 0.12
+        half_neck = max(0.015, neck / 2.0 * (1.0 + jitter * (rnd.random() - 0.5) * 0.8))
+        half_head = half_neck * _HEAD_FACTOR
+        height = tab * (1.0 + jitter * (rnd.random() - 0.5) * 1.2)
+        # Unter dieser Hoehe bliebe vom Hals nichts uebrig
+        height = max(height, half_head * 1.55)
 
-        def m(p: Tuple[float, float]) -> Point:
-            x = 0.5 + (p[0] - 0.5) * k + shift
-            x = max(0.02, min(0.98, x))
-            y = p[1] * size * direction
-            return (a[0] + ux * x * length + nx * y * length,
-                    a[1] + uy * x * length + ny * y * length)
+        foot = half_neck + half_head * 0.55
+        centre = 0.5 + jitter * (rnd.random() - 0.5) * 0.14
+        centre = max(foot + 0.02, min(1.0 - foot - 0.02, centre))
 
-        lead = max(0.02, min(0.48, 0.5 - (0.5 - _LEAD_IN) * k + shift))
-        pts: List[Point] = [a, m((lead, 0.0))]
-        cur = (lead, 0.0)
-        for c1, c2, p in _TAB:
-            pts.extend(bezier(m(cur), m(c1), m(c2), m(p), samples=8)[1:])
-            pts.append(m(p))
-            cur = p
+        def m(x: float, y: float) -> Point:
+            """Normierte Kantenkoordinaten (beide in Kantenlaengen) -> Skizze."""
+            px, py = x * length, y * direction * length
+            return (a[0] + ux * px + nx * py, a[1] + uy * px + ny * py)
+
+        cy = height - half_head                      # Mittelpunkt des Kopfkreises
+        ct, st = math.cos(_TANGENT_ANGLE), math.sin(_TANGENT_ANGLE)
+        tangent = (centre + half_head * ct, cy + half_head * st)
+        # Laufrichtung auf dem Kreis im Beruehrpunkt (Bogen laeuft ueber den Scheitel)
+        tdir = (st, -ct)
+
+        # Hals: vom Fuss tangential in den Kopfkreis
+        p0 = (centre - foot, 0.0)
+        p1 = (p0[0] + half_neck * 0.7, -_UNDERCUT * half_neck)
+        reach = (cy + half_head * st) * 0.75
+        p2 = (tangent[0] - tdir[0] * reach, tangent[1] - tdir[1] * reach)
+
+        pts: List[Point] = [a, m(*p0)]
+        pts.extend(bezier(m(*p0), m(*p1), m(*p2), m(*tangent),
+                          samples=_SAMPLES)[1:])
+
+        # Kopf: echter Kreisbogen vom Beruehrpunkt ueber den Scheitel
+        a0 = _TANGENT_ANGLE
+        a1 = math.pi - _TANGENT_ANGLE                # spiegelbildlich, ueber 90 Grad
+        steps = max(6, _SAMPLES * 2)
+        for k in range(1, steps + 1):
+            ang = a0 + (a1 - a0) * k / steps
+            pts.append(m(centre + half_head * math.cos(ang),
+                         cy + half_head * math.sin(ang)))
+
+        # Hals der Gegenseite: gespiegelte Kurve rueckwaerts
+        def mir(p):
+            return (2 * centre - p[0], p[1])
+
+        pts.extend(bezier(m(*mir(tangent)), m(*mir(p2)), m(*mir(p1)), m(*mir(p0)),
+                          samples=_SAMPLES)[1:])
         pts.append(b)
         return pts

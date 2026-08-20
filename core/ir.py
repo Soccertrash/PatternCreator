@@ -18,6 +18,8 @@ Point = Tuple[float, float]
 ROLE_EDGE = "edge"        # offene/geschlossene Kurve -> im Flaechenmodus gestrichelt zu Streifen
 ROLE_REGION = "region"    # geschlossene Zelle -> im Flaechenmodus eingezogen (Inset)
 ROLE_DECOR = "decor"      # eigenstaendiges Element (z. B. Zellkern), wird nicht gestrokt
+ROLE_FACE = "face"        # Aussenkontur einer zusammenhaengenden Flaeche (Stegnetz)
+ROLE_HOLE = "hole"        # Loch in dieser Flaeche (die verkleinerte Zelle)
 
 # Layer trennen Muster, Containerumriss und Text.
 LAYER_PATTERN = "pattern"

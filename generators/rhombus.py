@@ -13,6 +13,7 @@ from .base import GenContext, Generator
 
 class RhombusGenerator(Generator):
     id = "rhombus"
+    tiling = True
     label = "Rauten"
     description = ("Rautenraster aus zwei Linienscharen mit Winkel ±α. "
                    "Breite und Höhe der Raute bestimmen den Winkel.")

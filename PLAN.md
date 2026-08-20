@@ -325,6 +325,76 @@ erfüllt, `pytest` grün, manuelle Testmatrix in Fusion dokumentiert.
 
 ---
 
+## 13. Flächenmodell – eine zusammenhängende Fläche je Muster (Phase 7)
+
+**Warum:** Das Stroken einzelner Stegketten erzeugt an jedem Knoten überlappende
+Streifen. Fusion sieht dadurch hunderte Einzelprofile: das Muster lässt sich nicht in
+einem Zug auswählen, und die Überlappungen sind keine saubere Grundlage für den
+3D-Druck.
+
+**Kernidee:** Bei einem **kachelnden** Muster ist das Stegnetz exakt
+*Rahmen minus verkleinerte Zellen*. Also keine Boolesche Operation, sondern:
+
+```
+Außenkontur  = container.face_outline()          role = face
+Löcher       = Zelle verkleinert um delta        role = hole
+delta        = max(0, (Dicke − eigene Fuge) / 2)
+```
+
+Ergebnis: **ein** Profil mit Löchern – ein Klick, keine Überlappungen, dicht.
+
+### Stufe 1 – umgesetzt
+
+- `Generator.tiling` markiert die acht kachelnden Muster: Gitter, Rauten, Wabe, Mauer,
+  Puzzle, Voronoi, Kiesel, Zellgewebe.
+- `Generator.gap(params)` meldet die Fuge, die das Muster selbst lässt (Mauerfuge,
+  Voronoi-Fugenbreite). Stegbreite ist damit `max(Dicke, eigene Fuge)`; die Ziegelmaße
+  bleiben exakt, und eine Fuge von 0 führt nicht zu Löchern auf Stoß.
+- `Container.face_outline()` liefert die Außenkontur als **ein** Element,
+  `Container.shrunk(d)` dieselbe Form nach innen versetzt (für die Rahmendicke).
+- Neuer Stil-Parameter **Rahmendicke** (`style.borderWidth`), **nach innen** gemessen:
+  das eingestellte Rahmenmaß bleibt das Außenmaß. Das Muster wird dafür gegen
+  `container.shrunk(borderWidth − Dicke/2)` beschnitten; zusätzlich werden die Löcher
+  auf `container.shrunk(borderWidth)` begrenzt, damit Gehrungsspitzen beschnittener
+  Randzellen den Rahmen nirgends dünner machen als eingestellt.
+- Splitterfilter: Löcher mit einer mittleren Breite (`2·Fläche/Umfang`) unter der halben
+  Stegdicke stammen aus angeschnittenen Randzellen und werden zugemacht – im Druck wären
+  das nicht darstellbare Kanten.
+- Zellen verkleinern über den Stroker-Offset statt über Winkelhalbierende
+  (`_shrink_cell`): `inset_polygon` kollabiert an konkaven Konturen und ließ vom Puzzle
+  im Zellen-Modus 3 von 20 Teilen übrig.
+- Voraussetzung im Editor: **Rahmen zeichnen** an (er ist die Außenkontur) und Beschnitt
+  ≠ *Aus*. Sonst bleibt es beim alten Stroken – für Gravuren gewollt.
+- Vorschau zeichnet Fläche und Löcher als **einen** Pfad (`fill-rule: evenodd`), sonst
+  malen die Löcher die Fläche wieder zu.
+
+### Puzzle-Nase (zusammen mit Stufe 1 überarbeitet)
+
+Die alte Nase bestand aus drei Bezier-Abschnitten mit festen Kontrollpunkten; der
+Kopf war flach, die Übergänge geknickt, und die Spiegelung endete am falschen Punkt.
+Jetzt gilt:
+
+- Der **Kopf ist ein echter Kreis** (Radius = halbe Kopfbreite, `_HEAD_FACTOR = 1.75`
+  mal Halsbreite) – als Kreisbogen abgetastet, also immer rund.
+- Der **Hals läuft tangential** in den Kopfkreis (Berührpunkt bei 205°), es gibt
+  keinen Knick.
+- Am Fuß ein kleiner **Unterschnitt** – die charakteristische S-Kurve.
+- `tabSize` ist die Gesamthöhe (Hals + Kopf) und wird auf `half_head * 1.55`
+  angehoben, damit der Hals nicht verschwindet.
+- Die Nase wird auf der Kante zentriert und so begrenzt, dass sie samt Fuß darauf
+  passt – auch bei maximaler Formstreuung.
+
+### Stufe 2 – offen
+
+Strich-Muster ohne Zellen (Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
+Motiv-Streuung, Kaustik, Blattadern) haben keine Kacheln; dort überlappen sich die
+Streifen echt. Für eine einzelne Fläche braucht es eine echte Polygon-Vereinigung
+(Boolesche Operation in reinem Python, Sonderfälle: gemeinsame Kanten, Berührungen in
+einem Punkt). Bis dahin bleiben sie mehrteilig und werden erst beim Extrudieren zu
+**einem** Körper verschmolzen.
+
+---
+
 ## 12. Bekannte Fallstricke
 
 - Event-Handler-Referenzen global halten (GC), auch die Palette-HTML-Event-Handler.
@@ -336,7 +406,10 @@ erfüllt, `pytest` grün, manuelle Testmatrix in Fusion dokumentiert.
   `HTMLEventHandler`; Request-IDs mitführen, damit veraltete Vorschau-Antworten (Race bei
   schnellen Änderungen) verworfen werden.
 - Doppelte Kanten oder sich schneidende Streifen zerstören Profile → Deduplizierung und
-  Knockout sind Pflicht, nicht Kosmetik.
+  Knockout sind Pflicht, nicht Kosmetik. Bei kachelnden Mustern entfällt das Problem im
+  Flächenmodell ganz (siehe Abschnitt 13).
+- `inset_polygon` arbeitet mit Winkelhalbierenden und kollabiert an konkaven Konturen
+  (Puzzle-Nasen) → zum Verkleinern von Zellen den Stroker-Offset verwenden.
 - SketchText-Schriftarten unterscheiden sich zwischen macOS/Windows → Fallback auf „Arial"
   und Fehlermeldung statt Absturz bei unbekannter Schrift.
 - Palette-HTML wird von Fusion gecacht → beim Entwickeln Version-Query an die URL hängen.

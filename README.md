@@ -187,6 +187,8 @@ Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablau
    Flächenmodus bestimmt **Dicke** die Stegbreite; **Füllung** schaltet zwischen
    *Stegen* (Wände zwischen den Zellen) und *Zellen* (die Zellflächen selbst) um.
    Muster ohne Zellstruktur bieten nur *Stege* an – die Auswahl wird dann ausgeblendet.
+   **Rahmendicke** legt die Breite des geschlossenen Randes fest; sie wird **nach
+   innen** gemessen, das eingestellte Rahmenmaß bleibt also das Außenmaß.
 5. **Text-Ebene** – ein- oder mehrzeiliger Text mit Schriftart, Höhe, Position und
    Winkel. **Muster ausstanzen** hält den Textbereich (plus einstellbaren Rand) frei.
 6. **Extrusion** – optional direkt mitextrudieren: Tiefe, Richtung und Vorgang
@@ -252,14 +254,47 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | **Beschnitt** | `Am Rand beschneiden` (cut), `Angeschnittene weglassen` (dropPartial – ergibt ausgefranste, natürliche Ränder) oder `Aus`. |
 | **Seed** | Gleicher Seed ⇒ identisches Muster in Vorschau, Skizze und nach dem Bearbeiten. |
 | **Knockout** | Das Muster wird im Bereich der Text-Bounding-Box (plus Rand) ausgestanzt. |
+| **Eine Fläche** | Bei den kachelnden Mustern (Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe) entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
+
+---
+
+## Eine Fläche statt vieler Streifen
+
+Bei **kachelnden** Mustern – Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel,
+Zellgewebe – ist das Stegnetz exakt *Rahmen minus verkleinerte Zellen*. Das Add-In
+erzeugt deshalb genau **eine** Außenkontur mit Löchern statt vieler sich
+überlappender Streifen:
+
+* **Auswählen mit einem Klick** – in Fusion ist das ganze Muster ein Profil.
+* **Keine Überlappungen** an den Knotenpunkten, keine doppelten Kanten.
+* **3D-druckbar** – der extrudierte Körper ist dicht und ohne Selbstüberschneidung.
+* **Weniger Skizzen-Elemente** – die Wabe im Beispiel: 1849 → 679 Entities.
+
+Voraussetzung sind **Flächen** + **Stege**, **Rahmen zeichnen** an (der Rahmen *ist*
+die Außenkontur) und ein Beschnitt ≠ *Aus*. Ohne Rahmen bleiben die Stege einzelne
+Streifen und enden offen am Rand – für Gravuren gewollt.
+
+Die Stegbreite ist die eingestellte **Dicke**. Bringt ein Muster eine eigene Fuge mit
+(Mauer: *Fugenbreite*, Voronoi/Kiesel/Zellgewebe: *Fugenbreite*), gilt die größere von
+beiden – so bleiben die Ziegelmaße exakt. Angeschnittene Randzellen, die nur noch
+einen hauchdünnen Splitter ergäben, werden zugemacht: im Druck wären das nicht
+darstellbare Kanten.
+
+**Strich-Muster** ohne Zellen (Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
+Motiv-Streuung, Kaustik, Blattadern) bestehen weiterhin aus mehreren Streifen. Sie
+lassen sich mit **Direkt extrudieren** trotzdem in einem Schritt zu **einem** Körper
+verschmelzen; die einzelne Auswahl im Skizzen-Modus ist dort noch offen.
 
 ---
 
 ## Parameter-Referenz
 
 Gemeinsam für alle Muster: **Rahmen** (Form + Maße, Ursprung, Drehung von Rahmen und
-Muster), **Stil** (Modus, Dicke, Stege/Zellen, Beschnitt, Rahmen zeichnen),
-**Text-Ebene**, **Extrusion** und **Seed**.
+Muster), **Stil** (Modus, Dicke, Stege/Zellen, Beschnitt, Rahmen zeichnen,
+**Rahmendicke**), **Text-Ebene**, **Extrusion** und **Seed**.
+
+Die **Rahmendicke** (`style.borderWidth`, Standard 1,5 mm) wirkt im Flächenmodus und
+wird nach innen gemessen: ein Kreisrahmen mit 90 mm bleibt außen 90 mm groß.
 
 ### Technisch
 
@@ -309,15 +344,15 @@ Ziegelverband mit einstellbarer Fugenbreite und Reihenversatz (Läuferverband 1/
 
 #### Puzzle (`puzzle`)
 
-Puzzleteile im Raster X×Y. Jede Innenkante bekommt eine Nase, deren Richtung der Seed bestimmt. Im Flächenmodus ist jedes Teil ein geschlossenes, extrudierbares Profil.
+Puzzleteile im Raster X×Y. Jede Innenkante bekommt eine klassische Nase: runder Kopf an einem schmalen Hals, mit dem typischen Unterschnitt am Fuß. Der Kopf ist ein **echter Kreis** und rund 1,75-mal so breit wie der Hals – nur so greifen die Teile ineinander. Die Richtung jeder Nase bestimmt der Seed.
 
 - Flächenmodus: Stege, Zellen
 - Vorgaben: fein, mittel, grob
 - Parameter:
   - **Teile X** (`countX`) – Standard 5 – Zwischen 1 und 60
   - **Teile Y** (`countY`) – Standard 4 – Zwischen 1 und 60
-  - **Nasengröße** (`tabSize`) – Standard 22 % – Zwischen 2 % und 45 % – Höhe der Nase in Prozent der Kantenlänge.
-  - **Halsbreite** (`neckWidth`) – Standard 16 % – Zwischen 6 % und 40 % – Breite des Nasenhalses in Prozent der Kantenlänge.
+  - **Nasengröße** (`tabSize`) – Standard 28 % – Zwischen 2 % und 45 % – Gesamthöhe der Nase (Hals + Kopf) in Prozent der Kantenlänge. Zu kleine Werte werden auf die Kopfgröße angehoben.
+  - **Halsbreite** (`neckWidth`) – Standard 18 % – Zwischen 6 % und 40 % – Breite des Nasenhalses in Prozent der Kantenlänge; der Kopf ergibt sich daraus.
   - **Formstreuung** (`shapeJitter`) – Standard 0.15 – Zwischen 0 und 1 – Zufällige Variation von Nasengröße und -position.
 
 ### Organische Zellen
@@ -489,7 +524,7 @@ ersten Lauf auf der eigenen Installation nachvollziehen und das Ergebnis eintrag
 | Rauten | 12 × 20 mm | 0,5 × 500 mm | sehr schlanke Rauten, sauber beschnitten |
 | Wabe | 8 mm, Fläche oben | 0,5 mm, Spitze oben, Zellen | lückenlos, Steg- **und** Zellprofile wählbar |
 | Mauer | 20 × 8 mm, Fuge 1,2 mm | Fuge 0 mm, Drittelverband | fugenlos = geschlossene Fläche, Randziegel beschnitten |
-| Puzzle | 5 × 4 Teile | 60 × 60, Nase 45 %, Hals 40 % | jedes Teil geschlossen; Entity-Warnung erscheint |
+| Puzzle | 5 × 4 Teile | 60 × 60, Nase 45 %, Hals 40 % | runder Kopf am schmalen Hals, Teile greifen ineinander; Entity-Warnung erscheint |
 | Voronoi | 120 Zellen | 500 Zellen, Inset 1,5 mm | < 10 s, Zellen als Inseln |
 | Kiesel | 110 Zellen, Rundheit 2 | Rundheit 3, Kernpunkt an | runde Zellen, je ein Kreis pro Zelle |
 | Zellgewebe | 8 Reihen, Streckung 2,5 | 80 Reihen, Streckung 10 | deutlich längliche Zellen in Reihen |
@@ -525,6 +560,7 @@ Zusätzlich zu prüfen:
 | **Die Vorschau steht auf „Ungültige Werte“** | Mindestens ein Feld liegt außerhalb seines Bereichs – es ist rot markiert und nennt den erlaubten Bereich. Wert korrigieren oder **Zurücksetzen** in der Gruppe klicken. |
 | **Warnung „ca. N Skizzen-Elemente“** | Das Muster ist sehr fein. Zellgröße/Abstand vergrößern, Zellenzahl senken oder in den **Linienmodus** wechseln. Ab ca. 2000 Elementen fragt der Commit vor dem Erzeugen nach. |
 | **Erzeugen dauert sehr lange** | Gleiche Ursache. Fusion braucht pro Skizzenelement Zeit; die Elementzahl steht unter der Vorschau. |
+| **Das Muster lässt sich nicht in einem Zug auswählen** | Für die zusammenhängende Fläche müssen **Flächen** + **Stege** eingestellt, **Rahmen zeichnen** aktiv und der Beschnitt ≠ *Aus* sein. Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Kaustik, Blattadern, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig – dort **Direkt extrudieren** verwenden, das verschmilzt alle Profile zu einem Körper. |
 | **Extrusion findet keine Profile** | Der **Linienmodus** erzeugt offene Kurven. Für extrudierbare Profile den **Flächenmodus** verwenden. |
 | **Die Schriftart sieht in Fusion anders aus als in der Vorschau** | Die Vorschau rendert mit der Browser-Schrift. Unbekannte Schriftarten fallen in Fusion automatisch auf *Arial* zurück (mit Hinweis). |
 | **„Skizze wurde von Hand verändert“** | Erwartetes Verhalten: beim Neuaufbau gehen manuelle Änderungen an dieser Skizze verloren. Abbrechen und die Änderungen in eine eigene Skizze auslagern. |
@@ -599,6 +635,11 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
 * **Fusion cacht Palette-HTML.** Beim Weiterentwickeln der Oberfläche hängt
   `palette_bridge.py` automatisch eine Version an die URL an; bei hartnäckigem Cache
   hilft ein Neustart von Fusion.
+* **Strich-Muster ergeben noch keine einzelne Fläche.** Fischgrät, Wellen, Schuppen,
+  Phyllotaxis, Spiralen, Motiv-Streuung, Kaustik und Blattadern haben keine Zellen;
+  ihre Streifen überlappen sich echt. Eine einzelne Fläche bräuchte eine Boolesche
+  Vereinigung (siehe `PLAN.md`, Abschnitt 13, Stufe 2). Beim Extrudieren entsteht
+  trotzdem **ein** Körper.
 * Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster erscheint
   nicht als eigener Timeline-Eintrag (siehe PLAN.md, Phase 6).
 
@@ -808,7 +849,9 @@ Goal: a coaster with a honeycomb pattern — as an example of the complete workf
    extrudable profiles. In face mode **Dicke** (thickness) defines the web width;
    **Füllung** (fill) switches between *Stege* (the walls between the cells) and
    *Zellen* (the cell faces themselves). Patterns without a cell structure only
-   offer *Stege* — the choice is then hidden.
+   offer *Stege* — the choice is then hidden. **Rahmendicke** (border width) sets
+   the width of the closed rim; it is measured **inwards**, so the container size
+   you enter stays the outer size of the part.
 5. **Text layer** (*Text-Ebene*) — single- or multi-line text with font, height,
    position and angle. **Muster ausstanzen** (knock out) keeps the text area (plus an
    adjustable margin) free of pattern.
@@ -875,6 +918,36 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | **Clipping** (*Beschnitt*) | `cut at border` (cut), `drop partial` (ragged, natural edges) or `off`. |
 | **Seed** | Same seed ⇒ identical pattern in the preview, in the sketch and after re-editing. |
 | **Knockout** | The pattern is punched out within the text bounding box (plus margin). |
+| **One single face** | For the tiling patterns (grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles, tissue) face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
+
+---
+
+## One face instead of many strips
+
+For **tiling** patterns — grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles,
+tissue — the web network is exactly *container minus shrunken cells*. The add-in
+therefore produces a single outer contour with holes instead of many overlapping
+strips:
+
+* **Select it with one click** — in Fusion the whole pattern is one profile.
+* **No overlaps** at the junctions, no duplicated edges.
+* **3D-printable** — the extruded solid is watertight and free of self-intersections.
+* **Fewer sketch entities** — the honeycomb example: 1849 → 679 entities.
+
+This requires **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw
+container) switched on — the container *is* the outer contour — and clipping ≠ *Aus*
+(off). Without the container the webs stay individual strips and end openly at the
+border, which is what you want for engravings.
+
+The web width is the **Dicke** (thickness) you set. If a pattern brings its own joint
+(brick: *Fugenbreite*; Voronoi/pebbles/tissue: *Fugenbreite*), the larger of the two
+wins — that keeps brick dimensions exact. Clipped border cells that would leave only a
+hairline sliver are closed up: such edges could not be printed.
+
+**Stroke patterns** without cells (herringbone, waves, scales, phyllotaxis, spirals,
+motif scatter, caustics, leaf veins) still consist of several strips. With **Direkt
+extrudieren** (extrude directly) they are still merged into **one** body in a single
+step; selecting them as one profile in the sketch is not implemented yet.
 
 ---
 
@@ -882,7 +955,10 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 
 Shared by every pattern: **container** (shape + dimensions, origin, rotation of
 container and pattern), **style** (mode, thickness, webs/cells, clipping, draw
-container), **text layer**, **extrusion** and **seed**. Each entry below gives the
+container, **border width**), **text layer**, **extrusion** and **seed**.
+
+**Border width** / „Rahmendicke“ (`style.borderWidth`, default 1.5 mm) applies in face
+mode and is measured inwards: a 90 mm circular container stays 90 mm across. Each entry below gives the
 English meaning, the German label shown in the editor and the internal key.
 
 ### Technical
@@ -937,16 +1013,18 @@ Brick bond with adjustable joint width and row offset (running bond 1/2, third b
 
 #### Puzzle — „Puzzle“ (`puzzle`)
 
-Puzzle pieces in an X×Y grid. Every inner edge gets a tab whose direction comes from
-the seed. In face mode each piece is a closed, extrudable profile.
+Puzzle pieces in an X×Y grid. Every inner edge gets a classic tab: a round head on a
+narrow neck with the typical undercut at its foot. The head is a **true circle** and
+about 1.75 times as wide as the neck — only then do the pieces interlock. The
+direction of each tab comes from the seed.
 
 - Face mode: webs, cells
 - Presets: fine, medium, coarse
 - Parameters:
   - **Pieces X** / „Teile X“ (`countX`) – default 5 – 1 to 60.
   - **Pieces Y** / „Teile Y“ (`countY`) – default 4 – 1 to 60.
-  - **Tab size** / „Nasengröße“ (`tabSize`) – default 22 % – 2 % to 45 % – tab height as a percentage of the edge length.
-  - **Neck width** / „Halsbreite“ (`neckWidth`) – default 16 % – 6 % to 40 % – width of the tab neck as a percentage of the edge length.
+  - **Tab size** / „Nasengröße“ (`tabSize`) – default 28 % – 2 % to 45 % – total tab height (neck + head) as a percentage of the edge length; values too small to leave a neck are raised to the head size.
+  - **Neck width** / „Halsbreite“ (`neckWidth`) – default 18 % – 6 % to 40 % – width of the tab neck as a percentage of the edge length; the head follows from it.
   - **Shape jitter** / „Formstreuung“ (`shapeJitter`) – default 0.15 – 0 to 1 – random variation of tab size and position.
 
 ### Organic cells
@@ -1128,7 +1206,7 @@ result.
 | Rhombus | 12 × 20 mm | 0.5 × 500 mm | very slim rhombi, cleanly clipped |
 | Honeycomb | 8 mm, flat top | 0.5 mm, pointy top, cells | gapless, web **and** cell profiles selectable |
 | Brick | 20 × 8 mm, joint 1.2 mm | joint 0 mm, third bond | no joint = closed face, border bricks clipped |
-| Puzzle | 5 × 4 pieces | 60 × 60, tab 45 %, neck 40 % | every piece closed; entity warning appears |
+| Puzzle | 5 × 4 pieces | 60 × 60, tab 45 %, neck 40 % | round head on a narrow neck, pieces interlock; entity warning appears |
 | Voronoi | 120 cells | 500 cells, inset 1.5 mm | < 10 s, cells as islands |
 | Pebbles | 110 cells, roundness 2 | roundness 3, core point on | round cells, one circle per cell |
 | Tissue | 8 rows, stretch 2.5 | 80 rows, stretch 10 | clearly elongated cells in rows |
@@ -1165,6 +1243,7 @@ Also worth checking:
 | **The preview says „Ungültige Werte“ (invalid values)** | At least one field is out of range — it is marked red and states the allowed range. Fix the value or click **Zurücksetzen** in that group. |
 | **Warning „ca. N Skizzen-Elemente“** | The pattern is very fine. Increase cell size/spacing, lower the cell count or switch to **line mode**. From roughly 2000 elements the commit asks before creating. |
 | **Creating takes very long** | Same cause. Fusion needs time per sketch element; the element count is shown below the preview. |
+| **The pattern cannot be selected in one go** | For the connected face you need **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw container) on and clipping ≠ *Aus* (off). Stroke patterns (waves, spirals, herringbone, scales, caustics, leaf veins, phyllotaxis, motif scatter) stay multi-part — use **Direkt extrudieren** there, which merges all profiles into one body. |
 | **The extrusion finds no profiles** | **Line mode** produces open curves. Use **face mode** for extrudable profiles. |
 | **The font looks different in Fusion than in the preview** | The preview renders with the browser font. Unknown fonts fall back to *Arial* in Fusion automatically (with a notice). |
 | **„Skizze wurde von Hand verändert“ (sketch was edited manually)** | Expected behaviour: manual changes to that sketch are lost on rebuild. Cancel and move your changes into a separate sketch. |
@@ -1239,6 +1318,10 @@ and help text are derived from the class.
 * **From roughly 2000 sketch elements** the commit warns and can be cancelled.
 * **Fusion caches the palette HTML.** While developing the UI, `palette_bridge.py`
   appends a version to the URL automatically; for a stubborn cache, restart Fusion.
+* **Stroke patterns do not form a single face yet.** Herringbone, waves, scales,
+  phyllotaxis, spirals, motif scatter, caustics and leaf veins have no cells, so their
+  strips genuinely overlap. A single face would need a boolean union (see `PLAN.md`,
+  section 13, stage 2). Extruding them still yields **one** body.
 * The add-in creates sketch geometry, **not** a CustomFeature — the pattern does not
   appear as its own timeline entry (see PLAN.md, phase 6).
 

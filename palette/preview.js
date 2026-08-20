@@ -92,17 +92,33 @@
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
 
+    // Zusammenhaengende Flaeche (Stegnetz): Aussenkontur und Loecher gehoeren zu
+    // EINEM Pfad, sonst wuerden die Loecher die Flaeche wieder zumalen.
+    if (fill) {
+      var face = els.filter(function (e) { return e.role === 'face' || e.role === 'hole'; });
+      if (face.length) {
+        ctx.save();
+        ctx.beginPath();
+        face.forEach(function (e) { self._sub(e); });
+        ctx.fillStyle = self._fillStyle(c);
+        ctx.fill('evenodd');
+        ctx.restore();
+      }
+    }
+
     els.forEach(function (el) {
       var isBorder = el.layer === 'border';
+      var inFace = el.role === 'face' || el.role === 'hole';
       ctx.save();
       ctx.strokeStyle = isBorder ? c.muted : c.accent;
       ctx.lineWidth = isBorder ? 1.2 : 1;
-      if (isBorder) { ctx.setLineDash([5, 4]); }
+      if (isBorder && !inFace) { ctx.setLineDash([5, 4]); }
+      if (inFace) { ctx.strokeStyle = c.accent; }
       ctx.fillStyle = self._fillStyle(c);
 
       switch (el.t) {
-        case 'path': self._path(el, fill && !isBorder); break;
-        case 'circle': self._circle(el, fill && !isBorder); break;
+        case 'path': self._path(el, fill && !isBorder && !inFace); break;
+        case 'circle': self._circle(el, fill && !isBorder && !inFace); break;
         case 'arc': self._arc(el); break;
         case 'ellipse': self._ellipse(el); break;
         case 'text': self._text(el, c); break;
@@ -144,6 +160,36 @@
       }
     }
     if (closed) { ctx.closePath(); }
+  };
+
+  /** Element als Teilpfad an den laufenden Pfad haengen (ohne beginPath). */
+  Preview.prototype._sub = function (el) {
+    var ctx = this.ctx, p, i;
+    if (el.t === 'path') {
+      if (!el.pts.length) { return; }
+      p = this.toScreen(el.pts[0][0], el.pts[0][1]);
+      ctx.moveTo(p.x, p.y);
+      for (i = 1; i < el.pts.length; i++) {
+        var q = this.toScreen(el.pts[i][0], el.pts[i][1]);
+        ctx.lineTo(q.x, q.y);
+      }
+      ctx.closePath();
+    } else if (el.t === 'circle') {
+      p = this.toScreen(el.c[0], el.c[1]);
+      ctx.moveTo(p.x + Math.abs(el.r * this.scale), p.y);
+      ctx.arc(p.x, p.y, Math.abs(el.r * this.scale), 0, Math.PI * 2);
+      ctx.closePath();
+    } else if (el.t === 'ellipse') {
+      p = this.toScreen(el.c[0], el.c[1]);
+      if (ctx.ellipse) {
+        ctx.moveTo(p.x + el.rx * this.scale, p.y);
+        ctx.ellipse(p.x, p.y, el.rx * this.scale, el.ry * this.scale, -el.rot, 0, Math.PI * 2);
+      } else {
+        ctx.moveTo(p.x + el.rx * this.scale, p.y);
+        ctx.arc(p.x, p.y, el.rx * this.scale, 0, Math.PI * 2);
+      }
+      ctx.closePath();
+    }
   };
 
   Preview.prototype._path = function (el, fill) {

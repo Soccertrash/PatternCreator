@@ -100,14 +100,23 @@ def test_area_mode_only_produces_closed_profiles(pattern_id):
 def test_line_mode_keeps_curves(pattern_id):
     scene = scene_for(pattern_id, style={"mode": "lines"})
     assert scene.counts()["contours"] > 0
-    # Linienmodus erzeugt deutlich weniger Entities als der Flächenmodus
-    assert entity_estimate(scene) <= entity_estimate(scene_for(pattern_id))
+    # Linienmodus strokt nichts: keine Flächen-Rollen im Ergebnis
+    assert not any(getattr(el, "role", "") in (ir.ROLE_FACE, ir.ROLE_HOLE)
+                   for el in scene.elements)
+    if not getattr(generators.REGISTRY[pattern_id], "tiling", False):
+        # Ohne Flächenmodell wird jede Linie zum Streifen -> mehr Entities.
+        # Kachelnde Muster liefern als eine Fläche mit Löchern nicht mehr
+        # Entities als der Linienmodus, dort greift der Vergleich nicht.
+        assert entity_estimate(scene) <= entity_estimate(scene_for(pattern_id))
 
 
 @pytest.mark.parametrize("pattern_id", ALL_IDS)
 def test_thickness_changes_area_geometry(pattern_id):
+    # Bringt das Muster eine eigene Fuge mit (Mauer, Kiesel ...), gilt die
+    # größere von beiden - die Dicke muss sie also übersteigen, um zu wirken.
+    gap = generators.get_generator(pattern_id).gap(pd.default_doc(pattern_id)["pattern"]["params"])
     thin = scene_for(pattern_id, style={"thickness": 0.04})
-    thick = scene_for(pattern_id, style={"thickness": 0.16})
+    thick = scene_for(pattern_id, style={"thickness": max(0.16, gap * 2)})
     assert json.dumps(thin.to_dict()) != json.dumps(thick.to_dict())
 
 
@@ -196,7 +205,10 @@ def test_honeycomb_offers_webs_and_cells():
     assert set(gen.fill_targets) == {"webs", "cells"}
     webs = scene_for("honeycomb", style={"fillTarget": "webs"})
     cells = scene_for("honeycomb", style={"fillTarget": "cells"})
-    assert webs.counts()["contours"] != cells.counts()["contours"]
+    assert json.dumps(webs.to_dict()) != json.dumps(cells.to_dict())
+    # Stege = eine Fläche mit Löchern, Zellen = einzelne Inseln
+    assert any(getattr(el, "role", "") == ir.ROLE_FACE for el in webs.elements)
+    assert not any(getattr(el, "role", "") == ir.ROLE_HOLE for el in cells.elements)
 
 
 @pytest.mark.parametrize("bond,joint", [("half", 0.12), ("third", 0.12),
@@ -237,6 +249,61 @@ def test_puzzle_tab_size_and_neck_width_have_an_effect():
                      params={"tabSize": 40.0, "neckWidth": 35.0, "shapeJitter": 0.0})
     assert json.dumps(small.to_dict()) != json.dumps(big.to_dict())
     assert json.dumps(neck.to_dict()) != json.dumps(big.to_dict())
+
+
+def _puzzle_tab_profile(**params):
+    """Eine Innenkante als Profil (x entlang der Kante, y quer), normiert."""
+    import random
+    from generators.puzzle import PuzzleGenerator
+
+    p = dict(PuzzleGenerator.defaults())
+    p.update(params)
+    pts = PuzzleGenerator._edge((0.0, 0.0), (1.0, 0.0), True,
+                                p["tabSize"] / 100.0, p["neckWidth"] / 100.0,
+                                0.0, random.Random(1))
+    sign = 1.0 if max(q[1] for q in pts) > -min(q[1] for q in pts) else -1.0
+    return [(q[0], q[1] * sign) for q in pts]
+
+
+def test_puzzle_head_is_wider_than_neck():
+    """Ohne breiteren Kopf greifen die Teile nicht ineinander."""
+    prof = _puzzle_tab_profile(tabSize=28.0, neckWidth=18.0)
+    height = max(q[1] for q in prof)
+
+    def width_at(frac, band=0.03):
+        y = height * frac
+        xs = [q[0] for q in prof if abs(q[1] - y) < band * height]
+        return max(xs) - min(xs) if len(xs) > 1 else 0.0
+
+    neck = width_at(0.30)
+    head = width_at(0.75)
+    assert head > neck * 1.3, "Kopf (%.3f) muss deutlich breiter sein als der Hals (%.3f)" % (head, neck)
+
+
+def test_puzzle_head_is_round():
+    """Der Kopf ist ein echter Kreis - alle Scheitelpunkte gleich weit vom Zentrum."""
+    prof = _puzzle_tab_profile(tabSize=30.0, neckWidth=18.0, shapeJitter=0.0)
+    height = max(q[1] for q in prof)
+    half_head = 18.0 / 100.0 / 2.0 * 1.75
+    centre = (0.5, height - half_head)
+    top = [q for q in prof if q[1] > centre[1]]
+    radii = [math.hypot(q[0] - centre[0], q[1] - centre[1]) for q in top]
+    assert max(radii) - min(radii) < half_head * 0.06
+
+
+def test_puzzle_profile_has_no_duplicate_points():
+    """Doppelte Punkte ergeben Null-Längen-Linien in der Skizze."""
+    prof = _puzzle_tab_profile()
+    for a, b in zip(prof, prof[1:]):
+        assert math.hypot(b[0] - a[0], b[1] - a[1]) > 1e-9
+
+
+def test_puzzle_tab_stays_on_its_edge():
+    """Die Nase darf nicht über die Kantenenden hinauslaufen."""
+    for neck in (6.0, 18.0, 40.0):
+        prof = _puzzle_tab_profile(neckWidth=neck, tabSize=45.0)
+        assert min(q[0] for q in prof) >= -1e-9
+        assert max(q[0] for q in prof) <= 1.0 + 1e-9
 
 
 # ------------------------------------------------------ Organische Muster

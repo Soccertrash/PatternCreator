@@ -21,9 +21,9 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from . import ir
 from .containers import Container, make_container
-from .geom import (chain_segments, inset_polygon, polygon_segments, rotate,
-                   snap_segments)
-from .stroker import stroke
+from .geom import (chain_segments, ensure_ccw, polygon_area, polygon_segments,
+                   polyline_length, rotate, snap_segments)
+from .stroker import offset_polyline, stroke
 
 Point = Tuple[float, float]
 
@@ -58,20 +58,49 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
     if abs(pattern_angle) > 1e-12:
         elements = [_rotate_element(el, pattern_angle) for el in elements]
 
-    elements = _clip_elements(elements, container, str(style.get("clip", "cut")))
-    elements = _apply_text_knockout(elements, doc, style)
-
     fill_target = str(style.get("fillTarget", "webs"))
     if fill_target not in getattr(gen, "fill_targets", ("webs",)):
         fill_target = getattr(gen, "fill_targets", ("webs",))[0]
 
-    if str(style.get("mode", "area")) == "area":
-        elements = _to_areas(elements, thickness=float(style.get("thickness", 0.08)),
-                             fill_target=fill_target, own_gap=bool(gen.own_gap))
-        elements = _knockout_sweep(elements, doc)
+    mode = str(style.get("mode", "area"))
+    clip_mode = str(style.get("clip", "cut"))
+    thickness = float(style.get("thickness", 0.08))
+    border_on = bool(style.get("border"))
+    border_width = float(style.get("borderWidth", 0.0)) if border_on else 0.0
 
-    if style.get("border"):
-        elements = list(container.outline()) + elements
+    # Stegnetz eines kachelnden Musters ist exakt "Rahmen minus verkleinerte
+    # Zellen" - das ergibt EINE zusammenhaengende, dichte Flaeche statt vieler
+    # sich ueberlappender Streifen (klickbar in einem Zug, 3D-druckbar).
+    # Bedingung ist ein gezeichneter Rahmen: er ist die Aussenkontur dieser
+    # Flaeche. Ohne Rahmen bleibt es beim Stroken der einzelnen Stegketten -
+    # dann enden die Stege offen am Rand (fuer Gravuren gewollt).
+    as_face = (mode == "area" and fill_target == "webs" and border_on
+               and bool(getattr(gen, "tiling", False)) and clip_mode != "off")
+
+    # Der Rand wird nach innen gemessen: das Muster endet ``border_width`` vor der
+    # Aussenkante, ein halber Steg davon entsteht ohnehin durch das Verkleinern.
+    clip_container = container
+    if as_face:
+        inset = max(0.0, border_width - thickness / 2.0)
+        if inset > 1e-9:
+            clip_container = container.shrunk(inset)
+
+    elements = _clip_elements(elements, clip_container, clip_mode)
+
+    if as_face:
+        elements = _drop_regions_in_text(elements, doc, thickness)
+        elements = _to_face(elements, container, thickness,
+                            own_gap=gen.gap(doc["pattern"]["params"]),
+                            hole_limit=container.shrunk(border_width))
+        elements = _knockout_sweep(elements, doc)
+    else:
+        elements = _apply_text_knockout(elements, doc, style)
+        if mode == "area":
+            elements = _to_areas(elements, thickness=thickness,
+                                 fill_target=fill_target, own_gap=bool(gen.own_gap))
+            elements = _knockout_sweep(elements, doc)
+        if border_on:
+            elements = list(container.outline()) + elements
 
     from text.text_layer import text_elements
     for layer in doc.get("textLayers", []):
@@ -256,7 +285,8 @@ def _to_areas(elements: Sequence[Any], thickness: float, fill_target: str,
     for el in elements:
         if isinstance(el, ir.Path) and el.role == ir.ROLE_REGION and el.closed:
             if fill_target == "cells":
-                poly = el.points if own_gap else inset_polygon(el.points, thickness / 2.0)
+                poly = (list(el.points) if own_gap
+                        else _shrink_cell(el.points, thickness / 2.0))
                 if poly and len(poly) >= 3:
                     out.append(ir.Path(points=list(poly), closed=True, curve=el.curve,
                                        role=ir.ROLE_REGION, layer=el.layer))
@@ -291,6 +321,125 @@ def _to_areas(elements: Sequence[Any], thickness: float, fill_target: str,
             for ring in stroke(pts, closed, thickness):
                 out.append(ir.Path(points=ring, closed=True, curve="line",
                                    role=ir.ROLE_REGION, layer=ir.LAYER_PATTERN))
+    return out
+
+
+def _drop_regions_in_text(elements: Sequence[Any], doc: dict,
+                          thickness: float) -> List[Any]:
+    """Knockout im Flaechenmodell: Loecher im Textbereich fallen ganz weg.
+
+    Anders als beim Stroken wird hier nicht die Zelle beschnitten - eine
+    angeschnittene Zelle waere ein Loch mit Textkante. Stattdessen entfaellt das
+    Loch komplett, der Textbereich wird also massiv und der Text bleibt lesbar.
+    """
+    from core.clip import polygon_intersects
+    from text.text_layer import text_box
+
+    boxes = []
+    for layer in doc.get("textLayers", []):
+        if layer.get("enabled") and layer.get("knockout"):
+            margin = float(layer.get("knockoutMargin", 0.0)) + thickness / 2.0
+            box = text_box(layer, margin=margin)
+            if box:
+                boxes.append(box)
+    if not boxes:
+        return list(elements)
+
+    out: List[Any] = []
+    for el in elements:
+        pts = None
+        if isinstance(el, ir.Path) and el.closed:
+            pts = el.points
+        elif isinstance(el, ir.Circle):
+            pts = _circle_to_points(el, 24)
+        if pts is not None and any(polygon_intersects(pts, box) for box in boxes):
+            continue
+        out.append(el)
+    return out
+
+
+def _shrink_cell(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
+    """Zelle um ``delta`` verkleinern - auch bei konkaven Konturen.
+
+    ``inset_polygon`` arbeitet mit Winkelhalbierenden und kollabiert an starken
+    Einbuchtungen (Puzzle-Nasen). Der Offset des Strokers kommt damit zurecht;
+    das Ergebnis wird verworfen, wenn es umklappt oder groesser wird.
+    """
+    if delta <= 1e-12:
+        return list(pts)
+    src = ensure_ccw(pts)
+    if len(src) < 3:
+        return None
+    poly = offset_polyline(src, [delta] * len(src), closed=True)
+    if not poly or len(poly) < 3:
+        return None
+    a_src, a_new = polygon_area(src), polygon_area(poly)
+    if a_new <= 1e-10 or a_new >= a_src:
+        return None
+    return poly
+
+
+#: Ein Loch, dessen mittlere Breite darunter liegt, ist ein Splitter aus einer
+#: angeschnittenen Randzelle - es wird zugemacht (sonst duenne, nicht druckbare
+#: Stellen und unnoetige Skizzen-Entities).
+MIN_HOLE_WIDTH_FACTOR = 0.5
+
+
+def _is_sliver(poly: Sequence[Point], min_width: float) -> bool:
+    """Mittlere Breite = 2 * Flaeche / Umfang - unter ``min_width`` ein Splitter."""
+    if min_width <= 0:
+        return False
+    area = abs(polygon_area(poly))
+    perimeter = polyline_length(poly, closed=True)
+    if perimeter <= 1e-12:
+        return True
+    return (2.0 * area / perimeter) < min_width
+
+
+def _limit_hole(poly: Sequence[Point], limit: Optional[Container]
+                ) -> List[List[Point]]:
+    """Loch auf den erlaubten Bereich beschneiden (Rahmendicke einhalten)."""
+    if limit is None or limit.fully_inside(poly):
+        return [list(poly)]
+    return [p for p in limit.clip_path(poly, True) if len(p) >= 3]
+
+
+def _to_face(elements: Sequence[Any], container: Container, thickness: float,
+             own_gap: float, hole_limit: Optional[Container] = None) -> List[Any]:
+    """Kachelndes Stegnetz -> eine Flaeche: Aussenkontur + Loecher.
+
+    Die Zelle wird so weit verkleinert, dass der Steg zwischen zwei Zellen genau
+    ``thickness`` breit wird - wie beim Stroken, aber ohne dass sich an den Knoten
+    Streifen ueberlappen. ``own_gap`` ist die Fuge, die der Generator schon selbst
+    laesst (Mauerfuge, Voronoi-Fuge); sie wird angerechnet, die Stegbreite ist also
+    ``max(thickness, own_gap)`` und die Ziegelmasse bleiben exakt.
+
+    ``hole_limit`` begrenzt die Loecher zusaetzlich: an beschnittenen Randzellen
+    kann die Gehrung eine Ecke nach aussen schieben und den Rahmen dort duenner
+    machen als eingestellt. Das Beschneiden am Limit garantiert die Rahmendicke
+    an **jeder** Stelle - wichtig fuer den 3D-Druck.
+    """
+    out: List[Any] = [container.face_outline()]
+    delta = max(0.0, (thickness - own_gap) / 2.0)
+
+    for el in elements:
+        if isinstance(el, ir.Path) and el.role == ir.ROLE_REGION and el.closed:
+            poly = _shrink_cell(el.points, delta)
+            if not poly or len(poly) < 3:
+                continue
+            for piece in _limit_hole(poly, hole_limit):
+                if abs(polygon_area(piece)) <= 1e-10:
+                    continue
+                if _is_sliver(piece, thickness * MIN_HOLE_WIDTH_FACTOR):
+                    continue
+                out.append(ir.Path(points=list(piece), closed=True, curve=el.curve,
+                                   role=ir.ROLE_HOLE, layer=el.layer))
+        elif isinstance(el, ir.Circle) and el.role == ir.ROLE_REGION:
+            # Kreise sind bei kachelnden Mustern Einschluesse (z. B. Kiesel-Kern),
+            # keine Kacheln - sie bleiben eigenstaendige Inseln im Loch.
+            out.append(el)
+        elif isinstance(el, ir.TextItem):
+            out.append(el)
     return out
 
 

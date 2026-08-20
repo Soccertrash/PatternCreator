@@ -14,6 +14,7 @@ from .base import GenContext, Generator
 
 class GridGenerator(Generator):
     id = "grid"
+    tiling = True
     label = "Gitter"
     description = ("Rechtwinkliges Linienraster mit getrennten Abständen in X und Y. "
                    "Über den Scharenwinkel wird daraus ein schiefwinkliges Raster.")

@@ -12,6 +12,7 @@ from .organic_cells import OrganicGenerator, cell_params
 
 class VoronoiGenerator(OrganicGenerator):
     id = "voronoi"
+    tiling = True
     label = "Voronoi"
     description = ("Zufällige Zellstruktur (Voronoi-Diagramm). Grundbaustein für "
                    "Blattzellen, Kiesel, Gewebe und Kaustik.")

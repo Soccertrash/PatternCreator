@@ -15,6 +15,7 @@ from .organic_cells import OrganicGenerator, cell_params
 
 class PebblesGenerator(OrganicGenerator):
     id = "pebbles"
+    tiling = True
     label = "Kiesel"
     description = ("Runde Steinzellen: Voronoi mit Chaikin-Rundung und Fuge. "
                    "Optional bekommt jede Zelle einen versetzten Kernpunkt.")

@@ -15,6 +15,7 @@ from .base import GenContext, Generator
 
 class HoneycombGenerator(Generator):
     id = "honeycomb"
+    tiling = True
     label = "Wabe"
     description = ("Lückenloses Sechseckraster. Im Flächenmodus lassen sich wahlweise "
                    "die Stege (Wände) oder die Zellen extrudieren.")

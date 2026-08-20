@@ -61,6 +61,19 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] Integrierte Extrusion: Tiefe/Richtung/Operation wählbar; „Stege vs. Zellen" wählbar; Ergebnis entspricht manueller Profilauswahl.
 - [ ] Ein Commit = genau **ein** Timeline-Undo-Schritt (inkl. optionaler Extrusion).
 
+## G2. Flächenmodell & 3D-Druck (kachelnde Muster)
+- [ ] Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe ergeben im Flächenmodus mit *Stege* + *Rahmen zeichnen* **eine** Kontur mit Löchern – in Fusion mit **einem** Klick auswählbar.
+- [ ] Keine überlappenden Streifen mehr an den Knoten (Stichprobe Wabe: keine Kreuzungen an den Dreipunkten).
+- [ ] Stegbreite innen entspricht der eingestellten Dicke; bei Mauer/Kiesel gilt die größere von Dicke und eigener Fuge, Ziegelmaße bleiben exakt.
+- [ ] **Rahmendicke** wirkt und wird nach innen gemessen: Außenmaß des Bauteils bleibt das eingestellte Rahmenmaß (Messung in Fusion).
+- [ ] Rahmen ist an keiner Stelle dünner als eingestellt – auch nicht an angeschnittenen Randzellen.
+- [ ] Keine Splitter am Rand: keine hauchdünnen Löcher aus angeschnittenen Zellen.
+- [ ] Extrudiertes Ergebnis ist **ein** Körper ohne Selbstüberschneidung; STL-Export ohne Reparaturhinweis (Stichprobe Wabe + Puzzle).
+- [ ] Vorschau zeigt die Fläche mit Löchern (nicht flächig zugemalt).
+- [ ] Ohne Rahmen bzw. mit Beschnitt *Aus* greift weiterhin das alte Stroken (Gravur-Fall) – ohne Fehler.
+- [ ] Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Kaustik, Blattadern, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig, ergeben beim Extrudieren aber **einen** Körper. *(Stufe 2, siehe PLAN.md Abschnitt 13)*
+- [ ] Puzzle: runder Kopf an schmalem Hals, Nasen greifen ineinander, keine Knicke am Halsansatz; Nase bleibt auch bei Formstreuung 1,0 auf ihrer Kante.
+
 ## H. Text-Layer
 - [ ] Text über jedem Mustertyp platzierbar; Schriftart, Höhe, Position, Winkel wirken; Position auch per Drag in der Vorschau.
 - [ ] Knockout an: kein Muster-Element schneidet die Text-Box (+ Rand); Knockout aus: Überlagerung.

@@ -167,6 +167,10 @@ class OrganicGenerator(Generator):
     fill_targets = ("webs", "cells")
     own_gap = True
 
+    def gap(self, params):
+        # Jede Zelle ist um "inset" verkleinert -> Abstand = 2 * inset
+        return max(0.0, float(params.get("inset", 0.0))) * 2.0
+
     def cells_for(self, params: Dict[str, Any], ctx: GenContext) -> List[List[Point]]:
         return build_cells(
             ctx,

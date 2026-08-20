@@ -55,6 +55,10 @@ class Generator:
     fill_targets: Tuple[str, ...] = ("webs", "cells")
     #: True, wenn der Generator den Zellabstand selbst erzeugt (eigene Fugenbreite)
     own_gap: bool = False
+    #: True, wenn die Zellen die Flaeche lueckenlos kacheln (Gitter, Wabe, Voronoi ...).
+    #: Nur dann ist das Stegnetz exakt "Rahmen minus verkleinerte Zellen" und laesst
+    #: sich als **eine** Flaeche mit Loechern erzeugen (siehe ``core/build.py``).
+    tiling: bool = False
     #: Voreinstellungen fuer den Editor
     presets: Dict[str, Dict[str, Any]] = {}
 
@@ -63,6 +67,14 @@ class Generator:
     # -- Schnittstelle ----------------------------------------------------
     def generate(self, params: Dict[str, Any], ctx: GenContext) -> List[Any]:
         raise NotImplementedError
+
+    def gap(self, params: Dict[str, Any]) -> float:
+        """Fugenbreite, die der Generator **selbst** zwischen den Zellen laesst.
+
+        0.0 heisst: die Zellen stossen aneinander, die Stegbreite kommt allein
+        aus der eingestellten Dicke. Nur fuer ``tiling``-Generatoren relevant.
+        """
+        return 0.0
 
     # -- Hilfen -----------------------------------------------------------
     @classmethod

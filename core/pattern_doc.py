@@ -130,7 +130,15 @@ STYLE_PARAMS: List[Param] = [
     Param("clip", "Beschnitt", T_CHOICE, "cut", choices=[
         ("cut", "Am Rand beschneiden"), ("dropPartial", "Angeschnittene weglassen"),
         ("off", "Aus")]),
-    Param("border", "Rahmen zeichnen", T_BOOL, True),
+    Param("border", "Rahmen zeichnen", T_BOOL, True,
+          help="Im Flächenmodus ist der Rahmen die Außenkontur der "
+               "zusammenhängenden Fläche - ohne ihn bleiben die Stege einzelne "
+               "Streifen und enden offen am Rand."),
+    Param("borderWidth", "Rahmendicke", T_LENGTH, 0.15, min=0.0, max=20.0, step=0.01,
+          visible_if={"mode": ["area"], "border": [True]},
+          help="Breite des geschlossenen Rands, nach innen gemessen - das "
+               "eingestellte Rahmenmaß bleibt also das Außenmaß. 0 = nur so "
+               "breit wie ein halber Steg."),
 ]
 
 TEXT_PARAMS: List[Param] = [

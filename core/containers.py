@@ -16,8 +16,8 @@ from typing import List, Sequence, Tuple
 
 from . import clip as clipmod
 from . import ir
-from .geom import (circle_points, ellipse_points, point_in_polygon, regular_polygon,
-                   rounded_rect_points)
+from .geom import (circle_points, ellipse_points, inset_polygon, point_in_polygon,
+                   regular_polygon, rounded_rect_points)
 
 Point = Tuple[float, float]
 
@@ -35,6 +35,25 @@ class Container:
     def clip_polygon(self) -> List[Point]:
         """Konvexe Polygon-Naeherung - nur fuers Clipping."""
         raise NotImplementedError
+
+    def face_outline(self) -> object:
+        """Aussenkontur als **ein** Element (fuer die zusammenhaengende Flaeche).
+
+        ``outline()`` darf mehrteilig sein (abgerundetes Rechteck = Kanten +
+        Boegen); die Flaechenlogik in ``core/build.py`` braucht dagegen genau
+        eine geschlossene Kurve.
+        """
+        return ir.path(self.clip_polygon(), closed=True, layer=ir.LAYER_BORDER,
+                       role=ir.ROLE_FACE)
+
+    def shrunk(self, delta: float) -> "Container":
+        """Gleiche Form, um ``delta`` nach innen versetzt (Rahmenbreite)."""
+        if delta <= 1e-9:
+            return self
+        pts = inset_polygon(self.clip_polygon(), delta)
+        if not pts or len(pts) < 3:
+            return self
+        return CustomContainer(pts)
 
     def outline(self) -> List[object]:
         """Exakte IR-Geometrie des Umrisses."""
@@ -78,6 +97,19 @@ class RectContainer(Container):
     def clip_polygon(self):
         return rounded_rect_points(0.0, 0.0, self.width, self.height, self.corner_radius)
 
+    def face_outline(self):
+        return ir.path(self.clip_polygon(), closed=True, layer=ir.LAYER_BORDER,
+                       role=ir.ROLE_FACE)
+
+    def shrunk(self, delta):
+        if delta <= 1e-9:
+            return self
+        w = self.width - 2 * delta
+        h = self.height - 2 * delta
+        if w <= 1e-6 or h <= 1e-6:
+            return self
+        return RectContainer(w, h, max(0.0, self.corner_radius - delta))
+
     def outline(self):
         hw, hh = self.width / 2, self.height / 2
         r = min(self.corner_radius, hw - 1e-6, hh - 1e-6)
@@ -115,6 +147,15 @@ class CircleContainer(Container):
     def outline(self):
         return [ir.Circle((0.0, 0.0), self.radius, role=ir.ROLE_EDGE, layer=ir.LAYER_BORDER)]
 
+    def face_outline(self):
+        return ir.Circle((0.0, 0.0), self.radius, role=ir.ROLE_FACE,
+                         layer=ir.LAYER_BORDER)
+
+    def shrunk(self, delta):
+        if delta <= 1e-9 or self.radius - delta <= 1e-6:
+            return self
+        return CircleContainer((self.radius - delta) * 2.0)
+
 
 class EllipseContainer(Container):
     shape = "ellipse"
@@ -132,6 +173,15 @@ class EllipseContainer(Container):
 
     def outline(self):
         return [ir.Ellipse((0.0, 0.0), self.rx, self.ry, 0.0, layer=ir.LAYER_BORDER)]
+
+    def face_outline(self):
+        return ir.Ellipse((0.0, 0.0), self.rx, self.ry, 0.0, role=ir.ROLE_FACE,
+                          layer=ir.LAYER_BORDER)
+
+    def shrunk(self, delta):
+        if delta <= 1e-9 or min(self.rx, self.ry) - delta <= 1e-6:
+            return self
+        return EllipseContainer((self.rx - delta) * 2.0, (self.ry - delta) * 2.0)
 
 
 class PolygonContainer(Container):
@@ -153,6 +203,15 @@ class PolygonContainer(Container):
     def outline(self):
         return [ir.path(self.clip_polygon(), closed=True, layer=ir.LAYER_BORDER,
                         role=ir.ROLE_EDGE)]
+
+    def shrunk(self, delta):
+        # Abstand Mittelpunkt->Kante ist der Inkreis: r_i = R * cos(pi/n)
+        if delta <= 1e-9:
+            return self
+        r = self.radius - delta / math.cos(math.pi / self.sides)
+        if r <= 1e-6:
+            return self
+        return PolygonContainer(r * 2.0, self.sides)
 
 
 class CustomContainer(Container):
