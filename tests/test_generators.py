@@ -34,9 +34,9 @@ def scene_for(pattern_id, **overrides):
 
 # ------------------------------------------------------------------ Registry
 
-def test_registry_has_all_sixteen_patterns():
-    assert len(generators.GENERATOR_CLASSES) == 16
-    assert len(generators.REGISTRY) == 16
+def test_registry_has_all_fifteen_patterns():
+    assert len(generators.GENERATOR_CLASSES) == 15
+    assert len(generators.REGISTRY) == 15
 
 
 def test_registry_entries_are_complete_and_unique():
@@ -76,7 +76,7 @@ def test_same_seed_gives_identical_geometry(pattern_id):
     assert a == b
 
 
-@pytest.mark.parametrize("pattern_id", ["voronoi", "pebbles", "tissue", "caustics",
+@pytest.mark.parametrize("pattern_id", ["voronoi", "pebbles", "tissue",
                                         "leaf_veins", "puzzle", "spirals",
                                         "motif_scatter"])
 def test_different_seed_changes_random_patterns(pattern_id):
@@ -359,22 +359,6 @@ def test_tissue_cells_are_elongated_in_x():
         if y1 - y0 > 1e-6:
             ratios.append((x1 - x0) / (y1 - y0))
     assert sum(ratios) / len(ratios) > 1.5
-
-
-def test_caustics_uses_variable_widths_and_optional_second_layer():
-    from generators import GenContext, get_generator
-    import random
-    gen = get_generator("caustics")
-    ctx = GenContext(bbox=(-5, -3, 5, 3), rnd=random.Random(3), thickness=0.1)
-    params = dict(gen.defaults())
-    single = gen.generate(params, ctx)
-    assert all(e.widths is not None for e in single)
-    assert any(max(e.widths) - min(e.widths) > 1e-6 for e in single)
-
-    ctx2 = GenContext(bbox=(-5, -3, 5, 3), rnd=random.Random(3), thickness=0.1)
-    params["secondLayer"] = True
-    layered = gen.generate(params, ctx2)
-    assert len(layered) > len(single)
 
 
 def _hole_gaps(scene):

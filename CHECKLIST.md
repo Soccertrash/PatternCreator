@@ -16,7 +16,7 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] Jeder Handler fängt Exceptions und zeigt eine verständliche Meldung.
 
 ## C. Editor (Palette)
-- [ ] Palette öffnet mit Muster-Dropdown (alle 16 Muster, mit Piktogrammen), Canvas-Vorschau, Parametergruppen, Fußzeile.
+- [ ] Palette öffnet mit Muster-Dropdown (alle 15 Muster, mit Piktogrammen), Canvas-Vorschau, Parametergruppen, Fußzeile.
 - [ ] Vorschau aktualisiert live (debounced) und zeigt Containerumriss, Muster und Text-Layer lagerichtig; Zoom/Pan funktioniert.
 - [ ] Formulare werden generisch aus den Parameter-Schemata erzeugt (neues Muster ⇒ kein UI-Code nötig – nachgewiesen am Code).
 - [ ] Undo/Redo im Editor: Buttons + Cmd/Ctrl+Z bzw. +Shift+Z; mind. 50 Schritte (History-Stack laut PLAN.md Abschnitt 4: max. 100); debounced (nicht pro Tastendruck ein Schritt).
@@ -44,10 +44,10 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] **Mauer:** Reihenversatz (1/2, 1/3, frei), Fugenbreite 0 und > 0, Randziegel bei `cut` beschnitten.
 - [ ] **Puzzle:** Nasenrichtung zufällig per Seed, Nasengröße/Halsbreite wirken; im Flächenmodus ist jedes Teil ein geschlossenes Profil.
 - [ ] **Voronoi:** füllt Bereich vollständig, deterministisch per Seed, max. 500 Zellen erzwungen, Inset erzeugt Inseln.
-- [ ] **Kiesel:** Rundheit (Chaikin) wirkt sichtbar, Fugenbreite wirkt, Kernpunkt-Option erzeugt Kreise je Zelle.
+- [ ] **Kiesel:** Rundheit wirkt sichtbar, Fugenbreite wirkt, Kernpunkt-Option erzeugt Kreise je Zelle.
+- [ ] **Kiesel/Zellgewebe:** die Fuge frisst keine Zellen weg – die eingestellte Zellenzahl kommt auch mit Rundheit 3 an, ohne massive Flächen dazwischen.
 - [ ] **Zellgewebe:** Zellen länglich in Reihen (Anisotropie sichtbar), Reihenhöhe/Zelllänge wirken.
-- [ ] **Wasser-Kaustik:** geglättete Kanten mit Dickenvariation; zweite Ebene zuschaltbar und mit eigenem Seed.
-- [ ] **Blattadern:** zwei Hierarchiestufen sichtbar (Hauptadern dicker als Nebenadern), Parameter Grob-/Feinzellen wirken.
+- [ ] **Blattadern:** zwei Hierarchiestufen sichtbar (Hauptadern dicker als Nebenadern), Parameter Grob-/Feinzellen wirken; im Flächenmodus **eine** zusammenhängende Fläche ohne überlappende Streifen.
 - [ ] **Fischgrät:** Rippenwinkel und -abstand wirken; 1 Achse = Palmwedel-Optik, n Achsen = Feld; Krümmung > 0 erzeugt Bögen.
 - [ ] **Wellen:** Splines glatt; Wellenlänge/Amplitude/Abstand/Jitter wirken.
 - [ ] **Schuppen:** Reihen versetzt und überlappend.
@@ -58,7 +58,7 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 
 ## G. Stil, Dicke & Extrusion
 - [ ] Linien- und Flächenmodus bei jedem Muster wählbar; Dicke wirkt im Flächenmodus überall.
-- [ ] Flächenmodus erzeugt ausschließlich geschlossene, nicht selbst-schneidende Profile (Stichprobe: Wabe, Kiesel, Kaustik in Fusion extrudiert – ohne Profil-Fehler).
+- [ ] Flächenmodus erzeugt ausschließlich geschlossene, nicht selbst-schneidende Profile (Stichprobe: Wabe, Kiesel, Blattadern in Fusion extrudiert – ohne Profil-Fehler).
 - [ ] Integrierte Extrusion: Tiefe/Richtung/Operation wählbar; „Stege vs. Zellen" wählbar; Ergebnis entspricht manueller Profilauswahl.
 - [ ] Ein Commit = genau **ein** Timeline-Undo-Schritt (inkl. optionaler Extrusion).
 
@@ -72,7 +72,7 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] Extrudiertes Ergebnis ist **ein** Körper ohne Selbstüberschneidung; STL-Export ohne Reparaturhinweis (Stichprobe Wabe + Puzzle).
 - [ ] Vorschau zeigt die Fläche mit Löchern (nicht flächig zugemalt).
 - [ ] Ohne Rahmen bzw. mit Beschnitt *Aus* greift weiterhin das alte Stroken (Gravur-Fall) – ohne Fehler.
-- [ ] Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Kaustik, Blattadern, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig, ergeben beim Extrudieren aber **einen** Körper. *(Stufe 2, siehe PLAN.md Abschnitt 12)*
+- [ ] Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig, ergeben beim Extrudieren aber **einen** Körper. *(Stufe 2, siehe PLAN.md Abschnitt 12)*
 - [ ] Puzzle: runder Kopf an schmalem Hals, Nasen greifen ineinander, keine Knicke am Halsansatz; Nase bleibt auch bei Formstreuung 1,0 auf ihrer Kante.
 
 ## G3. Schraffur (optionale Füllung der Zellflächen)
@@ -117,6 +117,6 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 
 ## L. Code-Qualität
 - [ ] Neues Muster = neue Generator-Datei + Registry-Eintrag, keine Änderung an Editor/Command-Code (am Code nachgewiesen).
-- [ ] Organische Zellen-Familie (Kiesel, Gewebe, Kaustik, Blattadern) teilt sich den `organic_cells`-Kern statt Copy-Paste.
+- [ ] Organische Zellen-Familie (Kiesel, Gewebe, Blattadern) teilt sich den `organic_cells`-Kern statt Copy-Paste.
 - [ ] Generatoren und `core/` enthalten keine `adsk`-Aufrufe (Trennung IR ↔ Rendering).
 - [ ] Jede Phase aus PLAN.md Abschnitt 11 als eigener Git-Commit nachvollziehbar.

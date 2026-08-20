@@ -15,7 +15,7 @@ class VoronoiGenerator(OrganicGenerator):
     tiling = True
     label = "Voronoi"
     description = ("Zufällige Zellstruktur (Voronoi-Diagramm). Grundbaustein für "
-                   "Blattzellen, Kiesel, Gewebe und Kaustik.")
+                   "Blattzellen, Kiesel, Gewebe und Blattadern.")
     icon = "M3 3l6 4-2 7 5 7M9 7l8-4M7 14l10 1M17 3l4 6-4 6M17 15l1 6"
     presets = {
         "fein": {"cellCount": 300, "relax": 1},

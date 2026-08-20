@@ -86,7 +86,7 @@ def test_length_params_are_displayed_in_millimetres():
 def test_schema_is_json_serialisable_and_lists_all_patterns():
     schema = pd.schema()
     json.dumps(schema)                     # darf nicht werfen
-    assert len(schema["patterns"]) == 16
+    assert len(schema["patterns"]) == 15
     for entry in schema["patterns"]:
         assert entry["label"] and entry["icon"] and entry["params"] is not None
         assert entry["fillTargets"]

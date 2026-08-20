@@ -4,8 +4,8 @@
 
 Fusion-360-Add-In für **parametrische 2D-Muster** in Skizzen: technische Raster
 (Gitter, Rauten, Wabe, Mauer, Puzzle) und natürliche Muster (Voronoi, Kiesel,
-Zellgewebe, Wasser-Kaustik, Blattadern, Fischgrät, Wellen, Schuppen, Phyllotaxis,
-Spiralen, Motiv-Streuung). Bedient wird alles über ein eigenes Editor-Fenster mit
+Zellgewebe, Blattadern, Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
+Motiv-Streuung). Bedient wird alles über ein eigenes Editor-Fenster mit
 **Live-Vorschau**. Jedes Muster ist **extrudierbar** und **nachträglich bearbeitbar**.
 
 Zusätzlich lässt sich in jedes Muster eine **Text-Ebene** einbetten, die das Muster
@@ -127,7 +127,7 @@ einmal **Ausführen** geklickt werden.
 3. **Ausführen** klicken.
 
 Ob die neue Fassung wirklich geladen ist, zeigt der Dialog *Skripte und Add-Ins*:
-das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.2.1).
+das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.3.0).
 
 Fusion cacht die HTML-Oberfläche der Palette. Das Add-In hängt deshalb automatisch
 eine Version an die URL an; sollte der Editor trotzdem in einem alten Stand hängen,
@@ -306,7 +306,7 @@ einen hauchdünnen Splitter ergäben, werden zugemacht: im Druck wären das nich
 darstellbare Kanten.
 
 **Strich-Muster** ohne Zellen (Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
-Motiv-Streuung, Kaustik, Blattadern) bestehen weiterhin aus mehreren Streifen. Sie
+Motiv-Streuung) bestehen weiterhin aus mehreren Streifen. Sie
 lassen sich mit **Direkt extrudieren** trotzdem in einem Schritt zu **einem** Körper
 verschmelzen; die einzelne Auswahl im Skizzen-Modus ist dort noch offen.
 
@@ -415,26 +415,26 @@ Puzzleteile im Raster X×Y. Jede Innenkante bekommt eine klassische Nase: runder
 
 #### Voronoi (`voronoi`)
 
-Zufällige Zellstruktur (Voronoi-Diagramm). Grundbaustein für Blattzellen, Kiesel, Gewebe und Kaustik.
+Zufällige Zellstruktur (Voronoi-Diagramm). Grundbaustein für Blattzellen, Kiesel, Gewebe und Blattadern.
 
 - Flächenmodus: Stege, Zellen
 - Vorgaben: fein, mittel, grob
 - Parameter:
   - **Zellenzahl** (`cellCount`) – Standard 120 – Zwischen 3 und 500 – Maximal 500 Zellen (Performance-Schutz).
   - **Gleichmäßigkeit** (`relax`) – Standard 1 – Zwischen 0 und 3 – Lloyd-Relaxation: 0 = wild gestreut, 3 = sehr gleichmäßig.
-  - **Rundheit** (`roundness`) – Standard 0 – Zwischen 0 und 3 – Chaikin-Eckenglättung: 0 = eckig, 3 = rund wie Kiesel.
+  - **Rundheit** (`roundness`) – Standard 0 – Zwischen 0 und 3 – Eckenrundung mit begrenztem Radius: 0 = eckig, 3 = rund wie Kiesel.
   - **Fugenbreite** (`inset`) – Standard 0 mm – Zwischen 0 mm und 50 mm – Zellen werden um diesen Betrag verkleinert.
 
 #### Kiesel (`pebbles`)
 
-Runde Steinzellen: Voronoi mit Chaikin-Rundung und Fuge. Optional bekommt jede Zelle einen versetzten Kernpunkt.
+Runde Steinzellen: Voronoi mit Eckenrundung und Fuge. Optional bekommt jede Zelle einen versetzten Kernpunkt.
 
 - Flächenmodus: Stege, Zellen
 - Vorgaben: fein, mittel, grob
 - Parameter:
   - **Zellenzahl** (`cellCount`) – Standard 110 – Zwischen 3 und 500 – Maximal 500 Zellen (Performance-Schutz).
   - **Gleichmäßigkeit** (`relax`) – Standard 1 – Zwischen 0 und 3 – Lloyd-Relaxation: 0 = wild gestreut, 3 = sehr gleichmäßig.
-  - **Rundheit** (`roundness`) – Standard 2 – Zwischen 0 und 3 – Chaikin-Eckenglättung: 0 = eckig, 3 = rund wie Kiesel.
+  - **Rundheit** (`roundness`) – Standard 2 – Zwischen 0 und 3 – Eckenrundung mit begrenztem Radius: 0 = eckig, 3 = rund wie Kiesel.
   - **Fugenbreite** (`inset`) – Standard 0.8 mm – Zwischen 0 mm und 50 mm – Zellen werden um diesen Betrag verkleinert.
   - **Größenstreuung** (`sizeSpread`) – Standard 0 % – Zwischen 0 % und 80 % – Zufällige Verkleinerung einzelner Zellen.
   - **Kernpunkt** (`core`) – Standard False – Zeichnet in jede Zelle einen kleinen, zufällig versetzten Kreis.
@@ -449,29 +449,19 @@ Geschichtete, in X gestreckte Zellen in Reihen - die typische Optik pflanzlicher
 - Parameter:
   - **Zellenzahl** (`cellCount`) – Standard 160 – Zwischen 3 und 500 – Maximal 500 Zellen (Performance-Schutz).
   - **Gleichmäßigkeit** (`relax`) – Standard 1 – Zwischen 0 und 3 – Lloyd-Relaxation: 0 = wild gestreut, 3 = sehr gleichmäßig.
-  - **Rundheit** (`roundness`) – Standard 2 – Zwischen 0 und 3 – Chaikin-Eckenglättung: 0 = eckig, 3 = rund wie Kiesel.
+  - **Rundheit** (`roundness`) – Standard 2 – Zwischen 0 und 3 – Eckenrundung mit begrenztem Radius: 0 = eckig, 3 = rund wie Kiesel.
   - **Fugenbreite** (`inset`) – Standard 0 mm – Zwischen 0 mm und 50 mm – Zellen werden um diesen Betrag verkleinert.
   - **Reihen** (`rows`) – Standard 8 – Zwischen 1 und 80
   - **Streckung X** (`anisotropy`) – Standard 2.5 – Zwischen 0,2 und 10 – > 1 macht die Zellen in X länglich.
   - **Unruhe** (`rowJitter`) – Standard 0.7 – Zwischen 0 und 1,5 – Streuung der Zellen innerhalb ihrer Reihe.
 
-#### Wasser-Kaustik (`caustics`)
-
-Lichtnetz wie auf einem Poolboden: geglättete Voronoi-Kanten mit welligem Verlauf und wechselnder Dicke, optional zweilagig.
-
-- Flächenmodus: Stege
-- Vorgaben: fein, mittel, grob
-- Parameter:
-  - **Maschenzahl** (`cellCount`) – Standard 60 – Zwischen 3 und 500
-  - **Gleichmäßigkeit** (`relax`) – Standard 2 – Zwischen 0 und 3
-  - **Unruhe** (`jitterAmount`) – Standard 0.6 – Zwischen 0 und 2 – Wellige Auslenkung der Kanten quer zur Laufrichtung.
-  - **Dickenvariation** (`thicknessVariation`) – Standard 60 % – Zwischen 0 % und 95 % – Wie stark die Strichstärke entlang der Kante schwankt.
-  - **Zweite Ebene** (`secondLayer`) – Standard False – Überlagert ein zweites, feineres Netz mit eigenem Seed.
-  - **Feinheit 2. Ebene** (`secondScale`) – Standard 2 – Zwischen 1,1 und 6
-
 #### Blattadern (`leaf_veins`)
 
 Zweistufiges Adernetz: grobe Zellen bilden die dicken Hauptadern, ein feines Sub-Voronoi je Zelle die dünnen Nebenadern.
+Die Adern sind das, was zwischen den Zellen stehen bleibt – das Muster ist damit
+kachelnd und ergibt **eine** zusammenhängende Fläche. Die Dicke der Hauptadern
+entsteht geometrisch: jede Grobzelle wird vor dem Unterteilen um
+`(Dickenverhältnis − 1) × Dicke / 2` verkleinert.
 
 - Flächenmodus: Stege
 - Vorgaben: fein, mittel, grob
@@ -584,7 +574,6 @@ ersten Lauf auf der eigenen Installation nachvollziehen und das Ergebnis eintrag
 | Voronoi | 120 Zellen | 500 Zellen, Inset 1,5 mm | < 10 s, Zellen als Inseln |
 | Kiesel | 110 Zellen, Rundheit 2 | Rundheit 3, Kernpunkt an | runde Zellen, je ein Kreis pro Zelle |
 | Zellgewebe | 8 Reihen, Streckung 2,5 | 80 Reihen, Streckung 10 | deutlich längliche Zellen in Reihen |
-| Wasser-Kaustik | 60 Maschen | 2. Ebene an, Dickenvariation 95 % | zwei Netze, sichtbar wechselnde Strichstärke |
 | Blattadern | 14 / 9 Zellen | 120 / 40, Verhältnis 8 | Hauptadern klar dicker als Nebenadern |
 | Fischgrät | 1 Achse | 40 Achsen, Krümmung 1,0 | Palmwedel bzw. Feld, Rippen als Bögen |
 | Wellen | λ 25 mm, A 5 mm | λ 1 mm, Unruhe 1,0 | glatte Splines, keine Knicke |
@@ -616,7 +605,7 @@ Zusätzlich zu prüfen:
 | **Die Vorschau steht auf „Ungültige Werte“** | Mindestens ein Feld liegt außerhalb seines Bereichs – es ist rot markiert und nennt den erlaubten Bereich. Wert korrigieren oder **Zurücksetzen** in der Gruppe klicken. |
 | **Warnung „ca. N Skizzen-Elemente“** | Das Muster ist sehr fein. Zellgröße/Abstand vergrößern, Zellenzahl senken oder in den **Linienmodus** wechseln. Ab ca. 2000 Elementen fragt der Commit vor dem Erzeugen nach. |
 | **Erzeugen dauert sehr lange** | Gleiche Ursache. Fusion braucht pro Skizzenelement Zeit; die Elementzahl steht unter der Vorschau. |
-| **Das Muster lässt sich nicht in einem Zug auswählen** | Für die zusammenhängende Fläche müssen **Flächen** + **Stege** eingestellt, **Rahmen zeichnen** aktiv und der Beschnitt ≠ *Aus* sein. Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Kaustik, Blattadern, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig – dort **Direkt extrudieren** verwenden, das verschmilzt alle Profile zu einem Körper. |
+| **Das Muster lässt sich nicht in einem Zug auswählen** | Für die zusammenhängende Fläche müssen **Flächen** + **Stege** eingestellt, **Rahmen zeichnen** aktiv und der Beschnitt ≠ *Aus* sein. Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig – dort **Direkt extrudieren** verwenden, das verschmilzt alle Profile zu einem Körper. |
 | **Extrusion findet keine Profile** | Der **Linienmodus** erzeugt offene Kurven. Für extrudierbare Profile den **Flächenmodus** verwenden. |
 | **Die Schriftart sieht in Fusion anders aus als in der Vorschau** | Die Vorschau rendert mit der Browser-Schrift. Unbekannte Schriftarten fallen in Fusion automatisch auf *Arial* zurück (mit Hinweis). |
 | **„Skizze wurde von Hand verändert“** | Erwartetes Verhalten: beim Neuaufbau gehen manuelle Änderungen an dieser Skizze verloren. Abbrechen und die Änderungen in eine eigene Skizze auslagern. |
@@ -656,7 +645,7 @@ PatternDoc (JSON)  ──►  Generator  ──►  IR (Fusion-frei)  ──┬�
 * **`core/containers.py` / `core/clip.py`** – Rahmenformen und Halbebenen-Clipping.
 * **`core/stroker.py`** – Linien → geschlossene Streifen (Gehrung mit Begrenzung).
 * **`generators/`** – ein Modul je Muster; die organische Familie teilt sich
-  `organic_cells.py` (Voronoi, Lloyd, Chaikin, Anisotropie, Inset).
+  `organic_cells.py` (Voronoi, Lloyd, Eckenrundung, Anisotropie, Fuge).
 * **`fusion/`** – der einzige Ort mit `adsk`-Aufrufen.
 * **`palette/`** – Editor-UI; die Formulare entstehen **generisch** aus den
   Parameter-Schemata der Generatoren.
@@ -692,7 +681,7 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
   `palette_bridge.py` automatisch eine Version an die URL an; bei hartnäckigem Cache
   hilft ein Neustart von Fusion.
 * **Strich-Muster ergeben noch keine einzelne Fläche.** Fischgrät, Wellen, Schuppen,
-  Phyllotaxis, Spiralen, Motiv-Streuung, Kaustik und Blattadern haben keine Zellen;
+  Phyllotaxis, Spiralen und Motiv-Streuung haben keine Zellen;
   ihre Streifen überlappen sich echt. Eine einzelne Fläche bräuchte eine Boolesche
   Vereinigung (siehe `PLAN.md`, Abschnitt 12, Stufe 2). Beim Extrudieren entsteht
   trotzdem **ein** Körper.
@@ -713,7 +702,7 @@ Umsetzung nach `PLAN.md`; die Abnahmekriterien stehen in `CHECKLIST.md`.
 
 Fusion 360 add-in for **parametric 2D patterns** in sketches: technical grids
 (grid, rhombus, honeycomb, brick, puzzle) and natural patterns (Voronoi, pebbles,
-tissue, water caustics, leaf veins, herringbone, waves, scales, phyllotaxis,
+tissue, leaf veins, herringbone, waves, scales, phyllotaxis,
 spirals, motif scatter). Everything is driven from a dedicated editor window with a
 **live preview**. Every pattern is **extrudable** and **re-editable afterwards**.
 
@@ -833,7 +822,7 @@ every Fusion start.
 
 To confirm the new build is actually loaded, open *Scripts and Add-Ins* and select
 the add-in — the details pane shows the **version** from the manifest (currently
-1.2.1).
+1.3.0).
 
 Fusion caches the palette's HTML interface. The add-in therefore appends a version
 to the URL automatically; if the editor still shows an old state, restarting Fusion
@@ -1021,7 +1010,7 @@ wins — that keeps brick dimensions exact. Clipped border cells that would leav
 hairline sliver are closed up: such edges could not be printed.
 
 **Stroke patterns** without cells (herringbone, waves, scales, phyllotaxis, spirals,
-motif scatter, caustics, leaf veins) still consist of several strips. With **Direkt
+motif scatter) still consist of several strips. With **Direkt
 extrudieren** (extrude directly) they are still merged into **one** body in a single
 step; selecting them as one profile in the sketch is not implemented yet.
 
@@ -1139,19 +1128,19 @@ direction of each tab comes from the seed.
 #### Voronoi — „Voronoi“ (`voronoi`)
 
 Random cell structure (Voronoi diagram). The building block for leaf cells, pebbles,
-tissue and caustics.
+tissue and leaf veins.
 
 - Face mode: webs, cells
 - Presets: fine, medium, coarse
 - Parameters:
   - **Cell count** / „Zellenzahl“ (`cellCount`) – default 120 – 3 to 500 – at most 500 cells (performance guard).
   - **Uniformity** / „Gleichmäßigkeit“ (`relax`) – default 1 – 0 to 3 – Lloyd relaxation: 0 = wildly scattered, 3 = very even.
-  - **Roundness** / „Rundheit“ (`roundness`) – default 0 – 0 to 3 – Chaikin corner smoothing: 0 = angular, 3 = pebble-round.
+  - **Roundness** / „Rundheit“ (`roundness`) – default 0 – 0 to 3 – corner rounding with a limited radius: 0 = angular, 3 = pebble-round.
   - **Joint width** / „Fugenbreite“ (`inset`) – default 0 mm – 0 mm to 50 mm – cells are shrunk by this amount.
 
 #### Pebbles — „Kiesel“ (`pebbles`)
 
-Round stone cells: Voronoi with Chaikin rounding and a joint. Optionally each cell
+Round stone cells: Voronoi with corner rounding and a joint. Optionally each cell
 gets an offset core point.
 
 - Face mode: webs, cells
@@ -1159,7 +1148,7 @@ gets an offset core point.
 - Parameters:
   - **Cell count** / „Zellenzahl“ (`cellCount`) – default 110 – 3 to 500 – at most 500 cells (performance guard).
   - **Uniformity** / „Gleichmäßigkeit“ (`relax`) – default 1 – 0 to 3 – Lloyd relaxation.
-  - **Roundness** / „Rundheit“ (`roundness`) – default 2 – 0 to 3 – Chaikin corner smoothing.
+  - **Roundness** / „Rundheit“ (`roundness`) – default 2 – 0 to 3 – corner rounding with a limited radius.
   - **Joint width** / „Fugenbreite“ (`inset`) – default 0.8 mm – 0 mm to 50 mm.
   - **Size spread** / „Größenstreuung“ (`sizeSpread`) – default 0 % – 0 % to 80 % – random shrinking of individual cells.
   - **Core point** / „Kernpunkt“ (`core`) – default False – draws a small, randomly offset circle into each cell.
@@ -1181,25 +1170,13 @@ cross-sections.
   - **Stretch X** / „Streckung X“ (`anisotropy`) – default 2.5 – 0.2 to 10 – > 1 elongates the cells in X.
   - **Restlessness** / „Unruhe“ (`rowJitter`) – default 0.7 – 0 to 1.5 – scatter of the cells within their row.
 
-#### Water caustics — „Wasser-Kaustik“ (`caustics`)
-
-Light net as on a pool floor: smoothed Voronoi edges with a wavy course and varying
-thickness, optionally in two layers.
-
-- Face mode: webs
-- Presets: fine, medium, coarse
-- Parameters:
-  - **Mesh count** / „Maschenzahl“ (`cellCount`) – default 60 – 3 to 500.
-  - **Uniformity** / „Gleichmäßigkeit“ (`relax`) – default 2 – 0 to 3.
-  - **Restlessness** / „Unruhe“ (`jitterAmount`) – default 0.6 – 0 to 2 – wavy deflection of the edges across their direction.
-  - **Thickness variation** / „Dickenvariation“ (`thicknessVariation`) – default 60 % – 0 % to 95 % – how strongly the stroke width varies along an edge.
-  - **Second layer** / „Zweite Ebene“ (`secondLayer`) – default False – overlays a second, finer net with its own seed.
-  - **Fineness of 2nd layer** / „Feinheit 2. Ebene“ (`secondScale`) – default 2 – 1.1 to 6.
-
 #### Leaf veins — „Blattadern“ (`leaf_veins`)
 
 Two-stage vein net: coarse cells form the thick main veins, a fine sub-Voronoi per
-cell the thin secondary veins.
+cell the thin secondary veins. The veins are what remains *between* the cells, so
+the pattern tiles and yields **one** connected face. The thickness of the main veins
+is geometric: every coarse cell is shrunk by `(thickness ratio − 1) × thickness / 2`
+before it is subdivided.
 
 - Face mode: webs
 - Presets: fine, medium, coarse
@@ -1317,7 +1294,6 @@ result.
 | Voronoi | 120 cells | 500 cells, inset 1.5 mm | < 10 s, cells as islands |
 | Pebbles | 110 cells, roundness 2 | roundness 3, core point on | round cells, one circle per cell |
 | Tissue | 8 rows, stretch 2.5 | 80 rows, stretch 10 | clearly elongated cells in rows |
-| Water caustics | 60 meshes | 2nd layer on, thickness variation 95 % | two nets, visibly varying stroke width |
 | Leaf veins | 14 / 9 cells | 120 / 40, ratio 8 | main veins clearly thicker than secondary ones |
 | Herringbone | 1 axis | 40 axes, curvature 1.0 | palm frond resp. field, ribs as arcs |
 | Waves | λ 25 mm, A 5 mm | λ 1 mm, restlessness 1.0 | smooth splines, no kinks |
@@ -1350,7 +1326,7 @@ Also worth checking:
 | **The preview says „Ungültige Werte“ (invalid values)** | At least one field is out of range — it is marked red and states the allowed range. Fix the value or click **Zurücksetzen** in that group. |
 | **Warning „ca. N Skizzen-Elemente“** | The pattern is very fine. Increase cell size/spacing, lower the cell count or switch to **line mode**. From roughly 2000 elements the commit asks before creating. |
 | **Creating takes very long** | Same cause. Fusion needs time per sketch element; the element count is shown below the preview. |
-| **The pattern cannot be selected in one go** | For the connected face you need **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw container) on and clipping ≠ *Aus* (off). Stroke patterns (waves, spirals, herringbone, scales, caustics, leaf veins, phyllotaxis, motif scatter) stay multi-part — use **Direkt extrudieren** there, which merges all profiles into one body. |
+| **The pattern cannot be selected in one go** | For the connected face you need **Flächen** (faces) + **Stege** (webs), **Rahmen zeichnen** (draw container) on and clipping ≠ *Aus* (off). Stroke patterns (waves, spirals, herringbone, scales, phyllotaxis, motif scatter) stay multi-part — use **Direkt extrudieren** there, which merges all profiles into one body. |
 | **The extrusion finds no profiles** | **Line mode** produces open curves. Use **face mode** for extrudable profiles. |
 | **The font looks different in Fusion than in the preview** | The preview renders with the browser font. Unknown fonts fall back to *Arial* in Fusion automatically (with a notice). |
 | **„Skizze wurde von Hand verändert“ (sketch was edited manually)** | Expected behaviour: manual changes to that sketch are lost on rebuild. Cancel and move your changes into a separate sketch. |
@@ -1391,7 +1367,7 @@ PatternDoc (JSON)  ──►  generator  ──►  IR (Fusion-free)  ──┬�
   clipping.
 * **`core/stroker.py`** — lines → closed strips (miter with limit).
 * **`generators/`** — one module per pattern; the organic family shares
-  `organic_cells.py` (Voronoi, Lloyd, Chaikin, anisotropy, inset).
+  `organic_cells.py` (Voronoi, Lloyd, corner rounding, anisotropy, joint).
 * **`fusion/`** — the only place with `adsk` calls.
 * **`palette/`** — editor UI; the forms are generated **generically** from the
   generators' parameter schemas.
@@ -1426,7 +1402,7 @@ and help text are derived from the class.
 * **Fusion caches the palette HTML.** While developing the UI, `palette_bridge.py`
   appends a version to the URL automatically; for a stubborn cache, restart Fusion.
 * **Stroke patterns do not form a single face yet.** Herringbone, waves, scales,
-  phyllotaxis, spirals, motif scatter, caustics and leaf veins have no cells, so their
+  phyllotaxis, spirals and motif scatter have no cells, so their
   strips genuinely overlap. A single face would need a boolean union (see `PLAN.md`,
   section 13, stage 2). Extruding them still yields **one** body.
 * The add-in creates sketch geometry, **not** a CustomFeature — the pattern does not

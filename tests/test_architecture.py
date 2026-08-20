@@ -90,8 +90,8 @@ def test_generators_do_not_touch_editor_or_command_code():
 
 
 def test_organic_family_shares_the_same_core():
-    """Kiesel, Gewebe, Kaustik und Blattadern bauen auf ``organic_cells`` auf."""
-    for name in ("pebbles", "tissue", "caustics", "leaf_veins", "voronoi"):
+    """Kiesel, Gewebe und Blattadern bauen auf ``organic_cells`` auf."""
+    for name in ("pebbles", "tissue", "leaf_veins", "voronoi"):
         source = read(os.path.join(ROOT, "generators", "%s.py" % name))
         assert "organic_cells" in source, name
 

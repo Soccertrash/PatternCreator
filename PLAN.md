@@ -56,7 +56,7 @@ PatternCreator/
 │   ├── grid.py  rhombus.py  honeycomb.py  brick.py  puzzle.py
 │   ├── herringbone.py  waves.py  scales.py
 │   ├── voronoi.py  organic_cells.py      # gemeinsamer Kern: Voronoi+Glättung+Anisotropie
-│   ├── leaf_veins.py  pebbles.py  tissue.py  caustics.py   # bauen auf organic_cells auf
+│   ├── leaf_veins.py  pebbles.py  tissue.py    # bauen auf organic_cells auf
 │   ├── phyllotaxis.py  spirals.py
 │   └── motif_scatter.py           # Blatt-/Motiv-Streumuster
 ├── text/
@@ -240,13 +240,7 @@ X ≠ Y für längliche Zellen) + Inset. Darauf drei Generatoren:
 14. **Zellgewebe** (`tissue`) – *Bild „Gewebe-Mikroskopie":* Zellen in Reihen, in X gestreckt
     (Anisotropie-Faktor), Reihenhöhe, Zelllänge, Jitter, Rundheit. Ergibt die geschichtete
     länglich-organische Zellstruktur.
-15. **Wasser-Kaustik** (`caustics`) – *Bild „Pool-Wasser":* Voronoi-Kanten als geglättete
-    Splines mit Wellen-Jitter entlang der Kante und **variabler Dicke** (dünn↔dick moduliert
-    per Seed); optional zweite überlagerte Netz-Ebene mit anderem Seed und kleinerer Dicke
-    für die typische Mehrschicht-Lichtoptik. Parameter: Maschengröße, Unruhe (Jitter),
-    Dickenvariation, zweite Ebene an/aus.
-
-16. **Puzzle** (`puzzle`) – *Bild „Puzzleteile":* Raster X×Y; jede Innenkante bekommt eine
+15. **Puzzle** (`puzzle`) – *Bild „Puzzleteile":* Raster X×Y; jede Innenkante bekommt eine
     klassische Puzzle-Nase (kubische Bézier-/Spline-Kontur), Richtung (rein/raus) zufällig
     per Seed, Nasengröße % und Halsbreite % einstellbar, leichter Formfaktor-Jitter.
     Primär Linienmodus (Schnittlinien, z. B. für Lasercut); im Flächenmodus sind die
@@ -327,7 +321,7 @@ brechen Profile bei der Extrusion.
 3. **Phase 3 – Erste Muster Ende-zu-Ende:** Stroker, Renderer, Commit mit Attributen;
    Muster: Gitter, Rauten, Wabe, Mauer, Puzzle. Ab hier ist das Add-In benutzbar.
 4. **Phase 4 – Natürliche Muster + Text:** Voronoi → organische Zellen-Familie
-   (Kiesel, Zellgewebe, Wasser-Kaustik) → Blattadern → Fischgrät → Wellen → Schuppen →
+   (Kiesel, Zellgewebe) → Blattadern → Fischgrät → Wellen → Schuppen →
    Phyllotaxis → Spiralen → Motiv-Streuung; alle Containerformen; Text-Layer mit
    Knockout; integrierte Extrusion.
 5. **Phase 5 – Re-Edit + Qualität:** edit_command, Re-Generate-Logik, Tests, Entity-Schutz,
@@ -409,7 +403,7 @@ Jetzt gilt:
 ### Stufe 2 – offen
 
 Strich-Muster ohne Zellen (Fischgrät, Wellen, Schuppen, Phyllotaxis, Spiralen,
-Motiv-Streuung, Kaustik, Blattadern) haben keine Kacheln; dort überlappen sich die
+Motiv-Streuung) haben keine Kacheln; dort überlappen sich die
 Streifen echt. Für eine einzelne Fläche braucht es eine echte Polygon-Vereinigung
 (Boolesche Operation in reinem Python, Sonderfälle: gemeinsame Kanten, Berührungen in
 einem Punkt). Bis dahin bleiben sie mehrteilig und werden erst beim Extrudieren zu

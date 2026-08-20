@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Type
 
 from .base import GenContext, Generator
 from .brick import BrickGenerator
-from .caustics import CausticsGenerator
 from .grid import GridGenerator
 from .herringbone import HerringboneGenerator
 from .honeycomb import HoneycombGenerator
@@ -37,7 +36,6 @@ GENERATOR_CLASSES: List[Type[Generator]] = [
     VoronoiGenerator,
     PebblesGenerator,
     TissueGenerator,
-    CausticsGenerator,
     LeafVeinsGenerator,
     HerringboneGenerator,
     WavesGenerator,
@@ -52,7 +50,7 @@ REGISTRY: Dict[str, Type[Generator]] = {cls.id: cls for cls in GENERATOR_CLASSES
 #: Gruppierung nur fuer die Anzeige im Dropdown
 GROUPS = [
     ("Technisch", ["grid", "rhombus", "honeycomb", "brick", "puzzle"]),
-    ("Organische Zellen", ["voronoi", "pebbles", "tissue", "caustics", "leaf_veins"]),
+    ("Organische Zellen", ["voronoi", "pebbles", "tissue", "leaf_veins"]),
     ("Natürlich", ["herringbone", "waves", "scales", "phyllotaxis", "spirals",
                    "motif_scatter"]),
 ]

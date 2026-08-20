@@ -2,7 +2,7 @@
 
 Enthaelt Voronoi (Halbebenen-Schnitt, reines Python), Lloyd-Relaxation,
 Eckenrundung, Anisotropie und Fuge. Darauf bauen ``voronoi``, ``pebbles``,
-``tissue``, ``caustics`` und ``leaf_veins`` auf - kein Copy-Paste.
+``tissue`` und ``leaf_veins`` auf - kein Copy-Paste.
 """
 
 from __future__ import annotations
