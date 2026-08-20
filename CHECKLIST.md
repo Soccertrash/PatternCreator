@@ -7,6 +7,7 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] Ordnerstruktur entspricht PLAN.md Abschnitt 2 (`commands/`, `core/`, `generators/`, `text/`, `fusion/`, `palette/`, `tests/`).
 - [ ] Manifest ist gültiges JSON (`type: addin`, `supportedOS: windows|mac`).
 - [ ] README beschreibt Installation für macOS **und** Windows.
+- [ ] `./install.sh` installiert in den richtigen AddIns-Ordner: bricht bei laufendem Fusion ab, ersetzt eine vorhandene Installation vollständig und kopiert weder `.git` noch `.venv` oder Caches mit; `--dry-run`, `--force` und `--dir` wirken wie beschrieben.
 - [ ] Keine externen Python-Pakete; Palette nutzt nur Vanilla JS/CSS (keine CDN-Links, offline lauffähig).
 
 ## B. Add-In-Lebenszyklus

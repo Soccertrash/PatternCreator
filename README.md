@@ -51,7 +51,28 @@ PatternCreator/
 
 ### Schritt 2 – In den Add-Ins-Ordner kopieren
 
-**macOS**
+**Am einfachsten: `install.sh`** (macOS, Linux, Windows mit Git Bash)
+
+```bash
+./install.sh
+```
+
+Das Skript prüft zuerst, ob Fusion läuft (dann kann das Add-In geladen sein und wird
+nicht überschrieben), löscht eine vorhandene Installation vollständig, kopiert die
+Dateien frisch hinüber – ohne `.git`, `.venv` und Caches – und prüft am Ende, dass die
+erwartete Version im Ziel angekommen ist.
+
+| Option | Wirkung |
+| --- | --- |
+| `--dry-run` | zeigt nur, was passieren würde |
+| `--force` | installiert auch bei laufendem Fusion |
+| `--dir PFAD` | abweichender AddIns-Ordner |
+
+Läuft Fusion noch, bricht das Skript mit Anleitung ab (Beenden im Dialog *Skripte und
+Add-Ins*, dann Fusion schließen). Ein Ordner, der kein `PatternCreator.manifest`
+enthält, wird nie gelöscht – Schutz vor einem falsch gesetzten `--dir`.
+
+**Oder von Hand — macOS**
 
 ```bash
 cp -R PatternCreator ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns/
@@ -744,6 +765,21 @@ PatternCreator/
 > add-in. Rename the folder in that case.
 
 ### Step 2 – Copy into the Add-Ins folder
+
+**Easiest: `install.sh`** (macOS, Linux, Windows with Git Bash)
+
+```bash
+./install.sh
+```
+
+The script first checks whether Fusion is running (the add-in may then be loaded, so
+nothing is overwritten), removes any existing installation completely, copies the files
+over fresh — without `.git`, `.venv` and caches — and verifies at the end that the
+expected version arrived in the target folder. Options: `--dry-run`, `--force`
+(install even while Fusion runs), `--dir PATH`. A folder without a
+`PatternCreator.manifest` is never deleted, which guards against a mistyped `--dir`.
+
+**Or by hand**
 
 **macOS**
 
