@@ -24,7 +24,7 @@ from . import ir
 from .containers import Container, make_container
 from .geom import (chain_segments, clean_polygon, ensure_ccw, erode_convex,
                    is_convex, polygon_area, polygon_segments, polyline_length,
-                   rotate, snap_segments)
+                   remove_loops, rotate, snap_segments)
 from .hatch import hatch_areas, style_from_doc
 from .stroker import offset_polyline, stroke
 
@@ -416,7 +416,7 @@ def _shrink_cell(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
         return None
     if is_convex(src):
         return erode_convex(src, delta)
-    poly = offset_polyline(src, [delta] * len(src), closed=True)
+    poly = remove_loops(offset_polyline(src, [delta] * len(src), closed=True))
     if not poly or len(poly) < 3:
         return None
     a_src, a_new = polygon_area(src), polygon_area(poly)

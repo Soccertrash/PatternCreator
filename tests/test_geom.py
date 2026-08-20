@@ -5,6 +5,7 @@ import math
 import pytest
 
 from core.geom import (chaikin, chain_segments, dedupe_segments, inset_polygon,
+                       remove_loops,
                        poisson_disk, polygon_area, polygon_segments, resample,
                        snap_segments)
 
@@ -76,3 +77,28 @@ def test_poisson_disk_respects_minimum_distance_and_is_deterministic():
     for i in range(len(a)):
         for j in range(i + 1, len(a)):
             assert math.hypot(a[i][0] - a[j][0], a[i][1] - a[j][1]) >= 0.5 - 1e-9
+
+
+def test_remove_loops_drops_the_smaller_loop():
+    """Der Gehrungs-Offset legt an engen Einbuchtungen eine Schleife an."""
+    bowtie = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (3.0, 4.0), (3.0, -1.0), (0.0, 4.0)]
+    cleaned = remove_loops(bowtie)
+    assert len(cleaned) >= 3
+    for i in range(len(cleaned)):
+        a, b = cleaned[i], cleaned[(i + 1) % len(cleaned)]
+        for j in range(i + 2, len(cleaned)):
+            if i == 0 and j == len(cleaned) - 1:
+                continue
+            c, d = cleaned[j], cleaned[(j + 1) % len(cleaned)]
+            assert not _crosses(a, b, c, d)
+
+
+def test_remove_loops_keeps_a_clean_polygon_untouched():
+    square = [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)]
+    assert remove_loops(square) == square
+
+
+def _crosses(a, b, c, d):
+    def o(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+    return (o(a, b, c) > 0) != (o(a, b, d) > 0) and (o(c, d, a) > 0) != (o(c, d, b) > 0)

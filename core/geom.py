@@ -405,6 +405,54 @@ def clean_polygon(pts: Sequence[Point], tol: float = 1e-9) -> List[Point]:
     return out if len(out) >= 3 else []
 
 
+def _segments_cross(a: Point, b: Point, c: Point, d: Point) -> Optional[Point]:
+    """Schnittpunkt zweier Strecken, sonst ``None`` (Beruehrungen zaehlen nicht)."""
+    r = sub(b, a)
+    sv = sub(d, c)
+    den = cross(r, sv)
+    if abs(den) < 1e-15:
+        return None
+    t = cross(sub(c, a), sv) / den
+    u = cross(sub(c, a), r) / den
+    if t <= 1e-9 or t >= 1 - 1e-9 or u <= 1e-9 or u >= 1 - 1e-9:
+        return None
+    return (a[0] + r[0] * t, a[1] + r[1] * t)
+
+
+def remove_loops(pts: Sequence[Point], max_passes: int = 40) -> List[Point]:
+    """Selbstschnitte aus einer geschlossenen Kontur entfernen.
+
+    Ein Gehrungs-Offset legt an einer Einbuchtung, die schmaler als der Versatz
+    ist, eine kleine Schleife an. Das Polygon schneidet sich dann selbst und ist
+    als Fusion-Profil unbrauchbar. Hier wird an jedem Selbstschnitt die kleinere
+    der beiden Schleifen verworfen.
+    """
+    poly = list(pts)
+    for _ in range(max_passes):
+        hit = None
+        n = len(poly)
+        for i in range(n):
+            a, b = poly[i], poly[(i + 1) % n]
+            for j in range(i + 2, n):
+                if i == 0 and j == n - 1:
+                    continue
+                x = _segments_cross(a, b, poly[j], poly[(j + 1) % n])
+                if x is not None:
+                    hit = (i, j, x)
+                    break
+            if hit:
+                break
+        if not hit:
+            return poly
+        i, j, x = hit
+        inner = [x] + poly[i + 1:j + 1]
+        outer = [x] + poly[j + 1:] + poly[:i + 1]
+        poly = inner if abs(polygon_area(inner)) > abs(polygon_area(outer)) else outer
+        if len(poly) < 3:
+            return []
+    return poly
+
+
 def inset_polygon(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
     """Konvexes/leicht konkaves Polygon um ``delta`` nach innen versetzen.
 
