@@ -6,7 +6,7 @@
     "description": {
         "": "Parametrische 2D-Muster als extrudierbare Skizzen: technische Raster (Gitter, Rauten, Wabe, Mauer, Puzzle) und natuerliche Muster (Voronoi, Kiesel, Zellgewebe, Kaustik, Blattadern, Fischgraet, Wellen, Schuppen, Phyllotaxis, Spiralen, Motiv-Streuung) mit Live-Vorschau, optionaler Schraffur der Zellflaechen und optionaler Text-Ebene."
     },
-    "version": "1.2.0",
+    "version": "1.2.1",
     "runOnStartup": false,
     "supportedOS": "windows|mac",
     "editEnabled": true

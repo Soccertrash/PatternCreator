@@ -1,4 +1,4 @@
-# PatternCreator – Fusion 360 Add-In: Umsetzungsplan (v2)
+# PatternCreator – Fusion 360 Add-In: Umsetzungsplan (v3)
 
 **Ziel:** Ein Fusion-360-Add-In (Python) mit eigenem **Editor-Fenster** (Palette mit Live-Vorschau),
 das parametrische 2D-Muster in Skizzen erzeugt. Muster: technische (Gitter, Rauten, Wabe, Mauer)
@@ -35,6 +35,7 @@ damit alles offline und ohne Build-Schritt funktioniert.
 PatternCreator/
 ├── PatternCreator.manifest        # Add-In-Manifest (JSON)
 ├── PatternCreator.py              # run()/stop(): Buttons "Muster erstellen" + "Muster bearbeiten"
+├── install.sh                     # Installation in den AddIns-Ordner (--dry-run, --force, --dir)
 ├── commands/
 │   ├── create_command.py          # Öffnet Editor-Palette (Neuanlage)
 │   ├── edit_command.py            # Auswahl bestehender Muster-Skizze -> Editor mit alten Werten
@@ -42,11 +43,16 @@ PatternCreator/
 ├── core/
 │   ├── pattern_doc.py             # PatternDoc: Schema, Defaults, Validierung, (De-)Serialisierung
 │   ├── ir.py                      # Zwischenrepräsentation: Path, Polygon, Circle, Arc, TextItem
+│   ├── geom.py                    # abhängigkeitsfreie Geometrie-Helfer (reines Python)
 │   ├── stroker.py                 # Linien -> geschlossene Streifen (Dicke, Endkappen, Gehrung)
-│   └── containers.py              # Rahmenformen + Clipping (siehe Abschnitt 5)
+│   ├── clip.py                    # Clipping gegen konvexe Bereiche (Sutherland-Hodgman)
+│   ├── containers.py              # Rahmenformen + Clipping (siehe Abschnitt 5)
+│   ├── build.py                   # Pipeline PatternDoc -> IR (identisch für Vorschau und Commit)
+│   └── hatch.py                   # Schraffur: Scanline-Füllung der Zellflächen (Abschnitt 13)
 ├── generators/
 │   ├── __init__.py                # Registry: id -> Generator (inkl. UI-Schema für den Editor)
 │   ├── base.py                    # Abstrakte Basisklasse
+│   ├── _util.py                   # gemeinsame Bausteine (Gitterlinien, Lattice-Zellen)
 │   ├── grid.py  rhombus.py  honeycomb.py  brick.py  puzzle.py
 │   ├── herringbone.py  waves.py  scales.py
 │   ├── voronoi.py  organic_cells.py      # gemeinsamer Kern: Voronoi+Glättung+Anisotropie
@@ -81,15 +87,24 @@ Manifest wie üblich (`type: addin`, `supportedOS: windows|mac`). Installation n
 {
   "version": 1,
   "container": { "shape": "rect", "width": 10.0, "height": 6.0,   // cm (API-intern!)
-                 "cornerRadius": 0, "sides": 6 },                  // je nach shape relevant
-  "placement": { "originX": 0, "originY": 0, "rotation": 0 },
+                 "cornerRadius": 0, "diameter": 8.0, "sides": 6 }, // je nach shape relevant
+  "placement": { "originX": 0, "originY": 0, "rotation": 0, "patternAngle": 0 },
   "pattern":   { "type": "honeycomb", "params": { "cellSize": 0.8, "orientation": "flat" } },
-  "style":     { "mode": "area",          // "area" (Flächen) | "lines"
-                 "thickness": 0.08,       // Steg-/Strichdicke
-                 "clip": "cut",           // "cut" | "dropPartial" | "off"
-                 "border": true },        // Containerumriss mitzeichnen
-  "textLayer": { "enabled": true, "text": "MP 2026", "font": "Arial", "height": 0.6,
-                 "x": 1.0, "y": 1.0, "angle": 0, "knockout": true, "knockoutMargin": 0.1 },
+  "style":     { "mode": "area",           // "area" (Flächen) | "lines"
+                 "thickness": 0.08,        // Steg-/Strichdicke
+                 "fillTarget": "webs",     // "webs" (Stege) | "cells" (Zellen)
+                 "clip": "cut",            // "cut" | "dropPartial" | "off"
+                 "border": true,           // Containerumriss = Außenkontur der Fläche
+                 "borderWidth": 0.15,      // Rahmendicke, nach innen gemessen (Abschnitt 12)
+                 "hatch": false,           // Schraffur der Zellflächen (Abschnitt 13):
+                 "hatchType": "parallel",  //   "parallel" | "cross" (+ hatchCrossAngle)
+                 "hatchSpacing": 0.4, "hatchThickness": 0.06,
+                 "hatchAim": "fixed",      //   "fixed" | "random" (+ hatchJitter)
+                 "hatchAngle": 45 },       //   | "center" (+ hatchCenterX/Y)
+  "textLayers": [ { "enabled": true, "text": "MP 2026", "font": "Arial", "height": 0.6,
+                    "x": 1.0, "y": 1.0, "angle": 0,
+                    "knockout": true, "knockoutMargin": 0.1 } ],
+  "extrude":   { "enabled": false, "depth": 0.3, "direction": "positive", "operation": "new" },
   "seed": 42
 }
 ```
@@ -303,7 +318,7 @@ brechen Profile bei der Extrusion.
 
 ---
 
-## 11. Umsetzungsreihenfolge für Opus 5
+## 11. Umsetzungsreihenfolge
 
 1. **Phase 1 – Gerüst:** Manifest, run/stop, zwei Buttons, leere Palette öffnet/schließt sauber,
    Messaging Palette↔Python steht (Echo-Test).
@@ -319,13 +334,20 @@ brechen Profile bei der Extrusion.
    Presets, Hilfe-Icons, README, Icons.
 6. **Phase 6 (Stretch, nur nach Freigabe):** Profil/Fläche als Container, CustomFeature,
    Text auf Kreisbogen, mehrere Text-Layer, Space-Colonization-Blattadern.
+7. **Phase 7 – Flächenmodell:** kachelnde Muster als **eine** zusammenhängende Fläche
+   mit Löchern, Rahmendicke, überarbeitete Puzzle-Nase (Abschnitt 12).
+   Stufe 1 umgesetzt; Stufe 2 (Polygon-Vereinigung für Strich-Muster) offen.
+8. **Phase 8 – Schraffur:** optionale Füllung der Zellflächen mit eigenen Stegen
+   (Abschnitt 13). Umgesetzt.
+
+Phase 7 und 8 wurden nachträglich ergänzt und vor der Stretch-Phase 6 umgesetzt.
 
 Jede Phase als eigener Git-Commit. **Definition of Done:** alle Pflichtpunkte in `CHECKLIST.md`
 erfüllt, `pytest` grün, manuelle Testmatrix in Fusion dokumentiert.
 
 ---
 
-## 13. Flächenmodell – eine zusammenhängende Fläche je Muster (Phase 7)
+## 12. Flächenmodell – eine zusammenhängende Fläche je Muster (Phase 7)
 
 **Warum:** Das Stroken einzelner Stegketten erzeugt an jedem Knoten überlappende
 Streifen. Fusion sieht dadurch hunderte Einzelprofile: das Muster lässt sich nicht in
@@ -395,7 +417,7 @@ einem Punkt). Bis dahin bleiben sie mehrteilig und werden erst beim Extrudieren 
 
 ---
 
-## 14. Schraffur – optionale Füllung der Zellflächen (Phase 8)
+## 13. Schraffur – optionale Füllung der Zellflächen (Phase 8)
 
 **Warum:** Das Stegnetz lässt die Zellen offen. Für Blenden, Lautsprechergitter oder
 dekorative Einsätze soll die freie Fläche wahlweise mit einer feineren Struktur gefüllt
@@ -436,7 +458,7 @@ Streifen      = Mittellinie um web_half verlängert, dann gestrokt (eigene Dicke
 - **Richtung** (`style.hatchAim`): *Fester Winkel* · *Zufällig je Zelle* (Streuung um den
   Grundwinkel, aus dem Seed – eigener Zufallsstrom, damit das Muster selbst unverändert
   bleibt) · *Zum Mittelpunkt* (jede Zelle wird auf einen gemeinsamen Punkt ausgerichtet →
-  Strahlenkranz).
+  Strahlenkranz; der Punkt ist relativ zur Rahmenmitte angegeben und wandert mit dem Rahmen).
 - **Art** (`style.hatchType`): *Parallel* oder *Kreuz* mit einstellbarem Kreuzungswinkel.
 - **Notbremsen:** `MAX_LINES_PER_AREA` (2000) je Fläche, `MAX_STRIPS` (20000) gesamt; beim
   Abbruch eine Warnung im Editor statt einer unbrauchbaren Skizze.
@@ -444,7 +466,7 @@ Streifen      = Mittellinie um web_half verlängert, dann gestrokt (eigene Dicke
 ### Bewusst offen
 
 - **Kreuzschraffur überlappt sich an den Kreuzungspunkten** – wie die Strich-Muster aus
-  Stufe 2 in Abschnitt 13. Für überschneidungsfreie Kreuzungen bräuchte es dieselbe
+  Stufe 2 in Abschnitt 12. Für überschneidungsfreie Kreuzungen bräuchte es dieselbe
   Polygon-Vereinigung. Extrudiert ergibt es trotzdem **einen** Körper.
 - Schraffur nur in geschlossenen Zellen. Strich-Muster ohne Zellen (Wellen, Spiralen …)
   haben keine Flächen zum Füllen; dort bleibt der Schalter wirkungslos.
@@ -452,7 +474,7 @@ Streifen      = Mittellinie um web_half verlängert, dann gestrokt (eigene Dicke
 
 ---
 
-## 12. Bekannte Fallstricke
+## 14. Bekannte Fallstricke
 
 - Event-Handler-Referenzen global halten (GC), auch die Palette-HTML-Event-Handler.
 - API-interne Längeneinheit ist **cm**; Editor zeigt mm – Umrechnung nur an der Grenze Editor↔Doc.
@@ -464,7 +486,7 @@ Streifen      = Mittellinie um web_half verlängert, dann gestrokt (eigene Dicke
   schnellen Änderungen) verworfen werden.
 - Doppelte Kanten oder sich schneidende Streifen zerstören Profile → Deduplizierung und
   Knockout sind Pflicht, nicht Kosmetik. Bei kachelnden Mustern entfällt das Problem im
-  Flächenmodell ganz (siehe Abschnitt 13).
+  Flächenmodell ganz (siehe Abschnitt 12).
 - `inset_polygon` arbeitet mit Winkelhalbierenden und kollabiert an konkaven Konturen
   (Puzzle-Nasen) → zum Verkleinern von Zellen den Stroker-Offset verwenden.
 - `core/clip.py` kann nur gegen **konvexe** Bereiche schneiden. Alles, was durch konkave

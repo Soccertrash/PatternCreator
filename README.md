@@ -127,7 +127,7 @@ einmal **Ausführen** geklickt werden.
 3. **Ausführen** klicken.
 
 Ob die neue Fassung wirklich geladen ist, zeigt der Dialog *Skripte und Add-Ins*:
-das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.2.0).
+das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.2.1).
 
 Fusion cacht die HTML-Oberfläche der Palette. Das Add-In hängt deshalb automatisch
 eine Version an die URL an; sollte der Editor trotzdem in einem alten Stand hängen,
@@ -694,7 +694,7 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
 * **Strich-Muster ergeben noch keine einzelne Fläche.** Fischgrät, Wellen, Schuppen,
   Phyllotaxis, Spiralen, Motiv-Streuung, Kaustik und Blattadern haben keine Zellen;
   ihre Streifen überlappen sich echt. Eine einzelne Fläche bräuchte eine Boolesche
-  Vereinigung (siehe `PLAN.md`, Abschnitt 13, Stufe 2). Beim Extrudieren entsteht
+  Vereinigung (siehe `PLAN.md`, Abschnitt 12, Stufe 2). Beim Extrudieren entsteht
   trotzdem **ein** Körper.
 * Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster erscheint
   nicht als eigener Timeline-Eintrag (siehe PLAN.md, Phase 6).
@@ -833,7 +833,7 @@ every Fusion start.
 
 To confirm the new build is actually loaded, open *Scripts and Add-Ins* and select
 the add-in — the details pane shows the **version** from the manifest (currently
-1.2.0).
+1.2.1).
 
 Fusion caches the palette's HTML interface. The add-in therefore appends a version
 to the URL automatically; if the editor still shows an old state, restarting Fusion
