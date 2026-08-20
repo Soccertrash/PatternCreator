@@ -9,6 +9,7 @@ nicht auseinanderlaufen):
 4. Clipping gegen die Containerform (``cut`` / ``dropPartial`` / ``off``)
 5. Text-Knockout
 6. Stilisierung: Linien- oder Flaechenmodus (Stroker / Inset)
+   6a. Optionale Schraffur der freien Zellflaechen
 7. Containerumriss ergaenzen
 8. Platzierung (Ursprung + Rahmendrehung) anwenden
 """
@@ -23,6 +24,7 @@ from . import ir
 from .containers import Container, make_container
 from .geom import (chain_segments, ensure_ccw, polygon_area, polygon_segments,
                    polyline_length, rotate, snap_segments)
+from .hatch import hatch_areas, style_from_doc
 from .stroker import offset_polyline, stroke
 
 Point = Tuple[float, float]
@@ -67,6 +69,11 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
     thickness = float(style.get("thickness", 0.08))
     border_on = bool(style.get("border"))
     border_width = float(style.get("borderWidth", 0.0)) if border_on else 0.0
+    own_gap = gen.gap(doc["pattern"]["params"])
+    # Die Schraffur bekommt einen eigenen Zufallsstrom: sie darf das Muster
+    # selbst nicht veraendern, wenn man sie ein- oder ausschaltet.
+    hatch_style = style_from_doc(style)
+    hatch_rnd = random.Random(int(doc.get("seed", 0)) + 7919)
 
     # Stegnetz eines kachelnden Musters ist exakt "Rahmen minus verkleinerte
     # Zellen" - das ergibt EINE zusammenhaengende, dichte Flaeche statt vieler
@@ -89,15 +96,37 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
 
     if as_face:
         elements = _drop_regions_in_text(elements, doc, thickness)
-        elements = _to_face(elements, container, thickness,
-                            own_gap=gen.gap(doc["pattern"]["params"]),
+        elements = _to_face(elements, container, thickness, own_gap=own_gap,
                             hole_limit=container.shrunk(border_width))
+        if hatch_style is not None:
+            # Die Loecher SIND die freien Flaechen - inklusive Randbeschnitt und
+            # Splitterfilter. Deshalb hier schraffieren und nicht vorher.
+            holes = [el.points for el in elements
+                     if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE]
+            strips, hatch_warnings = hatch_areas(
+                holes, hatch_style, hatch_rnd,
+                web_half=max(thickness, own_gap) / 2.0)
+            elements.extend(strips)
+            warnings.extend(hatch_warnings)
         elements = _knockout_sweep(elements, doc)
     else:
         elements = _apply_text_knockout(elements, doc, style)
         if mode == "area":
+            # Ohne Flaechenmodell wird das Stegnetz gestrokt: frei bleibt jede
+            # Zelle, um eine halbe Stegdicke verkleinert.
+            strips: List[Any] = []
+            if hatch_style is not None:
+                free = [poly for poly in
+                        (_shrink_cell(el.points, thickness / 2.0) for el in elements
+                         if isinstance(el, ir.Path) and el.closed
+                         and el.role == ir.ROLE_REGION)
+                        if poly and len(poly) >= 3]
+                strips, hatch_warnings = hatch_areas(
+                    free, hatch_style, hatch_rnd, web_half=thickness / 2.0)
+                warnings.extend(hatch_warnings)
             elements = _to_areas(elements, thickness=thickness,
                                  fill_target=fill_target, own_gap=bool(gen.own_gap))
+            elements.extend(strips)
             elements = _knockout_sweep(elements, doc)
         if border_on:
             elements = list(container.outline()) + elements

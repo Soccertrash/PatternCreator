@@ -74,6 +74,22 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 - [ ] Strich-Muster (Wellen, Spiralen, Fischgrät, Schuppen, Kaustik, Blattadern, Phyllotaxis, Motiv-Streuung) bleiben mehrteilig, ergeben beim Extrudieren aber **einen** Körper. *(Stufe 2, siehe PLAN.md Abschnitt 13)*
 - [ ] Puzzle: runder Kopf an schmalem Hals, Nasen greifen ineinander, keine Knicke am Halsansatz; Nase bleibt auch bei Formstreuung 1,0 auf ihrer Kante.
 
+## G3. Schraffur (optionale Füllung der Zellflächen)
+- [ ] Schalter **Schraffur in Zellen** erscheint nur im Flächenmodus mit Füllung *Stege*; sonst sind alle Schraffur-Felder ausgeblendet und wirkungslos.
+- [ ] Schraffur ist additiv: Ein- und Ausschalten ändert das eigentliche Muster (Fläche + Löcher) nicht – auch die Zufallsmuster nicht (Voronoi, Kiesel, Zellgewebe).
+- [ ] **Schraffur-Dicke** wirkt unabhängig von der Stegdicke (Stichprobe: Steg 1,0 mm + Schraffur 0,4 mm in Fusion gemessen).
+- [ ] **Abstand** ist Strichmitte zu Strichmitte; bei festem Winkel fluchten die Linien über Zellgrenzen hinweg.
+- [ ] Kein Schraffursteg schwebt frei: jeder Strich ist an beiden Enden mit dem Stegnetz verbunden (Stichprobe Wabe + Voronoi, im 3D-Druck kein loses Teil).
+- [ ] Konkave Zellen korrekt gefüllt: beim Puzzle folgt die Schraffur den Nasen, es entstehen mehrere Teilstriche je Linie und keine Striche außerhalb der Zelle.
+- [ ] **Zufällig je Zelle**: jede Zelle hat einen anderen Winkel; gleicher Seed ⇒ gleiches Ergebnis in Vorschau, Commit und Re-Edit.
+- [ ] **Zum Mittelpunkt**: alle Zellen zeigen auf den eingestellten Punkt (Strahlenkranz); Punkt liegt relativ zur Rahmenmitte und verschiebt sich mit dem Rahmen.
+- [ ] **Kreuz**: zweites Raster mit dem eingestellten Kreuzungswinkel; Überlappung an den Kreuzungen ist bekannt und extrudiert trotzdem zu **einem** Körper.
+- [ ] Schraffur bleibt innerhalb des Rahmens und hält die Rahmendicke ein.
+- [ ] Text-Knockout gilt auch für die Schraffur: kein Schraffursteg schneidet die Text-Box.
+- [ ] Sehr kleiner Abstand ⇒ Warnung („Schraffur bei 20000 Stegen abgebrochen") statt Einfrieren; Entity-Warnung beim Commit greift.
+- [ ] Ohne Rahmen (altes Stroken, Gravurfall) wird ebenfalls schraffiert.
+- [ ] **Direkt extrudieren** mit Schraffur liefert dasselbe wie die manuelle Profilauswahl: Stege **und** Schraffur massiv, die Restflächen bleiben offen (`fusion/extrude.py::_collect_profiles` sammelt alle Profile außer dem umschließenden – mit Schraffur entstehen deutlich mehr und kleinere Restprofile, das ist in Fusion zu prüfen).
+
 ## H. Text-Layer
 - [ ] Text über jedem Mustertyp platzierbar; Schriftart, Höhe, Position, Winkel wirken; Position auch per Drag in der Vorschau.
 - [ ] Knockout an: kein Muster-Element schneidet die Text-Box (+ Rand); Knockout aus: Überlagerung.
@@ -95,7 +111,7 @@ Wird nach der Umsetzung Punkt für Punkt geprüft; jeder Punkt ist objektiv mit
 
 ## K. Tests & Doku
 - [ ] `pytest tests/` läuft ohne Fusion durch; `core/`, `generators/`, `text/` importieren kein `adsk` (Code-Grep).
-- [ ] Tests decken ab: Clipping aller Containerformen, Stroker (geschlossen, Gehrung), Kanten-Deduplizierung, Seed-Determinismus je Generator, PatternDoc-Roundtrip, Knockout, Fehler bei Größe 0.
+- [ ] Tests decken ab: Clipping aller Containerformen, Stroker (geschlossen, Gehrung), Kanten-Deduplizierung, Seed-Determinismus je Generator, PatternDoc-Roundtrip, Knockout, Fehler bei Größe 0, Schraffur (Scanline in konkaven Zellen, Verankerung, Notbremsen).
 - [ ] README: Parameter-Referenz je Muster, manuelle Testmatrix mit Ergebnis, bekannte Einschränkungen (max. 500 Voronoi-Zellen, ein Text-Layer im UI, Knockout über Bounding-Box, Vorschau-Schrift ≈ Fusion-Schrift, Palette-Cache-Hinweis).
 
 ## L. Code-Qualität

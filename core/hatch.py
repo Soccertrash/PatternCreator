@@ -122,6 +122,10 @@ def scanlines(poly: Sequence[Point], angle: float, spacing: float
     out: List[Tuple[Point, Point]] = []
     for k in range(k0, k1 + 1):
         y = k * spacing
+        # Linien genau auf der Randtangente liegen zur Haelfte im Steg: sie
+        # wuerden ihn nur verbreitern und kosten unnoetige Entities.
+        if y <= lo + 1e-9 or y >= hi - 1e-9:
+            continue
         xs: List[float] = []
         for i in range(n):
             x0, y0 = rot[i]

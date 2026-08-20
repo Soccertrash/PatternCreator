@@ -395,6 +395,63 @@ einem Punkt). Bis dahin bleiben sie mehrteilig und werden erst beim Extrudieren 
 
 ---
 
+## 14. Schraffur – optionale Füllung der Zellflächen (Phase 8)
+
+**Warum:** Das Stegnetz lässt die Zellen offen. Für Blenden, Lautsprechergitter oder
+dekorative Einsätze soll die freie Fläche wahlweise mit einer feineren Struktur gefüllt
+werden – ohne dass daraus eine massive Fläche wird.
+
+**Kernidee:** Die Schraffur ist **kein eigener Modus**, sondern additiv: sie erzeugt
+zusätzliche **Stege** in den freien Flächen. Damit bleibt alles extrudierbar und
+3D-druckbar, und das eigentliche Muster ändert sich beim Zuschalten nicht (durch Test
+abgesichert: Fläche und Löcher bleiben Bit für Bit gleich).
+
+```
+freie Fläche  = Loch (Flächenmodell) bzw. Zelle − halbe Stegdicke (Stroken)
+Mittellinien  = Scanline durch die freie Fläche, Raster = Vielfache des Abstands
+Streifen      = Mittellinie um web_half verlängert, dann gestrokt (eigene Dicke)
+```
+
+### Entscheidungen
+
+- **Stege statt Linien** (Vorgabe des Auftraggebers): eine Schraffur aus offenen Kurven
+  wäre nicht extrudierbar. Die **Strichdicke ist eigenständig** (`style.hatchThickness`),
+  eine feine Schraffur in einem groben Stegnetz ist also möglich.
+- **Nur im Flächenmodus mit Füllung *Stege*.** Nur dort sind die Zellen überhaupt frei;
+  bei Füllung *Zellen* sind sie bereits massiv. Der Editor blendet die Felder sonst aus,
+  `style_from_doc()` liefert dann `None`.
+- **Verankerung statt schwebender Inseln:** jede Mittellinie wird an beiden Enden um
+  `web_half = max(Dicke, eigene Fuge) / 2` verlängert und endet damit in der Mitte des
+  umgebenden Stegs. Ein Schraffursteg kann so nie frei in der Zelle schweben – im Druck
+  wäre das ein loses Teil.
+- **Eigene Scanline statt `core/clip.py`:** der vorhandene Clipper ist auf **konvexe**
+  Bereiche ausgelegt. Zellen sind es oft nicht (Puzzle-Nasen, Zellgewebe). `hatch.scanlines()`
+  dreht die Zelle in das Schraffur-Koordinatensystem, sammelt je Rasterlinie die
+  Kantenschnitte und verbindet sie paarweise (even-odd) – liefert an Einbuchtungen also
+  korrekt **mehrere** Teilstrecken je Linie.
+- **Absolutes Raster** (Vielfache von `hatchSpacing`, nicht relativ zur Zelle): bei festem
+  Winkel fluchten die Linien über Zellgrenzen hinweg.
+- **Randtangenten fallen weg:** eine Linie genau auf der Zellkante läge zur Hälfte im Steg
+  und würde ihn nur verbreitern.
+- **Richtung** (`style.hatchAim`): *Fester Winkel* · *Zufällig je Zelle* (Streuung um den
+  Grundwinkel, aus dem Seed – eigener Zufallsstrom, damit das Muster selbst unverändert
+  bleibt) · *Zum Mittelpunkt* (jede Zelle wird auf einen gemeinsamen Punkt ausgerichtet →
+  Strahlenkranz).
+- **Art** (`style.hatchType`): *Parallel* oder *Kreuz* mit einstellbarem Kreuzungswinkel.
+- **Notbremsen:** `MAX_LINES_PER_AREA` (2000) je Fläche, `MAX_STRIPS` (20000) gesamt; beim
+  Abbruch eine Warnung im Editor statt einer unbrauchbaren Skizze.
+
+### Bewusst offen
+
+- **Kreuzschraffur überlappt sich an den Kreuzungspunkten** – wie die Strich-Muster aus
+  Stufe 2 in Abschnitt 13. Für überschneidungsfreie Kreuzungen bräuchte es dieselbe
+  Polygon-Vereinigung. Extrudiert ergibt es trotzdem **einen** Körper.
+- Schraffur nur in geschlossenen Zellen. Strich-Muster ohne Zellen (Wellen, Spiralen …)
+  haben keine Flächen zum Füllen; dort bleibt der Schalter wirkungslos.
+- Konturparallele Schraffur (nach innen versetzte Ringe) ist nicht umgesetzt.
+
+---
+
 ## 12. Bekannte Fallstricke
 
 - Event-Handler-Referenzen global halten (GC), auch die Palette-HTML-Event-Handler.
@@ -410,6 +467,10 @@ einem Punkt). Bis dahin bleiben sie mehrteilig und werden erst beim Extrudieren 
   Flächenmodell ganz (siehe Abschnitt 13).
 - `inset_polygon` arbeitet mit Winkelhalbierenden und kollabiert an konkaven Konturen
   (Puzzle-Nasen) → zum Verkleinern von Zellen den Stroker-Offset verwenden.
+- `core/clip.py` kann nur gegen **konvexe** Bereiche schneiden. Alles, was durch konkave
+  Zellen geschnitten werden muss (Schraffur), braucht die Scanline aus `core/hatch.py`.
+- Zusatzgeometrie nie aus `ctx.rnd` speisen → sonst ändert sich beim Zuschalten der
+  Schraffur auch das Muster. Die Schraffur hat einen eigenen `random.Random(seed + 7919)`.
 - SketchText-Schriftarten unterscheiden sich zwischen macOS/Windows → Fallback auf „Arial"
   und Fehlermeldung statt Absturz bei unbekannter Schrift.
 - Palette-HTML wird von Fusion gecacht → beim Entwickeln Version-Query an die URL hängen.

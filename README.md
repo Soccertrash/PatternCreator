@@ -252,6 +252,7 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | **Flächenmodus** | Jede Kurve wird über die **Dicke** zu einem geschlossenen Streifen, jede Zelle zu einem geschlossenen Polygon → direkt extrudierbar. |
 | **Stege / Zellen** | Im Flächenmodus wahlweise die Wände *zwischen* den Zellen oder die Zellflächen selbst. |
 | **Beschnitt** | `Am Rand beschneiden` (cut), `Angeschnittene weglassen` (dropPartial – ergibt ausgefranste, natürliche Ränder) oder `Aus`. |
+| **Schraffur** | Optionale Füllung der offenen Zellflächen mit zusätzlichen, eigenständig dünnen Stegen – parallel oder gekreuzt. Nur im Flächenmodus mit *Stegen*. |
 | **Seed** | Gleicher Seed ⇒ identisches Muster in Vorschau, Skizze und nach dem Bearbeiten. |
 | **Knockout** | Das Muster wird im Bereich der Text-Bounding-Box (plus Rand) ausgestanzt. |
 | **Eine Fläche** | Bei den kachelnden Mustern (Gitter, Rauten, Wabe, Mauer, Puzzle, Voronoi, Kiesel, Zellgewebe) entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
@@ -287,11 +288,42 @@ verschmelzen; die einzelne Auswahl im Skizzen-Modus ist dort noch offen.
 
 ---
 
+## Schraffur – Zellen füllen statt offen lassen
+
+Im Flächenmodus mit **Stegen** bleiben die Zellen offen. Mit **Schraffur in Zellen**
+werden sie stattdessen mit zusätzlichen Stegen gefüllt – nicht mit Linien: das
+Ergebnis ist genauso extrudierbar und 3D-druckbar wie das Muster selbst.
+
+| Einstellung | Wirkung |
+| --- | --- |
+| **Schraffurart** | *Parallel* oder *Kreuz* (zweites Raster). |
+| **Schraffur-Abstand** | Abstand von Strichmitte zu Strichmitte. |
+| **Schraffur-Dicke** | Strichbreite – **unabhängig** von der Stegdicke. Eine feine Schraffur in einem groben Netz ist also möglich. |
+| **Schraffur-Richtung** | *Fester Winkel*, *Zufällig je Zelle* (Streuung um den Grundwinkel, aus dem Seed) oder *Zum Mittelpunkt* (alle Zellen zeigen auf einen Punkt – Strahlenkranz). |
+| **Winkel-Streuung** | Bei *Zufällig je Zelle*: größte Abweichung vom Grundwinkel. 180° = völlig zufällig. |
+| **Mittelpunkt X/Y** | Bei *Zum Mittelpunkt*: Zielpunkt, bezogen auf die Rahmenmitte (0/0). |
+| **Kreuzungswinkel** | Bei *Kreuz*: Winkel des zweiten Rasters gegenüber dem ersten. |
+
+Gut zu wissen:
+
+* Die Schraffur ist **additiv**: Ein- und Ausschalten verändert das eigentliche Muster
+  nicht – auch bei den Zufallsmustern nicht.
+* Jeder Schraffursteg ist an beiden Enden mit dem Stegnetz **verbunden**; es entstehen
+  keine losen Teile im Druck.
+* Sie folgt auch **konkaven** Zellen korrekt (Puzzle-Nasen, Zellgewebe).
+* Bei festem Winkel **fluchten** die Striche über Zellgrenzen hinweg.
+* Sie erhöht die Zahl der Skizzen-Elemente deutlich – bei sehr kleinem Abstand kommt
+  eine Warnung, und der Aufbau wird abgebrochen, statt Fusion einzufrieren.
+* Kreuzschraffur überlappt sich an den Kreuzungspunkten. Extrudiert ergibt das
+  trotzdem **einen** Körper.
+
+---
+
 ## Parameter-Referenz
 
 Gemeinsam für alle Muster: **Rahmen** (Form + Maße, Ursprung, Drehung von Rahmen und
 Muster), **Stil** (Modus, Dicke, Stege/Zellen, Beschnitt, Rahmen zeichnen,
-**Rahmendicke**), **Text-Ebene**, **Extrusion** und **Seed**.
+**Rahmendicke**, **Schraffur**), **Text-Ebene**, **Extrusion** und **Seed**.
 
 Die **Rahmendicke** (`style.borderWidth`, Standard 1,5 mm) wirkt im Flächenmodus und
 wird nach innen gemessen: ein Kreisrahmen mit 90 mm bleibt außen 90 mm groß.
@@ -916,6 +948,7 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | **Face mode** (*Flächen*) | Every curve becomes a closed strip via the **thickness**, every cell a closed polygon → directly extrudable. |
 | **Webs / cells** (*Stege / Zellen*) | In face mode either the walls *between* the cells or the cell faces themselves. |
 | **Clipping** (*Beschnitt*) | `cut at border` (cut), `drop partial` (ragged, natural edges) or `off`. |
+| **Hatching** (*Schraffur*) | Optional filling of the open cell faces with additional, independently thin webs — parallel or crossed. Face mode with *webs* only. |
 | **Seed** | Same seed ⇒ identical pattern in the preview, in the sketch and after re-editing. |
 | **Knockout** | The pattern is punched out within the text bounding box (plus margin). |
 | **One single face** | For the tiling patterns (grid, rhombus, honeycomb, brick, puzzle, Voronoi, pebbles, tissue) face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
@@ -951,11 +984,42 @@ step; selecting them as one profile in the sketch is not implemented yet.
 
 ---
 
+## Hatching — filling the cells instead of leaving them open
+
+In face mode with **webs** the cells stay open. **Schraffur in Zellen** (hatching)
+fills them with additional webs instead — not with lines: the result is just as
+extrudable and 3D-printable as the pattern itself.
+
+| Setting | Effect |
+| --- | --- |
+| **Schraffurart** (type) | *Parallel* or *Kreuz* (cross — a second raster). |
+| **Schraffur-Abstand** (spacing) | Distance from stroke centre to stroke centre. |
+| **Schraffur-Dicke** (thickness) | Stroke width — **independent** of the web thickness, so a fine hatch inside a coarse web network is possible. |
+| **Schraffur-Richtung** (aim) | *Fester Winkel* (fixed angle), *Zufällig je Zelle* (random per cell, scattered around the base angle, driven by the seed) or *Zum Mittelpunkt* (every cell aimed at one point — a starburst). |
+| **Winkel-Streuung** (jitter) | For *random per cell*: largest deviation from the base angle. 180° = fully random. |
+| **Mittelpunkt X/Y** (centre) | For *aim at centre*: the target point, relative to the container centre (0/0). |
+| **Kreuzungswinkel** (cross angle) | For *cross*: angle of the second raster against the first. |
+
+Worth knowing:
+
+* Hatching is **additive** — switching it on or off never changes the pattern itself,
+  not even for the random patterns.
+* Every hatch web is **anchored** at both ends in the web network, so nothing ends up
+  as a loose part in the print.
+* It follows **concave** cells correctly (puzzle noses, tissue).
+* At a fixed angle the strokes **line up** across cell boundaries.
+* It raises the sketch entity count noticeably — at a very small spacing you get a
+  warning and the build stops instead of freezing Fusion.
+* Cross hatching overlaps at the crossing points. Extruded it still yields **one** body.
+
+---
+
 ## Parameter reference
 
 Shared by every pattern: **container** (shape + dimensions, origin, rotation of
 container and pattern), **style** (mode, thickness, webs/cells, clipping, draw
-container, **border width**), **text layer**, **extrusion** and **seed**.
+container, **border width**, **hatching**), **text layer**, **extrusion** and
+**seed**.
 
 **Border width** / „Rahmendicke“ (`style.borderWidth`, default 1.5 mm) applies in face
 mode and is measured inwards: a 90 mm circular container stays 90 mm across. Each entry below gives the

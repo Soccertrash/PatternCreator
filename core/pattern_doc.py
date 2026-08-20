@@ -117,6 +117,9 @@ PLACEMENT_PARAMS: List[Param] = [
           help="Dreht das Muster innerhalb des Rahmens."),
 ]
 
+#: Schraffur-Detailfelder erscheinen nur, wenn die Schraffur aktiv sein kann
+HATCH_ON = {"mode": ["area"], "fillTarget": ["webs"], "hatch": [True]}
+
 STYLE_PARAMS: List[Param] = [
     Param("mode", "Modus", T_CHOICE, "area", choices=[
         ("area", "Flächen (extrudierbar)"), ("lines", "Linien")],
@@ -139,6 +142,45 @@ STYLE_PARAMS: List[Param] = [
           help="Breite des geschlossenen Rands, nach innen gemessen - das "
                "eingestellte Rahmenmaß bleibt also das Außenmaß. 0 = nur so "
                "breit wie ein halber Steg."),
+
+    # -- Schraffur: fuellt die freien Zellflaechen mit zusaetzlichen Stegen.
+    # Nur im Flaechenmodus mit Fuellung "Stege" sinnvoll - nur dort sind die
+    # Zellen ueberhaupt offen. Geometrie siehe ``core/hatch.py``.
+    Param("hatch", "Schraffur in Zellen", T_BOOL, False,
+          visible_if={"mode": ["area"], "fillTarget": ["webs"]},
+          help="Zieht zus\u00e4tzliche Stege in die offenen Zellfl\u00e4chen. Eigene "
+               "Dicke, deshalb auch als feine F\u00fcllung in einem groben "
+               "Stegnetz verwendbar."),
+    Param("hatchType", "Schraffurart", T_CHOICE, "parallel", choices=[
+        ("parallel", "Parallel"), ("cross", "Kreuz")],
+        visible_if=HATCH_ON,
+        help="Kreuz legt ein zweites Linienraster dar\u00fcber."),
+    Param("hatchSpacing", "Schraffur-Abstand", T_LENGTH, 0.4, min=0.02, max=20.0,
+          step=0.01, visible_if=HATCH_ON,
+          help="Abstand von Strichmitte zu Strichmitte."),
+    Param("hatchThickness", "Schraffur-Dicke", T_LENGTH, 0.06, min=0.005, max=5.0,
+          step=0.005, visible_if=HATCH_ON,
+          help="Strichbreite der Schraffur - unabh\u00e4ngig von der Stegdicke."),
+    Param("hatchAim", "Schraffur-Richtung", T_CHOICE, "fixed", choices=[
+        ("fixed", "Fester Winkel"), ("random", "Zuf\u00e4llig je Zelle"),
+        ("center", "Zum Mittelpunkt")],
+        visible_if=HATCH_ON,
+        help="Zuf\u00e4llig streut den Winkel je Zelle (aus dem Seed); Mittelpunkt "
+             "richtet jede Zelle auf einen gemeinsamen Punkt aus."),
+    Param("hatchAngle", "Schraffur-Winkel", T_ANGLE, 45.0, min=-180.0, max=180.0,
+          step=1.0, visible_if=dict(HATCH_ON, hatchAim=["fixed", "random"]),
+          help="Bei \u201eZuf\u00e4llig je Zelle\u201c der Grundwinkel, um den gestreut wird."),
+    Param("hatchJitter", "Winkel-Streuung", T_ANGLE, 90.0, min=0.0, max=180.0,
+          step=1.0, visible_if=dict(HATCH_ON, hatchAim=["random"]),
+          help="Gr\u00f6\u00dfte Abweichung vom Grundwinkel. 180\u00b0 = v\u00f6llig zuf\u00e4llig."),
+    Param("hatchCenterX", "Mittelpunkt X", T_LENGTH, 0.0, min=-500.0, max=500.0,
+          step=0.1, visible_if=dict(HATCH_ON, hatchAim=["center"]),
+          help="Zielpunkt aller Schraffuren, bezogen auf die Rahmenmitte (0/0)."),
+    Param("hatchCenterY", "Mittelpunkt Y", T_LENGTH, 0.0, min=-500.0, max=500.0,
+          step=0.1, visible_if=dict(HATCH_ON, hatchAim=["center"])),
+    Param("hatchCrossAngle", "Kreuzungswinkel", T_ANGLE, 90.0, min=10.0, max=170.0,
+          step=1.0, visible_if=dict(HATCH_ON, hatchType=["cross"]),
+          help="Winkel des zweiten Linienrasters gegen\u00fcber dem ersten."),
 ]
 
 TEXT_PARAMS: List[Param] = [
