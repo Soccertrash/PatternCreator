@@ -105,6 +105,9 @@ einmal **Ausführen** geklickt werden.
 2. Den Ordner im `AddIns`-Verzeichnis durch die neue Version ersetzen.
 3. **Ausführen** klicken.
 
+Ob die neue Fassung wirklich geladen ist, zeigt der Dialog *Skripte und Add-Ins*:
+das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.2.0).
+
 Fusion cacht die HTML-Oberfläche der Palette. Das Add-In hängt deshalb automatisch
 eine Version an die URL an; sollte der Editor trotzdem in einem alten Stand hängen,
 hilft ein Neustart von Fusion.
@@ -791,6 +794,10 @@ every Fusion start.
 1. Click **Stop** in *Scripts and Add-Ins* (or close Fusion).
 2. Replace the folder in the `AddIns` directory with the new version.
 3. Click **Run**.
+
+To confirm the new build is actually loaded, open *Scripts and Add-Ins* and select
+the add-in — the details pane shows the **version** from the manifest (currently
+1.2.0).
 
 Fusion caches the palette's HTML interface. The add-in therefore appends a version
 to the URL automatically; if the editor still shows an old state, restarting Fusion

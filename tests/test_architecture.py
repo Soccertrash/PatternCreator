@@ -117,3 +117,14 @@ def test_readme_documents_both_platforms_and_limits():
     readme = read(os.path.join(ROOT, "README.md"))
     for needle in ("macOS", "Windows", "AddIns", "500", "pytest"):
         assert needle in readme, needle
+
+
+def test_manifest_carries_a_usable_version():
+    """Fusion zeigt diese Version im Add-Ins-Dialog - daran erkennt man, ob die
+    neue Fassung geladen ist. Sie muss deshalb gueltiges Semver sein."""
+    import json
+    import re
+
+    manifest = json.loads(read(os.path.join(ROOT, "PatternCreator.manifest")))
+    assert re.match(r"^\d+\.\d+\.\d+$", manifest["version"]), manifest["version"]
+    assert manifest["type"] == "addin"
