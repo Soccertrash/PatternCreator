@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muster-Editor</title>
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="row">
+      <button id="patternButton" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <span class="pict" id="patternIcon"></span>
+        <span class="name" id="patternName">Muster wählen …</span>
+        <span class="caret">▾</span>
+      </button>
+      <button id="helpBtn" class="icon" type="button" title="Kurzbeschreibung des Musters">?</button>
+    </div>
+    <div class="row">
+      <label for="seedInput" style="color:var(--muted)">Seed</label>
+      <input id="seedInput" type="number" min="0" max="999999" step="1" value="42" style="width:90px">
+      <button id="diceBtn" type="button" title="Neuen Seed würfeln (Strg/Cmd+R)">🎲 Würfeln</button>
+      <span class="grow"></span>
+      <span id="targetLabel" style="font-size:11px;color:var(--muted)"></span>
+    </div>
+  </header>
+
+  <div id="patternPopup" class="pattern-popup" role="listbox" hidden></div>
+
+  <div id="previewWrap">
+    <canvas id="preview"></canvas>
+    <div id="previewTools">
+      <button id="fitBtn" class="icon" type="button" title="Einpassen">⤢</button>
+    </div>
+    <div id="banner" hidden></div>
+    <div id="stats">–</div>
+  </div>
+
+  <div id="globalError" hidden></div>
+
+  <div id="panels">
+    <div id="helpBox" hidden></div>
+
+    <details class="group" id="groupPattern" open>
+      <summary>Muster-Parameter
+        <span class="group-actions">
+          <button type="button" data-reset="pattern">Zurücksetzen</button>
+        </span>
+      </summary>
+      <div class="group-body">
+        <div class="presets" id="presetRow"><span>Vorgaben:</span></div>
+        <div id="patternFields"></div>
+      </div>
+    </details>
+
+    <details class="group" id="groupContainer">
+      <summary>Rahmen
+        <span class="group-actions">
+          <button type="button" data-reset="container">Zurücksetzen</button>
+        </span>
+      </summary>
+      <div class="group-body">
+        <div id="containerFields"></div>
+        <div id="placementFields"></div>
+      </div>
+    </details>
+
+    <details class="group" id="groupStyle">
+      <summary>Stil
+        <span class="group-actions">
+          <button type="button" data-reset="style">Zurücksetzen</button>
+        </span>
+      </summary>
+      <div class="group-body"><div id="styleFields"></div></div>
+    </details>
+
+    <details class="group" id="groupText">
+      <summary>Text-Ebene
+        <span class="group-actions">
+          <button type="button" data-reset="text">Zurücksetzen</button>
+        </span>
+      </summary>
+      <div class="group-body">
+        <div id="textFields"></div>
+        <div class="hint" style="color:var(--muted);font-size:11px">
+          Die Vorschau-Schrift kann leicht von der Fusion-Schrift abweichen.
+          Der Text lässt sich in der Vorschau mit der Maus verschieben.
+        </div>
+      </div>
+    </details>
+
+    <details class="group" id="groupExtrude">
+      <summary>Extrusion
+        <span class="group-actions">
+          <button type="button" data-reset="extrude">Zurücksetzen</button>
+        </span>
+      </summary>
+      <div class="group-body"><div id="extrudeFields"></div></div>
+    </details>
+  </div>
+
+  <footer>
+    <button id="resetBtn" type="button" title="Alles auf Standardwerte">Zurücksetzen</button>
+    <button id="undoBtn" class="icon" type="button" title="Rückgängig (Strg/Cmd+Z)">↶</button>
+    <button id="redoBtn" class="icon" type="button" title="Wiederholen (Strg/Cmd+Umschalt+Z)">↷</button>
+    <span class="grow"><span id="status"></span></span>
+    <button id="cancelBtn" type="button">Abbrechen</button>
+    <button id="commitBtn" class="primary" type="button">In Skizze erzeugen</button>
+  </footer>
+
+</div>
+
+<script src="preview.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>
