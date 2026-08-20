@@ -33,9 +33,9 @@ def roles(scene):
 
 # ------------------------------------------------------------------ Struktur
 
-def test_eight_patterns_are_tiling():
+def test_nine_patterns_are_tiling():
     assert set(TILING_IDS) == {"grid", "rhombus", "honeycomb", "brick", "puzzle",
-                               "voronoi", "pebbles", "tissue"}
+                               "voronoi", "pebbles", "tissue", "leaf_veins"}
 
 
 @pytest.mark.parametrize("pattern_id", TILING_IDS)

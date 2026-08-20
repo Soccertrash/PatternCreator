@@ -6,33 +6,19 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 from core import ir
 from core.clip import clip_polygon
-from core.geom import (bbox, chain_segments, dist, polygon_area,
-                       polygon_segments, snap_segments)
+from core.geom import bbox, erode_convex, polygon_area
 from core.pattern_doc import Param, T_FLOAT, T_INT
 
 from .base import GenContext
-from .organic_cells import OrganicGenerator, build_cells, voronoi_cells
+from .organic_cells import (ROUND_FACTORS, OrganicGenerator, build_cells,
+                            round_corners, scatter_in_polygon, voronoi_cells)
 
 Point = Tuple[float, float]
 
 
-def _on_boundary(p: Point, poly: Sequence[Point], tol: float) -> bool:
-    n = len(poly)
-    for i in range(n):
-        a, b = poly[i], poly[(i + 1) % n]
-        abx, aby = b[0] - a[0], b[1] - a[1]
-        ll = abx * abx + aby * aby
-        if ll < 1e-12:
-            continue
-        t = ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / ll
-        t = max(0.0, min(1.0, t))
-        if dist(p, (a[0] + abx * t, a[1] + aby * t)) <= tol:
-            return True
-    return False
-
-
 class LeafVeinsGenerator(OrganicGenerator):
     id = "leaf_veins"
+    tiling = True
     label = "Blattadern"
     description = ("Zweistufiges Adernetz: grobe Zellen bilden die dicken Hauptadern, "
                    "ein feines Sub-Voronoi je Zelle die dünnen Nebenadern.")
@@ -57,62 +43,49 @@ class LeafVeinsGenerator(OrganicGenerator):
     ]
 
     def generate(self, params: Dict[str, Any], ctx: GenContext) -> List[Any]:
+        """Die Zellen **zwischen** den Adern, nicht die Adern selbst.
+
+        Die Adern sind das, was zwischen den Zellen stehen bleibt - genau wie bei
+        Wabe oder Kiesel. Vorher wurde jede Ader einzeln gestrichelt und gestrokt;
+        an jedem Aderknoten überlappten sich die Streifen, das Muster bestand aus
+        hunderten sich schneidenden Rechtecken und ergab in Fusion keinen
+        einzelnen Körper. Die Dicke der Hauptadern entsteht jetzt geometrisch:
+        jede Grobzelle wird vor dem Unterteilen um ``(veinRatio - 1) * Dicke / 2``
+        verkleinert. Zwei Feinzellen derselben Grobzelle trennt dann eine Stegdicke
+        (Nebenader), zwei Feinzellen verschiedener Grobzellen ``veinRatio``
+        Stegdicken (Hauptader).
+        """
         coarse_n = int(params.get("coarseCells", 14))
         fine_n = int(params.get("fineCells", 9))
-        ratio = float(params.get("veinRatio", 2.5))
-        smooth = int(params.get("roundness", 1))
+        ratio = max(1.0, float(params.get("veinRatio", 2.5)))
+        smooth = min(int(params.get("roundness", 1)), len(ROUND_FACTORS) - 1)
+        factor = ROUND_FACTORS[smooth]
         rnd = ctx.rnd
 
-        coarse = build_cells(ctx, count=coarse_n, relax=int(params.get("relax", 2)),
-                             smooth=smooth)
-        thin = ctx.thickness
-        thick = ctx.thickness * ratio
+        coarse = build_cells(ctx, count=coarse_n, relax=int(params.get("relax", 2)))
+        extra = (ratio - 1.0) * ctx.thickness / 2.0
 
         out: List[Any] = []
-
-        # -- Hauptadern ---------------------------------------------------
-        segs: List[Tuple[Point, Point]] = []
         for cell in coarse:
-            segs.extend(polygon_segments(cell))
-        for pts, closed in chain_segments(snap_segments(segs)):
-            if len(pts) >= 2:
-                out.append(ir.Path(points=pts, closed=closed,
-                                   curve="spline" if smooth else "line",
-                                   role=ir.ROLE_EDGE, widths=[thick] * len(pts)))
-
-        # -- Nebenadern je Grobzelle -------------------------------------
-        if fine_n > 0:
-            for cell in coarse:
-                x0, y0, x1, y1 = bbox(cell)
-                if x1 - x0 < 1e-6 or y1 - y0 < 1e-6:
-                    continue
-                sites: List[Point] = []
-                guard = 0
-                while len(sites) < fine_n and guard < fine_n * 40:
-                    guard += 1
-                    p = (x0 + rnd.random() * (x1 - x0), y0 + rnd.random() * (y1 - y0))
-                    if _point_in(p, cell):
-                        sites.append(p)
-                if len(sites) < 2:
-                    continue
-                tol = min(x1 - x0, y1 - y0) * 0.02 + 1e-6
-                sub_segs: List[Tuple[Point, Point]] = []
-                for sub in voronoi_cells(sites, (x0, y0, x1, y1)):
-                    clipped = clip_polygon(sub, cell)
-                    if len(clipped) < 3 or abs(polygon_area(clipped)) < 1e-9:
-                        continue
-                    for a, b in polygon_segments(clipped):
-                        mid = ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
-                        if _on_boundary(mid, cell, tol):
-                            continue        # liegt auf der Hauptader
-                        sub_segs.append((a, b))
-                for pts, closed in chain_segments(snap_segments(sub_segs)):
-                    if len(pts) >= 2:
-                        out.append(ir.Path(points=pts, closed=closed, curve="line",
-                                           role=ir.ROLE_EDGE, widths=[thin] * len(pts)))
+            inner = erode_convex(cell, extra) if extra > 1e-9 else list(cell)
+            if inner is None or len(inner) < 3:
+                continue
+            for sub in self._sub_cells(inner, fine_n, rnd):
+                out.append(ir.path(round_corners(sub, factor), closed=True,
+                                   role=ir.ROLE_REGION))
         return out
 
-
-def _point_in(p: Point, poly: Sequence[Point]) -> bool:
-    from core.geom import point_in_polygon
-    return point_in_polygon(p, poly)
+    @staticmethod
+    def _sub_cells(cell: Sequence[Point], count: int, rnd) -> List[List[Point]]:
+        """Grobzelle in Feinzellen unterteilen (leere Liste = Zelle bleibt ganz)."""
+        if count <= 0:
+            return [list(cell)]
+        sites = scatter_in_polygon(cell, count, rnd)
+        if len(sites) < 2:
+            return [list(cell)]
+        out: List[List[Point]] = []
+        for sub in voronoi_cells(sites, bbox(cell)):
+            clipped = clip_polygon(sub, cell)
+            if len(clipped) >= 3 and abs(polygon_area(clipped)) > 1e-9:
+                out.append(clipped)
+        return out or [list(cell)]

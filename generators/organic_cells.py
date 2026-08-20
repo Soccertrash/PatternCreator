@@ -10,8 +10,8 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Sequence, Tuple
 
-from core.geom import (EPS, centroid, clip_half_plane, convex_hull, dist,
-                       erode_convex, polygon_area)
+from core.geom import (EPS, bbox, centroid, clip_half_plane, convex_hull,
+                       dist, erode_convex, point_in_polygon, polygon_area)
 from core.pattern_doc import Param, T_FLOAT, T_INT, T_LENGTH
 
 from .base import GenContext, Generator
@@ -130,6 +130,33 @@ def scatter_sites(bbox: BBox, count: int, rnd) -> List[Point]:
             if misses >= 24:            # Rahmen ist voll -> Anspruch senken
                 radius *= 0.8
                 misses = 0
+    return pts
+
+
+def scatter_in_polygon(poly: Sequence[Point], count: int, rnd) -> List[Point]:
+    """``count`` Punkte mit Mindestabstand **innerhalb** eines Polygons streuen."""
+    x0, y0, x1, y1 = bbox(poly)
+    w, h = x1 - x0, y1 - y0
+    if count <= 0 or w <= 0 or h <= 0:
+        return []
+    area = abs(polygon_area(poly))
+    radius = 0.75 * math.sqrt(max(area, 1e-12) / float(count))
+    pts: List[Point] = []
+    misses = 0
+    guard = 0
+    while len(pts) < count and guard < count * 200:
+        guard += 1
+        p = (x0 + rnd.random() * w, y0 + rnd.random() * h)
+        if not point_in_polygon(p, poly):
+            continue
+        if any(dist(p, q) < radius for q in pts):
+            misses += 1
+            if misses >= 24:
+                radius *= 0.8
+                misses = 0
+            continue
+        pts.append(p)
+        misses = 0
     return pts
 
 

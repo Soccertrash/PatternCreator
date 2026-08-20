@@ -377,24 +377,56 @@ def test_caustics_uses_variable_widths_and_optional_second_layer():
     assert len(layered) > len(single)
 
 
-def test_leaf_veins_has_two_thickness_levels():
+def _hole_gaps(scene):
+    """Kleinster Abstand zwischen je zwei benachbarten Loechern."""
+    holes = [el.points for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE]
+    gaps = []
+    for i, a in enumerate(holes):
+        ax0, ay0, ax1, ay1 = bbox(a)
+        for b in holes[i + 1:]:
+            bx0, by0, bx1, by1 = bbox(b)
+            if bx0 > ax1 + 1.0 or ax0 > bx1 + 1.0 or by0 > ay1 + 1.0 or ay0 > by1 + 1.0:
+                continue
+            d = min(math.dist(p, q) for p in a for q in b)
+            if d < 1.0:
+                gaps.append(d)
+    return sorted(gaps)
+
+
+def test_leaf_veins_has_two_vein_thicknesses():
+    """Haupt- und Nebenadern entstehen aus dem Abstand der Zellen, nicht aus Strichen."""
+    thickness, ratio = 0.1, 3.0
+    scene = scene_for("leaf_veins", style={"mode": "area", "fillTarget": "webs",
+                                           "border": True, "thickness": thickness,
+                                           "clip": "cut"},
+                      params={"coarseCells": 8, "fineCells": 6, "veinRatio": ratio})
+    gaps = _hole_gaps(scene)
+    assert gaps, "keine benachbarten Loecher gefunden"
+    assert abs(gaps[0] - thickness) < thickness * 0.35          # Nebenader
+    assert max(gaps) > thickness * ratio * 0.7                  # Hauptader
+
+
+def test_leaf_veins_is_one_connected_face():
+    """Vorher: 309 sich ueberlappende Streifen, in Fusion kein einzelner Koerper."""
+    scene = scene_for("leaf_veins", style={"mode": "area", "fillTarget": "webs",
+                                           "border": True, "clip": "cut"})
+    faces = [el for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_FACE]
+    holes = [el for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE]
+    assert len(faces) == 1
+    assert len(holes) > 50
+
+
+def test_leaf_veins_without_fine_cells_keeps_the_coarse_cells():
     from generators import GenContext, get_generator
     import random
     gen = get_generator("leaf_veins")
     ctx = GenContext(bbox=(-5, -3, 5, 3), rnd=random.Random(3), thickness=0.05)
-    els = gen.generate(dict(gen.defaults()), ctx)
-    widths = sorted({round(e.widths[0], 6) for e in els})
-    assert len(widths) == 2
-    assert widths[1] > widths[0] * 2
-
-
-def test_leaf_veins_without_fine_cells_only_draws_main_veins():
-    from generators import GenContext, get_generator
-    import random
-    gen = get_generator("leaf_veins")
-    ctx = GenContext(bbox=(-5, -3, 5, 3), rnd=random.Random(3), thickness=0.05)
-    els = gen.generate(dict(gen.defaults(), fineCells=0), ctx)
-    assert len({round(e.widths[0], 6) for e in els}) == 1
+    els = gen.generate(dict(gen.defaults(), fineCells=0, coarseCells=12), ctx)
+    assert len(els) == 12
+    assert all(el.closed and el.role == ir.ROLE_REGION for el in els)
 
 
 # --------------------------------------------------------- Natürliche Muster
