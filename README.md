@@ -744,7 +744,8 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
 
 ## Lizenz / Herkunft
 
-Umsetzung nach `PLAN.md`; die Abnahmekriterien stehen in `CHECKLIST.md`.
+MIT-Lizenz, siehe [`LICENSE`](LICENSE). Umsetzung nach `PLAN.md`; die
+Abnahmekriterien stehen in `CHECKLIST.md`.
 
 ---
 
@@ -1510,4 +1511,5 @@ and help text are derived from the class.
 
 ## License / origin
 
-Implemented according to `PLAN.md`; the acceptance criteria are in `CHECKLIST.md`.
+MIT license, see [`LICENSE`](LICENSE). Implemented according to `PLAN.md`; the
+acceptance criteria are in `CHECKLIST.md`.
