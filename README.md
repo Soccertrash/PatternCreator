@@ -164,7 +164,7 @@ einmal **Ausführen** geklickt werden.
 3. **Ausführen** klicken.
 
 Ob die neue Fassung wirklich geladen ist, zeigt der Dialog *Skripte und Add-Ins*:
-das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.5.0).
+das Add-In markieren – rechts steht die **Version** aus dem Manifest (aktuell 1.7.0).
 
 Fusion cacht die HTML-Oberfläche der Palette. Das Add-In hängt deshalb automatisch
 eine Version an die URL an; sollte der Editor trotzdem in einem alten Stand hängen,
@@ -967,7 +967,7 @@ every Fusion start.
 
 To confirm the new build is actually loaded, open *Scripts and Add-Ins* and select
 the add-in — the details pane shows the **version** from the manifest (currently
-1.5.0).
+1.7.0).
 
 Fusion caches the palette's HTML interface. The add-in therefore appends a version
 to the URL automatically; if the editor still shows an old state, restarting Fusion
