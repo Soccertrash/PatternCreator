@@ -51,6 +51,12 @@ SEAM_WARNING = ("Keine Naht entlang der Zellwände gefunden – der Schnitt ist 
 SPLIT_WARNING = ("Keine Trennlinie für die Prägung gefunden – das Muster lässt "
                  "sich als Skizze erzeugen, aber nicht rundum prägen.")
 
+#: Ohne Beschnitt reicht das Muster ueber den Umlauf hinaus - nach dem Wickeln
+#: laege es auf sich selbst. Auf einer Mantelflaeche wird deshalb immer
+#: beschnitten, egal was im Dokument steht.
+CLIP_WARNING = ("Auf einer Mantelfläche wird immer am Rand beschnitten – sonst "
+                "läge das Muster nach dem Wickeln auf sich selbst.")
+
 
 def _shrunk(container: Container, delta: float, warnings: List[str],
             seam_free: bool = False) -> Container:
@@ -96,6 +102,9 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
 
     mode = str(style.get("mode", "area"))
     clip_mode = str(style.get("clip", "cut"))
+    if period > 0.0 and clip_mode == "off":
+        clip_mode = "cut"
+        warnings.append(CLIP_WARNING)
     seam_net: List[Any] = []
     seam_grow = 0.0
     if period > 0.0 and clip_mode != "off":

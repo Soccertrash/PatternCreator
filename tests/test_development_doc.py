@@ -349,3 +349,41 @@ def test_a_partial_face_keeps_its_developed_size():
     assert max(xs) - min(xs) == pytest.approx(2.0 * 1.6)   # Bogenlänge r * Δθ
     assert max(ys) - min(ys) == pytest.approx(3.0)
     assert holes
+
+
+def test_a_turn_is_always_clipped():
+    """„Beschnitt aus" gibt es auf einer Mantelfläche nicht.
+
+    Ohne Beschnitt füllt der Generator die vergrößerte Bounding-Box - auf dem
+    Zylinder läge das Muster nach dem Wickeln auf sich selbst.
+    """
+    doc, _errors = doc_for("honeycomb", style={"clip": "off"})
+    scene = build.build_scene(doc)
+    assert build.CLIP_WARNING in scene.warnings
+    face, holes = face_and_holes(scene)
+    assert face is not None and holes
+    for hole in holes:
+        assert polygon_fully_inside(hole.points, face.points)
+
+
+def test_every_style_combination_stays_inside_the_turn():
+    """Kein Stil-Schalter darf das Muster über einen Umlauf hinausschieben."""
+    combinations = [
+        {"mode": "lines"},
+        {"fillTarget": "cells"},
+        {"clip": "dropPartial"},
+        {"border": False},
+        {"borderWidth": 0.6},
+        {"hatch": True},
+        {"hatch": True, "embossOn": True},
+        {"mode": "lines", "embossOn": True},
+    ]
+    for style in combinations:
+        doc, _errors = doc_for("honeycomb", style=style)
+        scene = build.build_scene(doc)
+        xs = [p[0] for el in scene.elements
+              if isinstance(el, ir.Path) for p in el.points]
+        assert xs, style
+        # Der Rahmen ist genau einen Umlauf breit, seine Kanten zickzacken aber
+        # um bis zu einem Suchband - mehr als das darf nichts überstehen.
+        assert max(xs) - min(xs) < PERIOD + 2.0, style

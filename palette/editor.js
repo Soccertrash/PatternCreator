@@ -565,8 +565,11 @@
       if (key === 'patternAngle') { return !!(dev && dev.periodic); }
       return !!dev;
     }
-    if (section === 'style' && (key === 'embossOn' || key === 'embossDepth')) {
-      return !dev;
+    if (section === 'style') {
+      if (key === 'embossOn' || key === 'embossDepth') { return !dev; }
+      /* Ohne Beschnitt reicht das Muster über den Umlauf hinaus und läge nach
+         dem Wickeln auf sich selbst - die Wahl gibt es dort nicht. */
+      if (key === 'clip') { return !!(dev && dev.periodic); }
     }
     return false;
   }
