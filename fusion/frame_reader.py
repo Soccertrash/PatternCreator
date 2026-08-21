@@ -83,6 +83,26 @@ def _as_planar_face(entity: Any):
         return None
 
 
+def plane_of(entity: Any) -> Any:
+    """Zielebene einer Auswahl - auch ohne die Kontur zu lesen.
+
+    Profil ⇒ Ebene seiner Skizze, Flaeche ⇒ die Flaeche selbst, sonst die
+    Auswahl unveraendert (Konstruktionsebene).
+    """
+    profile = _as_profile(entity)
+    if profile is not None:
+        return _reference_plane(profile.parentSketch)
+    face = _as_planar_face(entity)
+    if face is not None:
+        return face
+    return entity
+
+
+def is_face(entity: Any) -> bool:
+    """Ist die Zielebene eine BRep-Flaeche? (Dann Skizze ohne Kantenprojektion.)"""
+    return _as_planar_face(entity) is not None
+
+
 # ------------------------------------------------------------------ Lesen
 
 def read_frame(entity: Any, sketch: Any = None, design: Any = None

@@ -39,6 +39,7 @@ def run(context):
         create_def = create_command.register(_ui)
         edit_def = edit_command.register(_ui)
         palette_bridge.register_commit_command(_ui)
+        palette_bridge.register_frame_command(_ui)
 
         panel = _ui.allToolbarPanels.itemById(PANEL_ID)
         if panel is None:
@@ -59,6 +60,7 @@ def stop(context):
         _remove_controls(ui)
         palette_bridge.destroy(ui)
         palette_bridge.unregister_commit_command(ui)
+        palette_bridge.unregister_frame_command(ui)
         create_command.unregister(ui)
         edit_command.unregister(ui)
     except Exception:

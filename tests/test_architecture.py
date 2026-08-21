@@ -149,3 +149,14 @@ def test_manifest_carries_a_usable_version():
     manifest = json.loads(read(os.path.join(ROOT, "PatternCreator.manifest")))
     assert re.match(r"^\d+\.\d+\.\d+$", manifest["version"]), manifest["version"]
     assert manifest["type"] == "addin"
+
+
+def test_every_registered_command_is_unregistered_on_stop():
+    """Zweimal Laden darf keine doppelten Befehle hinterlassen."""
+    source = read(os.path.join(ROOT, "PatternCreator.py"))
+    names = set(re.findall(r"palette_bridge\.register_(\w+)_command", source))
+    assert "commit" in names and "frame" in names
+    for name in names:
+        assert "palette_bridge.unregister_%s_command" % name in source, name
+    for module in ("create_command", "edit_command"):
+        assert "%s.unregister(ui)" % module in source, module
