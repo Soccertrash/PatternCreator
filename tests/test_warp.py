@@ -357,3 +357,35 @@ def test_the_narrowing_is_the_ratio_of_the_two_radii():
     assert _cone_narrowing(dev) == pytest.approx((RHO - 3.0) / RHO)
     assert _cone_narrowing(make_cylinder(2.5, 6.0)) == 1.0
     assert _cone_narrowing(None) == 1.0
+
+
+def test_a_partial_cone_becomes_a_partial_sector():
+    """Halber Kegelstumpf: halber Sektor, exakt zwischen den beiden Radien."""
+    import math
+    from core import build, pattern_doc
+    from core.development import development_from_doc
+    steps = 60
+    outline = [[-math.pi / 2.0 + math.pi * i / steps, -3.0]
+               for i in range(steps + 1)]
+    outline += [[math.pi / 2.0 - math.pi * i / steps, 3.0]
+                for i in range(steps + 1)]
+    doc = pattern_doc.default_doc()
+    doc["pattern"]["type"] = "honeycomb"
+    doc["development"] = {
+        "kind": "cone", "radius": 2.5, "halfAngle": ALPHA,
+        "length": 6.0 / math.cos(ALPHA), "periodic": False, "seamAngle": 0.0,
+        "outline": outline, "axisMiddle": 0.0,
+        "source": {"label": "Halbkegel", "token": ""},
+    }
+    doc, errors = pattern_doc.parse(doc)
+    assert not errors, errors
+    scene = build.build_scene(doc)
+    dev = development_from_doc(doc["development"])
+    apex = _apex_of(dev)
+    reach = dev.length / 2.0
+    for element in scene.elements:
+        for p in getattr(element, "points", []) or []:
+            assert (dev.apex_distance() - reach - 0.01 <= _dist(p, apex)
+                    <= dev.apex_distance() + reach + 0.01)
+            # ein halber Umlauf ist ein halber Sektor
+            assert abs(_angle_at_apex(p)) <= dev.sector_angle() / 4.0 + 1e-6

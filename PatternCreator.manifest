@@ -4,7 +4,7 @@
     "id": "b0f4a4d2-9a1c-4a4e-9a2f-6d3f1c7b4e21",
     "author": "Manfred Pauli",
     "description": {
-        "": "Parametrische 2D-Muster als extrudierbare Skizzen: technische Raster (Gitter, Rauten, Wabe, Mauer, Puzzle) und organische Zellmuster (Voronoi, Kiesel, Zellgewebe, Blattadern) mit Live-Vorschau, optionaler Schraffur der Zellflaechen und optionaler Text-Ebene. Als Rahmen dienen wahlweise Grundformen oder eigene Rahmen aus Skizzenprofilen oder ebenen Flaechen (auch konkav). Muster koennen ausserdem auf Zylinder-Mantelflaechen gelegt werden: der Editor zeigt die Abwicklung, die Naht laeuft entlang der Zellwaende und bleibt damit unsichtbar, und auf Wunsch praegt Fusion das Muster gleich auf die Flaeche."
+        "": "Parametrische 2D-Muster als extrudierbare Skizzen: technische Raster (Gitter, Rauten, Wabe, Mauer, Puzzle) und organische Zellmuster (Voronoi, Kiesel, Zellgewebe, Blattadern) mit Live-Vorschau, optionaler Schraffur der Zellflaechen und optionaler Text-Ebene. Als Rahmen dienen wahlweise Grundformen oder eigene Rahmen aus Skizzenprofilen oder ebenen Flaechen (auch konkav). Muster koennen ausserdem auf Zylinder- und Kegelmantelflaechen gelegt werden: der Editor zeigt die Abwicklung (beim Kegel den Kreisringsektor), die Naht laeuft entlang der Zellwaende und bleibt damit unsichtbar, und auf Wunsch praegt Fusion das Muster gleich auf die Flaeche."
     },
     "version": "1.7.0",
     "runOnStartup": false,

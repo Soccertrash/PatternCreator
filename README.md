@@ -54,6 +54,14 @@ durchzuschneiden, und deshalb ist am Bauteil keine zu sehen.
 
 ![Wabe auf einem Zylinder: die Abwicklung an der Naht](docs/images/10-wabe-zylinder.png)
 
+**Auf dem Kegel** ist die Abwicklung kein Rechteck, sondern ein
+**Kreisringsektor** – der Abstand zur Spitze bleibt erhalten, der Winkel wird
+gestaucht. Die beiden roten Kanten sind dieselbe Naht: nach dem Wickeln liegen
+sie aufeinander. Zur Spitze hin (oben) werden die Zellen schmaler, weil dort
+weniger Umfang für dieselbe Zellzahl da ist.
+
+![Wabe auf einem Kegelstumpf: die Abwicklung als Kreisringsektor](docs/images/11-wabe-kegel.png)
+
 ---
 
 ## Installation
@@ -881,6 +889,14 @@ the **seam**: it follows the cell walls instead of cutting straight through,
 which is why there is none to see on the part.
 
 ![Honeycomb on a cylinder: the development at the seam](docs/images/10-wabe-zylinder.png)
+
+**On a cone** the development is not a rectangle but a **circular ring
+sector** — the distance to the apex is preserved, the angle is compressed. The
+two red edges are the same seam: after wrapping they lie on top of each other.
+Towards the tip (top) the cells get narrower, because there is less
+circumference for the same number of cells.
+
+![Honeycomb on a truncated cone: the development as a ring sector](docs/images/11-wabe-kegel.png)
 
 ---
 
