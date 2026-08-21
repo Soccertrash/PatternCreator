@@ -42,6 +42,15 @@ POINT_NAME = "PatternCreator Berührpunkt"
 #: Toleranz, mit der eine Flaeche als "dieselbe" gilt (cm).
 RADIUS_TOL = 1e-6
 
+#: Wie ungleich die beiden Haelften des Stegnetzes hoechstens sein duerfen.
+#:
+#: Hat die Trennlinie die Flaeche nicht geteilt, ist das zweitgroesste Profil
+#: ein **Loch** - und damit winzig gegen das erste. Fusion wuerde das erste,
+#: rundum laufende Profil als sich selbst durchdringenden Koerper ablehnen; die
+#: Meldung dazu nennt Praegetiefe und Profilgroesse und fuehrt damit in die
+#: Irre (Context.md 15.19). Lieber vorher Klartext.
+SPLIT_RATIO = 0.25
+
 
 class TargetError(Exception):
     """Klartext-Fehler fuer den Editor."""
@@ -303,6 +312,10 @@ def emboss(design: Any, comp: Any, sketch: Any, development: dict,
         raise TargetError("Für eine rundum laufende Prägung fehlt die "
                           "Trennlinie; Fusion lehnt ein Profil über volle "
                           "360° ab.")
+    if wanted > 1 and _extent(profiles[1]) < SPLIT_RATIO * _extent(profiles[0]):
+        raise TargetError("Die Trennlinie hat das Muster nicht in zwei Hälften "
+                          "geteilt – rundum lässt sich so nicht prägen. Bitte "
+                          "melden.")
     texts = [sketch.sketchTexts.item(i) for i in range(sketch.sketchTexts.count)]
 
     tokens: List[str] = []

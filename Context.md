@@ -1452,3 +1452,34 @@ noch tun – an fünfzehn Stellen der Abwicklung, für beide Apex-Seiten. Eine
 spiegelnde Abbildung fällt dabei sofort durch. Dazu ein Test am fertigen Muster:
 die Zellen am schmalen Ende sind die kleineren, auf beiden Seiten. Das ist
 zugleich die Prüfung, die in Fusion mit bloßem Auge geht.
+
+### 15.19 Die Trennlinie muss den Rand kreuzen, nicht berühren
+
+Auf dem Kegel entstand die Skizze, aber das Prägen scheiterte mit „Sketch
+profiles create a self-intersecting body. Adjust depth of emboss or size of
+sketch profile." Die Meldung führt in die Irre: weder Tiefe noch Profilgröße
+waren das Problem.
+
+**Die Trennlinie hatte die Fläche nicht geteilt.** Sie läuft von Rand zu Rand
+und wird zusammen mit allem anderen gebogen. Danach ist die Außenkontur ein
+**Polygonzug** durch den Bogen – Sehnen, die innen an ihm vorbeilaufen –,
+während die Trennlinie auf dem *echten* Bogen endet. Gemessen: 15 µm daneben, an
+beiden Enden. Für Fusion berühren sich die beiden also nicht, es entsteht **ein**
+Profil über den ganzen Sektor, und das lehnt es als sich selbst durchdringenden
+Körper ab – genau der Fall aus 15.6, Punkt 6, nur auf einem anderen Weg
+hereingekommen.
+
+Auf dem Zylinder kann das nicht passieren: dort ist der Rand eine Gerade, und
+die Trennlinie endet exakt darauf.
+
+**Die Lösung** ist ein Überstand von 0,12 mm an beiden Enden (`DIVIDER_OVERSHOOT`
+= sechs Toleranzen: drei für die Sehnenhöhe beim Biegen, drei für die
+Vereinfachung des Optimierers danach). Die Trennlinie kreuzt den Rand jetzt,
+statt ihn zu berühren. Sichtbar ist der Stummel nicht, und außerhalb der Fläche
+schließt er nichts ein.
+
+**Dazu ein Sicherheitsnetz.** Ob die Teilung geklappt hat, ließ sich vorher
+nicht erkennen: `material_profiles` liefert immer zwei Profile, notfalls eben
+das Stegnetz und das größte *Loch*. Jetzt wird verglichen – ist das zweite
+Profil kleiner als ein Viertel des ersten, war es kein zweiter Hälfte, sondern
+ein Loch, und es gibt Klartext statt Fusions Meldung über Prägetiefen.

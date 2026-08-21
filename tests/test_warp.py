@@ -467,3 +467,56 @@ def _width(element):
     xs = [p[0] for p in element.points]
     ys = [p[1] for p in element.points]
     return max(max(xs) - min(xs), max(ys) - min(ys))
+
+
+# ------------------------------------------------------------ Trennlinie
+
+def test_the_dividing_line_crosses_the_border_on_a_cone():
+    """Berühren genügt nicht - nach dem Biegen ist die Kontur ein Polygonzug.
+
+    Die Trennlinie endet auf dem **echten** Bogen, die Kontur läuft als Sehnen
+    daran vorbei; gemessen 15 µm daneben. Fusion sähe dann keine Teilung, machte
+    ein Profil über den ganzen Sektor und lehnte es ab (``Context.md`` 15.19).
+    """
+    from core import build
+    from core.development import development_from_doc
+    doc = _cone_doc(embossOn=True)
+    scene = build.build_scene(doc)
+    dev = development_from_doc(doc["development"])
+    apex = _apex_of(dev)
+    face = next(el for el in scene.elements
+                if isinstance(el, ir.Path) and el.role == ir.ROLE_FACE)
+    divider = next(el for el in scene.elements
+                   if isinstance(el, ir.Path) and not el.closed
+                   and el.layer == ir.LAYER_BORDER)
+    edge = [_dist(p, apex) for p in face.points]
+    line = [_dist(p, apex) for p in divider.points]
+    assert min(line) < min(edge) - 4.0 * TOL
+    assert max(line) > max(edge) + 4.0 * TOL
+
+
+def test_a_cylinder_needs_no_overshoot():
+    """Dort ist der Rand eine Gerade - die Trennlinie endet genau darauf."""
+    from core import build
+    doc = _cone_doc(embossOn=True)
+    doc["development"]["kind"] = "cylinder"
+    doc["development"]["halfAngle"] = 0.0
+    scene = build.build_scene(doc)
+    face = next(el for el in scene.elements
+                if isinstance(el, ir.Path) and el.role == ir.ROLE_FACE)
+    divider = next(el for el in scene.elements
+                   if isinstance(el, ir.Path) and not el.closed
+                   and el.layer == ir.LAYER_BORDER)
+    top = max(p[1] for p in face.points)
+    bottom = min(p[1] for p in face.points)
+    assert max(p[1] for p in divider.points) == pytest.approx(top, abs=1e-9)
+    assert min(p[1] for p in divider.points) == pytest.approx(bottom, abs=1e-9)
+
+
+def test_the_overshoot_extends_both_ends_whichever_way_round():
+    from core.build import _over
+    up = _over([(0.0, -1.0), (0.1, 0.0), (0.0, 1.0)], 0.5)
+    assert up[0][1] == pytest.approx(-1.5) and up[-1][1] == pytest.approx(1.5)
+    down = _over([(0.0, 1.0), (0.1, 0.0), (0.0, -1.0)], 0.5)
+    assert down[0][1] == pytest.approx(1.5) and down[-1][1] == pytest.approx(-1.5)
+    assert _over([(0.0, 0.0), (0.0, 1.0)], 0.0) == [(0.0, 0.0), (0.0, 1.0)]

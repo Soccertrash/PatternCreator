@@ -27,7 +27,7 @@ from .development import development_from_doc
 from .geom import (chain_segments, polygon_area, polygon_segments,
                    polyline_length, rotate, snap_segments)
 from .hatch import hatch_areas, style_from_doc
-from .optimize import optimize
+from .optimize import TOL as OPTIMIZE_TOL, optimize
 from .stroker import shrink_polygon as _shrink_cell, stroke
 
 Point = Tuple[float, float]
@@ -60,6 +60,17 @@ CLIP_WARNING = ("Auf einer Mantelfläche wird immer am Rand beschnitten – sons
 
 #: Ab welcher Stauchung am schmalen Kegelende gewarnt wird.
 CONE_TAPER_LIMIT = 0.9
+
+#: Wie weit die Trennlinie beim Kegel ueber den Rand hinausstehen muss (cm).
+#:
+#: Nach dem Biegen ist die Aussenkontur ein **Polygonzug** durch den Bogen, die
+#: Trennlinie endet aber auf dem echten Bogen - gemessen 15 µm daneben. Fusion
+#: sieht dann keine Teilung, macht ein einziges Profil ueber den ganzen Sektor
+#: und lehnt es als sich selbst durchdringenden Koerper ab (Context.md 15.19).
+#: Sechs Toleranzen decken beides ab: die Sehnenhoehe beim Biegen und die
+#: Vereinfachung des Optimierers danach. Sichtbar ist der Ueberstand mit
+#: 0,12 mm nicht.
+DIVIDER_OVERSHOOT = 6.0 * OPTIMIZE_TOL
 
 
 def cone_taper_warning(narrow: float, thickness: float) -> str:
@@ -168,9 +179,13 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
             warnings.extend(hatch_warnings)
         elements = _knockout_sweep(elements, doc)
         if period > 0.0 and bool(style.get("embossOn")):
+            bent = development_from_doc(development)
             elements.extend(_divider(elements, container,
                                      max(thickness, own_gap) / 2.0,
-                                     seam_net, seam_grow, warnings))
+                                     seam_net, seam_grow, warnings,
+                                     overshoot=(DIVIDER_OVERSHOOT
+                                                if bent is not None
+                                                and bent.is_cone() else 0.0)))
     else:
         elements = _apply_text_knockout(elements, doc, style)
         if mode == "area":
@@ -279,7 +294,8 @@ def _period_of(development: Optional[dict], container: Container) -> float:
 
 
 def _divider(elements: Sequence[Any], container: Container, web_half: float,
-             net: Sequence[Any], net_grow: float, warnings: List[str]) -> List[Any]:
+             net: Sequence[Any], net_grow: float, warnings: List[str],
+             overshoot: float = 0.0) -> List[Any]:
     """Trennlinie durch die Mitte der Abwicklung - fuer die Praegung.
 
     Eine rundum laufende Praegung braucht in Fusion **zwei** Features: ein
@@ -319,14 +335,30 @@ def _divider(elements: Sequence[Any], container: Container, web_half: float,
         if path is None:
             continue
         if not seam.crossed_cells(holes, path):
-            return [ir.path(path, closed=False, role=ir.ROLE_EDGE,
-                            layer=ir.LAYER_BORDER)]
+            return [ir.path(_over(path, overshoot), closed=False,
+                            role=ir.ROLE_EDGE, layer=ir.LAYER_BORDER)]
         fallback = fallback or path
     if fallback is None:
         warnings.append(SPLIT_WARNING)
         return []
-    return [ir.path(fallback, closed=False, role=ir.ROLE_EDGE,
-                    layer=ir.LAYER_BORDER)]
+    return [ir.path(_over(fallback, overshoot), closed=False,
+                    role=ir.ROLE_EDGE, layer=ir.LAYER_BORDER)]
+
+
+def _over(path: Sequence[Any], overshoot: float) -> List[Any]:
+    """Die Trennlinie an beiden Enden ueber den Rand hinaus verlaengern.
+
+    Sie muss die Aussenkontur **kreuzen**, nicht nur beruehren - siehe
+    :data:`DIVIDER_OVERSHOOT`. Verlaengert wird senkrecht (in y), denn dort
+    liegen die beiden Raender; nach dem Biegen zeigt das radial nach aussen.
+    """
+    if overshoot <= 0.0 or len(path) < 2:
+        return list(path)
+    out = [(float(x), float(y)) for x, y in path]
+    low, high = (0, -1) if out[0][1] < out[-1][1] else (-1, 0)
+    out[low] = (out[low][0], out[low][1] - overshoot)
+    out[high] = (out[high][0], out[high][1] + overshoot)
+    return out
 
 
 def _apply_seam(container: Container, gen, doc: dict, params: dict,
