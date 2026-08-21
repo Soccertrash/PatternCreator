@@ -195,6 +195,27 @@ def test_the_commit_takes_its_tokens_from_the_sketch_not_from_the_editor():
     assert min(adopt) < min(uses)
 
 
+def test_nothing_is_destroyed_before_the_face_is_found():
+    """Sonst bliebe bei fehlender Fläche eine leere Skizze zurück.
+
+    Das Muster wäre weg, ohne dass der Benutzer etwas falsch gemacht hat
+    (``Context.md`` 15.23).
+    """
+    source = read(os.path.join(ROOT, "commands", "palette_bridge.py"))
+    tree = ast.parse(source)
+    fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+              and n.name == "perform_commit")
+    checks = [n.lineno for n in ast.walk(fn) if isinstance(n, ast.Attribute)
+              and n.attr == "target_face"]
+    destructive = [n.lineno for n in ast.walk(fn)
+                   if (isinstance(n, ast.Attribute)
+                       and n.attr in ("remove", "clear_pattern_geometry"))
+                   or (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                       and n.func.id in ("_replant", "_unfold_timeline"))]
+    assert checks and destructive
+    assert min(checks) < min(destructive)
+
+
 def test_readme_documents_both_platforms_and_limits():
     readme = read(os.path.join(ROOT, "README.md"))
     for needle in ("macOS", "Windows", "AddIns", "500", "pytest"):

@@ -410,6 +410,10 @@ class _CommitExecuteHandler(adsk.core.CommandEventHandler):
             _send(ui, "done", {"ok": True, "message": message})
         except _Abort as abort:
             _send(ui, "done", {"ok": False, "message": str(abort), "warn": True})
+        except surface_target.TargetError as err:
+            # Klartext aus der Flaechenarbeit gehoert in den Editor, nicht als
+            # Traceback in eine messageBox.
+            _send(ui, "done", {"ok": False, "message": str(err), "warn": True})
         except Exception:
             _send(ui, "done", {"ok": False, "message": "Fehler beim Erzeugen."})
             ui.messageBox("Fehler beim Erzeugen des Musters:\n%s"
@@ -466,8 +470,16 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
                 adsk.core.MessageBoxIconTypes.WarningIconType)
             if answer != adsk.core.DialogResults.DialogYes:
                 raise _Abort("Abgebrochen – Skizze wurde nicht verändert.")
-        # Die Gruppe vom letzten Mal zuerst aufloesen: in einer Gruppe laesst
-        # sich schlecht loeschen und umhaengen.
+        if development:
+            # **Vor** allem anderen: gibt es die Flaeche ueberhaupt noch? Wer
+            # hier erst loescht und dann scheitert, laesst den Benutzer mit
+            # einer leeren Skizze zurueck - das Muster waere weg, ohne dass er
+            # etwas falsch gemacht haette (Context.md 15.23).
+            if surface_target.target_face(design, development) is None:
+                raise _Abort(surface_target.missing_face_message(design,
+                                                                 development))
+        # Die Gruppe vom letzten Mal aufloesen: in einer Gruppe laesst sich
+        # schlecht loeschen und umhaengen.
         _unfold_timeline(design, sketch)
         if development:
             # **Zuerst** die Praegungen weg. Solange sie an der Skizze haengen,

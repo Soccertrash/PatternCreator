@@ -1598,3 +1598,29 @@ gezackt – unverwechselbar. Eine zusätzliche Linie hätte nur den Preis: Meta-
 von `build_scene` bis in die Vorschau durchreichen, für Information, die schon da
 ist. Im Galeriebild sind die Nahtkanten rot markiert; dort erklärt es sich einmal
 und für immer.
+
+### 15.23 Erst prüfen, dann löschen
+
+Eine Leitplanke aus dem Plan lautet: „Ein Re-Edit darf **nie** davon abhängen,
+dass Quellgeometrie noch existiert." Für den eigenen Rahmen gilt das – er ist
+ein Punkte-Schnappschuss. Für eine Mantelfläche gilt es **nicht**, und das lässt
+sich auch nicht herstellen: die Tangentialebene ist über Tangentialität an die
+Fläche definiert, ohne Fläche gibt es sie nicht, und ohne Ebene keine Skizze im
+Raum. Die Zahlen im Doc genügen, um das Muster zu *rechnen*, aber nicht, um es
+zu *legen*.
+
+Was daraus folgt, ist keine Unabhängigkeit, sondern ein sauberer Abbruch – und
+der war es nicht. Der Ablauf war: Prägungen löschen → Ebene prüfen → Skizze
+ersetzen. Fehlte die Fläche, scheiterte der zweite Schritt, **nachdem** der
+erste die Prägungen entfernt hatte. Und wäre er später gescheitert, hätte die
+gerade angelegte leere Skizze das Muster ersetzt: weg, ohne Zutun des
+Benutzers.
+
+Jetzt steht die Frage „gibt es die Fläche noch?" **vor** allem Zerstörerischen.
+Ein Architektur-Test hält die Reihenfolge fest: der erste `target_face`-Aufruf
+in `perform_commit` liegt vor dem ersten Löschen, Leeren oder Umhängen.
+
+Dazu ein zweiter Handgriff: `TargetError` wird im Commit-Handler abgefangen und
+als Klartext in den Editor geschickt. Vorher landete jeder Fehler aus der
+Flächenarbeit als Traceback in einer `messageBox` – Text, den niemand lesen
+will, für Fälle, die einen ganzen Satz verdient haben.
