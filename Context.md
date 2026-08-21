@@ -1041,3 +1041,62 @@ ist nicht x-periodisch; der Editor blendet das Feld dort aus (Paket 2.6).
 Kosten für ein Muster auf dem Zylinder (r = 24 mm, Länge 60 mm), gegenüber
 demselben Muster in der Ebene: Wabe 35 statt 9 ms, Voronoi mit 300 Zellen 108
 statt 77 ms, Gewebe mit 320 Zellen 282 statt 166 ms.
+
+### 15.10 Fläche einlesen und prägen (Pakete 2.4 und 2.5)
+
+**Stand 2026-08-21.** `fusion/surface_reader.py` liest eine Mantelfläche,
+`fusion/surface_target.py` legt Tangentialebene und Prägung an. Die Rechnung
+liegt wie beim Rahmen in `core` (`development.axis_frame`, `surface_coords`,
+`usable_span`, `touch_point`, `describe`) und ist damit ohne Fusion geprüft.
+
+Fünf Entscheidungen, die im Plan so nicht standen:
+
+1. **Die Null-Richtung wird gebaut, nicht gefunden.** Fusion nennt zu einer
+   Zylinderfläche nur Ursprung, Achse und Radius – wo θ = 0 liegt, sagt niemand.
+   `axis_frame` baut die Richtung deterministisch aus der Achse, damit derselbe
+   Körper in jeder Sitzung denselben Bezug bekommt. Der Nahtwinkel zählt ab
+   dieser Richtung; wo sie zeigt, sieht man erst am Ergebnis – der Wert ist ein
+   Regler, keine Konstruktionsangabe.
+2. **Rundum erkennt der Winkel, nicht die Kantenart.** Der Spike fand „zwei
+   Kreis-Loops ohne Mantellinie". Das trifft den schräg abgeschnittenen Zylinder
+   nicht: dessen Randkurve ist eine Ellipse. Gemessen wird deshalb, ob **jede**
+   Randkurve einmal um die Achse läuft.
+3. **Der schräge Schnitt bekommt nur das gemeinsame Stück.** Seine Abwicklung
+   ist kein Rechteck. `usable_span` liefert das Achsenstück, das unter *jeder*
+   Randkurve liegt; der Rest bliebe in der Luft. Ein gerader Schnitt verliert
+   dabei nichts.
+4. **Die Lage der Skizze wird gemessen, nicht angenommen.** Der Spike fand
+   Skizzen-x entgegen der Umfangsrichtung und Skizzen-y entgegen der Achse
+   (zusammen eine Drehung um 180°). Statt das einzubauen, rechnet
+   `sketch_placement` zwei Richtungen am Berührpunkt in Skizzenkoordinaten um
+   und leitet Drehung und Ursprung daraus ab. Käme dabei eine **Spiegelung**
+   heraus, ließe sich die Abwicklung nicht durch eine starre Bewegung auflegen –
+   Text stünde seitenverkehrt auf dem Teil. Dieser Fall bricht mit Klartext ab,
+   statt still schiefzulaufen.
+5. **Die Zielfläche wird über den Radius wiedergefunden.** Nach dem ersten
+   Prägen ist der gespeicherte Token oft wertlos (die Fläche wurde geteilt) und
+   die Oberseite der Prägung ist selbst eine Zylinderfläche. Gesucht wird die
+   größte Fläche mit dem **ursprünglichen** Radius – das Kriterium aus dem Spike.
+
+**Die Trennlinie und das Puzzle.** Beim Puzzle bleiben zwischen zwei Nasen
+stellenweise nur 0,13 mm Steg statt der eingestellten 0,8 mm – auf dem Zylinder,
+weil die Teilebreite dort vom Umfang vorgegeben wird (countX teilt den Umfang;
+mit dem Standardwert 5 auf Ø 48 mm werden die Teile doppelt so breit wie hoch).
+Durch einen so schmalen Steg kommt keine Bahn mehr. Die Trennlinie kreuzt dann
+ein Loch; für die Prägung ist das unschädlich (die beiden großen Profile sind
+weiterhin das Stegnetz), sichtbar bleibt ein zusätzlicher Strich in der Skizze.
+Wer das nicht will, erhöht `countX`.
+
+**Was in Fusion noch zu prüfen ist** (2.4/2.5 sind ohne Fusion nicht testbar):
+
+* Legt `constructionPoints.createInput().setByPoint(...)` einen Punkt an, den
+  `setByTangentAtPoint` akzeptiert? (Der Spike benutzte einen Skizzenpunkt; der
+  Konstruktionspunkt spart die Hilfsskizze. Rückfall ist eingebaut.)
+* Stimmt die gemessene Lage – liegt das Muster mittig auf der Fläche und läuft
+  die Naht dort, wo der Nahtwinkel es sagt?
+* Zieht `Sketch.redefine` die Skizze auf eine neue Tangentialebene um, wenn der
+  Nahtwinkel im Re-Edit geändert wird?
+* Erzeugen die beiden Emboss-Features zusammen **einen** Körper-Zuwachs, und
+  überlebt das Ganze ein Re-Edit (löschen und neu anlegen)?
+* Wählt „die zwei flächengrößten Profile" wirklich die beiden Hälften des
+  Stegnetzes – auch wenn die Trennlinie ein Loch kreuzt?

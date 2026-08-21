@@ -46,6 +46,11 @@ SHRINK_WARNING = ("Rahmendicke ist für diesen Rahmen an mindestens einer "
 SEAM_WARNING = ("Keine Naht entlang der Zellwände gefunden – der Schnitt ist "
                 "gerade und kann bei versetzten Mustern sichtbar bleiben.")
 
+#: Ohne Trennlinie in der Mitte gibt es nur ein Profil - und ein Profil ueber
+#: volle 360 Grad laesst sich nicht praegen (``Context.md`` 15.6, Punkt 6).
+SPLIT_WARNING = ("Keine Trennlinie für die Prägung gefunden – das Muster lässt "
+                 "sich als Skizze erzeugen, aber nicht rundum prägen.")
+
 
 def _shrunk(container: Container, delta: float, warnings: List[str],
             seam_free: bool = False) -> Container:
@@ -91,9 +96,11 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
 
     mode = str(style.get("mode", "area"))
     clip_mode = str(style.get("clip", "cut"))
+    seam_net: List[Any] = []
+    seam_grow = 0.0
     if period > 0.0 and clip_mode != "off":
-        container, elements = _apply_seam(container, gen, doc, params, bbox,
-                                          elements, period, warnings)
+        container, elements, seam_net, seam_grow = _apply_seam(
+            container, gen, doc, params, bbox, elements, period, warnings)
     thickness = float(style.get("thickness", 0.08))
     border_on = bool(style.get("border"))
     border_width = float(style.get("borderWidth", 0.0)) if border_on else 0.0
@@ -139,6 +146,10 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
             elements.extend(strips)
             warnings.extend(hatch_warnings)
         elements = _knockout_sweep(elements, doc)
+        if period > 0.0 and bool(style.get("embossOn")):
+            elements.extend(_divider(elements, container,
+                                     max(thickness, own_gap) / 2.0,
+                                     seam_net, seam_grow, warnings))
     else:
         elements = _apply_text_knockout(elements, doc, style)
         if mode == "area":
@@ -222,6 +233,57 @@ def _period_of(development: Optional[dict], container: Container) -> float:
     return period if abs((x1 - x0) - period) < 1e-6 else 0.0
 
 
+def _divider(elements: Sequence[Any], container: Container, web_half: float,
+             net: Sequence[Any], net_grow: float, warnings: List[str]) -> List[Any]:
+    """Trennlinie durch die Mitte der Abwicklung - fuer die Praegung.
+
+    Eine rundum laufende Praegung braucht in Fusion **zwei** Features: ein
+    Profil ueber volle 360 Grad wird als sich selbst durchdringender Koerper
+    abgelehnt (``Context.md`` 15.6, Punkt 6). Zwei Features brauchen zwei
+    Profile - und die entstehen, indem eine Linie die Flaeche teilt.
+
+    Gesucht wird sie mit derselben Maschinerie wie die Naht - zuerst an den
+    **Loechern** (der endgueltigen Geometrie: um den halben Steg aufgeweitet
+    stossen sie aneinander, die Bahn laeuft dann genau in der Stegmitte), und
+    wenn das nichts ergibt, am Zellnetz. Beides kann scheitern: beim Puzzle sind
+    die Stege zwischen zwei Nasen schmaler als anderswo, bei den Blattadern
+    liegen verschieden breite Fugen nebeneinander. Deshalb wird das Ergebnis
+    **nachgerechnet**: eine Bahn, die kein Loch anschneidet, hat Vorrang.
+
+    Findet sich keine saubere, wird trotzdem geteilt. Eine Linie, die ein Loch
+    kreuzt, laesst Fusion dort zwei Profile statt einem entstehen - an der
+    Praegung aendert das nichts (die beiden grossen Profile sind weiterhin das
+    Stegnetz), sichtbar bleibt nur ein zusaetzlicher Strich in der Skizze. Ganz
+    ohne Trennlinie liesse sich dagegen gar nicht praegen.
+    """
+    from . import seam
+
+    holes = [el.points for el in elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE]
+    if len(holes) < 2:
+        warnings.append(SPLIT_WARNING)
+        return []
+    x0, y0, x1, y1 = container.bounding_rect()
+    middle = (x0 + x1) / 2.0
+    fallback = None
+    for cells, grow in ((holes, max(0.0, web_half)), (list(net), net_grow)):
+        if len(cells) < 2:
+            continue
+        path = seam.seam_path(cells, middle, y0, y1,
+                              seam.suggest_offset(cells, x1 - x0), grow=grow)
+        if path is None:
+            continue
+        if not seam.crossed_cells(holes, path):
+            return [ir.path(path, closed=False, role=ir.ROLE_EDGE,
+                            layer=ir.LAYER_BORDER)]
+        fallback = fallback or path
+    if fallback is None:
+        warnings.append(SPLIT_WARNING)
+        return []
+    return [ir.path(fallback, closed=False, role=ir.ROLE_EDGE,
+                    layer=ir.LAYER_BORDER)]
+
+
 def _apply_seam(container: Container, gen, doc: dict, params: dict,
                 bbox: Tuple[float, float, float, float], elements: List[Any],
                 period: float, warnings: List[str]):
@@ -236,18 +298,19 @@ def _apply_seam(container: Container, gen, doc: dict, params: dict,
                if isinstance(el, ir.Path) and el.closed and el.role == ir.ROLE_REGION]
     path = None
     offset = 0.0
+    grow = gen.gap(params) / 2.0
     if len(net) >= 2:
         offset = seam.suggest_offset(net, period)
-        path = seam.seam_path(net, x0, y0, y1, offset,
-                              grow=gen.gap(params) / 2.0, period=period)
+        path = seam.seam_path(net, x0, y0, y1, offset, grow=grow, period=period)
     if path is not None:
         try:
-            return (DevelopmentContainer(path, period),
-                    _wrapped_copies(elements, x0, x1, period, offset))
+            wrapped = DevelopmentContainer(path, period)
         except ValueError:
-            pass
-    warnings.append(SEAM_WARNING)
-    return container, list(elements)
+            path = None
+    if path is None:
+        warnings.append(SEAM_WARNING)
+        return container, list(elements), net, grow
+    return (wrapped, _wrapped_copies(elements, x0, x1, period, offset), net, grow)
 
 
 def _x_span(el: Any) -> Optional[Tuple[float, float]]:

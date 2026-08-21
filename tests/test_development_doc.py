@@ -243,3 +243,64 @@ def test_without_a_development_nothing_changes():
     face, _holes = face_and_holes(scene)
     x0, _y0, x1, _y1 = make_container(parsed["container"]).bounding_rect()
     assert max(p[0] for p in face.points) == pytest.approx(x1)
+
+
+# ------------------------------------------------------ Was Fusion anlegt
+
+def test_the_tokens_of_plane_and_emboss_survive_a_round_trip():
+    """Ohne sie legte ein Re-Edit eine zweite Ebene an und ließe die alte
+    Prägung stehen."""
+    doc, errors = doc_for(dev=development(planeToken="abc",
+                                          embossTokens=["e1", "e2"],
+                                          axisMiddle=3.0))
+    assert not errors
+    assert doc["development"]["planeToken"] == "abc"
+    assert doc["development"]["embossTokens"] == ["e1", "e2"]
+    assert doc["development"]["axisMiddle"] == pytest.approx(3.0)
+    again, _errors = pattern_doc.parse(pattern_doc.deserialize(
+        pattern_doc.serialize(doc)))
+    assert again["development"] == doc["development"]
+
+
+def test_garbage_tokens_do_not_break_the_document():
+    doc, _errors = doc_for(dev=development(planeToken=None, embossTokens="nein",
+                                           axisMiddle=float("nan")))
+    assert doc["development"]["planeToken"] == "None"
+    assert doc["development"]["embossTokens"] == []
+    assert doc["development"]["axisMiddle"] == 0.0
+
+
+# --------------------------------------------------------- Trennlinie
+
+def test_embossing_asks_for_a_dividing_line():
+    """Ein Profil über volle 360° lehnt Fusion ab - es braucht zwei.
+
+    Die Trennlinie läuft wie die Naht entlang der Zellwände und zerschneidet
+    deshalb kein Loch (``Context.md`` 15.6, Punkt 6).
+    """
+    from core import seam
+
+    for pattern_id, params in PATTERNS:
+        doc, _errors = doc_for(pattern_id, params, style={"embossOn": True})
+        scene = build.build_scene(doc)
+        lines = [el for el in scene.elements
+                 if isinstance(el, ir.Path) and not el.closed
+                 and el.layer == ir.LAYER_BORDER and el.role == ir.ROLE_EDGE]
+        assert len(lines) == 1, "%s: %d Trennlinien" % (pattern_id, len(lines))
+        divider = lines[0].points
+        assert divider[0][1] == pytest.approx(-LENGTH / 2.0)
+        assert divider[-1][1] == pytest.approx(LENGTH / 2.0)
+        _face, holes = face_and_holes(scene)
+        cut = seam.crossed_cells([h.points for h in holes], divider)
+        # Das Puzzle lässt an seinen Nasen stellenweise nur 0,13 mm Steg statt
+        # 0,8 mm; dort kommt keine Bahn mehr durch. Die Trennlinie kreuzt dann
+        # ein Loch - für die Prägung unschädlich (siehe ``build._divider``).
+        assert not cut or pattern_id == "puzzle", "%s: %d" % (pattern_id, len(cut))
+
+
+def test_without_embossing_there_is_no_dividing_line():
+    doc, _errors = doc_for("honeycomb", style={"embossOn": False})
+    scene = build.build_scene(doc)
+    assert not [el for el in scene.elements
+                if isinstance(el, ir.Path) and not el.closed
+                and el.layer == ir.LAYER_BORDER]

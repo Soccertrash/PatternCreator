@@ -138,6 +138,127 @@ def is_periodic(outline: Sequence[Point], tol: float = PERIODIC_TOL) -> bool:
     return theta_coverage([p[0] for p in outline]) >= 2.0 * math.pi - tol
 
 
+# ------------------------------------------------------- Flaeche -> Koordinaten
+
+Vector = Tuple[float, float, float]
+
+
+def normalized(v: Vector) -> Vector:
+    length = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+    if length <= 1e-12:
+        raise ValueError("Richtungsvektor der Länge 0.")
+    return (v[0] / length, v[1] / length, v[2] / length)
+
+
+def axis_frame(axis: Vector) -> Tuple[Vector, Vector]:
+    """Zwei Einheitsvektoren senkrecht zur Achse, als Bezug fuer den Winkel.
+
+    Fusion liefert zu einer Zylinderflaeche nur Ursprung, Achse und Radius -
+    eine Null-Richtung gibt es nicht. Sie wird hier **deterministisch** aus der
+    Achse gebaut (kleinste Komponente als Startvektor, damit er nie parallel
+    liegt), damit derselbe Koerper in jeder Sitzung denselben Bezug bekommt.
+    Der Nahtwinkel im Dokument zaehlt ab dieser Richtung.
+    """
+    a = normalized(axis)
+    smallest = min(range(3), key=lambda i: abs(a[i]))
+    helper = [0.0, 0.0, 0.0]
+    helper[smallest] = 1.0
+    along = dot3(tuple(helper), a)
+    e1 = normalized((helper[0] - along * a[0], helper[1] - along * a[1],
+                     helper[2] - along * a[2]))
+    return e1, cross3(a, e1)
+
+
+def cross3(a: Vector, b: Vector) -> Vector:
+    return (a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0])
+
+
+def dot3(a: Vector, b: Vector) -> float:
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def surface_coords(points: Sequence[Vector], origin: Vector, axis: Vector,
+                   frame: Optional[Tuple[Vector, Vector]] = None) -> List[Point]:
+    """Weltpunkte -> ``(theta, s)`` auf der Mantelflaeche.
+
+    ``s`` ist die Lage entlang der Achse, gemessen ab ``origin``; ``theta`` der
+    Winkel um die Achse, gezaehlt ab der ersten Achse von :func:`axis_frame`.
+    """
+    a = normalized(axis)
+    e1, e2 = frame if frame is not None else axis_frame(a)
+    out: List[Point] = []
+    for p in points:
+        v = (p[0] - origin[0], p[1] - origin[1], p[2] - origin[2])
+        s = dot3(v, a)
+        radial = (v[0] - s * a[0], v[1] - s * a[1], v[2] - s * a[2])
+        out.append((math.atan2(dot3(radial, e2), dot3(radial, e1)), s))
+    return out
+
+
+def usable_span(loop_spans: Sequence[Tuple[float, float]]
+                ) -> Optional[Tuple[float, float]]:
+    """Groesstes Achsenstueck, das **jede** Randkurve freilaesst.
+
+    Ein schraeg abgeschnittener Zylinder laeuft rundum, ist aber kein Rechteck:
+    seine obere Randkurve schwankt. Das Muster bekommt deshalb nur das Stueck,
+    das ueberall auf der Flaeche liegt - der Rest bliebe sonst in der Luft.
+    Ein gerade abgeschnittener Zylinder verliert dabei nichts.
+    """
+    spans = [(float(lo), float(hi)) for lo, hi in loop_spans if hi >= lo]
+    if len(spans) < 2:
+        return None
+    middle = (min(sp[0] for sp in spans) + max(sp[1] for sp in spans)) / 2.0
+    lower = [sp for sp in spans if (sp[0] + sp[1]) / 2.0 <= middle]
+    upper = [sp for sp in spans if (sp[0] + sp[1]) / 2.0 > middle]
+    if not lower or not upper:
+        return None
+    low = max(sp[1] for sp in lower)
+    high = min(sp[0] for sp in upper)
+    return (low, high) if high - low > 1e-9 else None
+
+
+def touch_point(development: dict, origin: Vector, axis: Vector,
+                seam_angle: Optional[float] = None) -> Vector:
+    """Punkt auf der Flaeche, an dem die Tangentialebene anliegen soll.
+
+    Der Nahtwinkel sagt, wo die **Naht** sitzt; beruehrt wird die Flaeche
+    gegenueber - die Naht liegt am Rand der Abwicklung, die Beruehrlinie in
+    deren Mitte.
+    """
+    angle = math.radians(float(development.get("seamAngle", 0.0)
+                               if seam_angle is None else seam_angle)) + math.pi
+    a = normalized(axis)
+    e1, e2 = axis_frame(a)
+    radius = float(development.get("radius", 0.0))
+    middle = float(development.get("axisMiddle", 0.0))
+    return tuple(origin[i] + middle * a[i]
+                 + radius * (math.cos(angle) * e1[i] + math.sin(angle) * e2[i])
+                 for i in range(3))
+
+
+def describe(development: Optional[dict]) -> str:
+    """Klartext fuer den Editor - Masse in mm, wie ueberall in der Oberflaeche."""
+    dev = development_from_doc(development)
+    if dev is None:
+        return ""
+    kind = "Zylinder" if dev.kind == KIND_CYLINDER else "Kegel"
+    text = "%s r = %s mm, L = %s mm" % (kind, _mm(dev.radius), _mm(dev.length))
+    if dev.kind == KIND_CONE:
+        text += ", Öffnung %s°" % _round(math.degrees(dev.half_angle) * 2.0)
+    return text + (", rundum (nahtlos)" if dev.periodic else ", Teilfläche")
+
+
+def _mm(value: float) -> str:
+    return _round(value * 10.0)
+
+
+def _round(value: float) -> str:
+    text = "%.1f" % value
+    return text[:-2] if text.endswith(".0") else text
+
+
 # ------------------------------------------------------------------ aus dem Doc
 
 def development_from_doc(raw) -> Optional["Development"]:

@@ -23,7 +23,7 @@ import adsk.core
 import adsk.fusion
 
 from core import build, pattern_doc
-from fusion import frame_reader, renderer, storage
+from fusion import frame_reader, renderer, storage, surface_target
 
 PALETTE_ID = "PatternCreatorEditorPalette"
 COMMIT_CMD_ID = "PatternCreatorCommitCmd"
@@ -384,6 +384,9 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
         if answer != adsk.core.DialogResults.DialogYes:
             raise _Abort("Abgebrochen – Muster wurde nicht erzeugt.")
 
+    comp = design.activeComponent
+    development = doc.get("development")
+
     if SESSION.mode == "edit" and SESSION.sketch is not None:
         sketch = SESSION.sketch
         if storage.was_modified_manually(sketch):
@@ -395,28 +398,62 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
                 adsk.core.MessageBoxIconTypes.WarningIconType)
             if answer != adsk.core.DialogResults.DialogYes:
                 raise _Abort("Abgebrochen – Skizze wurde nicht verändert.")
+        if development:
+            surface_target.ensure_tangent_plane(design, comp, development, sketch)
         renderer.clear_pattern_geometry(sketch)
     else:
-        comp = design.activeComponent
         plane = SESSION.plane or design.rootComponent.xYConstructionPlane
+        if development:
+            plane = surface_target.ensure_tangent_plane(design, comp, development)
         # Auf einer Flaeche **ohne** projizierte Kanten skizzieren: Fusion legte
         # sonst die Flaechenkanten in die Skizze - genau auf den Rahmenumriss.
         # Doppelte Kurven zerstoeren die Profile.
-        if frame_reader.is_face(plane):
+        if development or frame_reader.is_face(plane):
             sketch = comp.sketches.addWithoutEdges(plane)
         else:
             sketch = comp.sketches.add(plane)
         sketch.name = "Muster %s" % doc["pattern"]["type"]
         SESSION.sketch = sketch
+        SESSION.plane = plane
         SESSION.mode = "edit"
 
+    if development:
+        # Erst jetzt steht die Skizze - und damit, wie die Abwicklung auf ihr
+        # liegen muss. Die Szene wird deshalb mit der gemessenen Platzierung
+        # noch einmal gebaut; an der Elementzahl aendert eine starre
+        # Verschiebung nichts, die Warnung oben gilt also weiterhin.
+        face = surface_target.target_face(design, development)
+        if face is None:
+            raise _Abort("Die Mantelfläche ist nicht mehr auffindbar.")
+        doc["placement"].update(
+            surface_target.sketch_placement(sketch, development, face))
+        scene = build.build_scene(doc)
+
     result = renderer.render_scene(sketch, scene)
-    storage.save(sketch, doc, sketch.sketchCurves.count + sketch.sketchTexts.count)
 
     message = "Muster erzeugt: %d Elemente in „%s“." % (result.entities, sketch.name)
+    if development and doc["style"].get("embossOn"):
+        message += "\n" + _emboss(design, comp, sketch, doc, development)
+    storage.save(sketch, doc, sketch.sketchCurves.count + sketch.sketchTexts.count)
     for warn in result.warnings:
         message += "\n" + warn
     return message
+
+
+def _emboss(design, comp, sketch, doc: Dict[str, Any], development: dict) -> str:
+    """Praegen - Fehler dabei sind kein Grund, die Skizze zu verwerfen."""
+    depth = float(doc["style"].get("embossDepth", 0.0))
+    if abs(depth) < 1e-9:
+        return "Prägetiefe 0 – nicht geprägt."
+    try:
+        tokens = surface_target.emboss(design, comp, sketch, development, depth,
+                                       development.get("embossTokens") or ())
+    except surface_target.TargetError as err:
+        development["embossTokens"] = []
+        return "Nicht geprägt: %s" % err
+    development["embossTokens"] = tokens
+    return "Auf die Fläche geprägt (%d Feature%s)." % (len(tokens),
+                                                       "" if len(tokens) == 1 else "s")
 
 
 def register_commit_command(ui: "adsk.core.UserInterface") -> None:

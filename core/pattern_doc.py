@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -422,6 +423,22 @@ def _apply_development(raw: Any, errors: Dict[str, str]) -> Optional[dict]:
                 errors["development.outline"] = "Die Flächenkontur ist unbrauchbar."
                 outline = []
 
+    # Lage der Flaechenmitte auf der Achse (cm). Die Praegung braucht sie, um
+    # die Tangentialebene an der richtigen Stelle anzulegen; gerechnet wird sie
+    # beim Einlesen, damit hier nichts von der Flaeche uebrig bleiben muss.
+    try:
+        axis_middle = float(raw.get("axisMiddle", 0.0))
+    except (TypeError, ValueError):
+        axis_middle = 0.0
+    if not math.isfinite(axis_middle):
+        axis_middle = 0.0
+
+    # Was Fusion beim letzten Erzeugen angelegt hat. Ohne diese Tokens wuerde
+    # ein Re-Edit eine zweite Tangentialebene anlegen und die alte Praegung
+    # stehen lassen.
+    tokens = raw.get("embossTokens")
+    tokens = [str(t) for t in tokens] if isinstance(tokens, (list, tuple)) else []
+
     source = raw.get("source")
     source = source if isinstance(source, dict) else {}
     return {
@@ -432,6 +449,9 @@ def _apply_development(raw: Any, errors: Dict[str, str]) -> Optional[dict]:
         "periodic": dev.periodic,
         "seamAngle": seam_angle,
         "outline": outline,
+        "axisMiddle": axis_middle,
+        "planeToken": str(raw.get("planeToken", "")),
+        "embossTokens": tokens,
         "source": {"label": str(source.get("label", "")),
                    "token": str(source.get("token", ""))},
     }

@@ -132,3 +132,68 @@ def test_the_cone_refuses_to_guess():
         cone.to_plane(0.0, 0.0)
     with pytest.raises(NotImplementedError):
         cone.period()
+
+
+# ------------------------------------------------- Fläche -> Flächenkoordinaten
+
+def test_the_reference_direction_is_deterministic_and_perpendicular():
+    """Fusion nennt zu einer Zylinderfläche keine Null-Richtung.
+
+    Sie wird aus der Achse gebaut - und muss für dieselbe Achse jedes Mal
+    dieselbe sein, sonst zeigt der Nahtwinkel nach einem Neustart woandershin.
+    """
+    for axis in ((0, 0, 1), (1, 0, 0), (0, 1, 0), (1, 1, 1), (-2, 0.5, 3)):
+        e1, e2 = dev.axis_frame(axis)
+        assert dev.axis_frame(axis) == (e1, e2)
+        unit = dev.normalized(axis)
+        assert dev.dot3(e1, unit) == pytest.approx(0.0, abs=1e-12)
+        assert dev.dot3(e2, unit) == pytest.approx(0.0, abs=1e-12)
+        assert dev.dot3(e1, e2) == pytest.approx(0.0, abs=1e-12)
+        assert dev.dot3(e1, e1) == pytest.approx(1.0)
+        # Rechtshändig: e1 x e2 zeigt in Achsenrichtung
+        assert dev.cross3(e1, e2) == pytest.approx(unit, abs=1e-12)
+
+
+def test_the_z_axis_keeps_x_as_zero_direction():
+    assert dev.axis_frame((0, 0, 1)) == ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+
+
+def test_world_points_become_angle_and_height():
+    points = [(2.0, 0.0, 0.0), (0.0, 2.0, 1.5), (-2.0, 0.0, -3.0)]
+    out = dev.surface_coords(points, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    assert [p[1] for p in out] == pytest.approx([0.0, 1.5, -3.0])
+    assert [p[0] for p in out] == pytest.approx([0.0, math.pi / 2, math.pi])
+
+
+def test_surface_coords_follow_a_tilted_axis():
+    axis = (0.0, 1.0, 1.0)
+    unit = dev.normalized(axis)
+    e1, e2 = dev.axis_frame(axis)
+    origin = (1.0, 2.0, 3.0)
+    for s, theta in ((0.0, 0.0), (2.5, 1.0), (-1.0, -2.0)):
+        p = tuple(origin[i] + s * unit[i]
+                  + 3.0 * (math.cos(theta) * e1[i] + math.sin(theta) * e2[i])
+                  for i in range(3))
+        got = dev.surface_coords([p], origin, axis)[0]
+        assert got[0] == pytest.approx(theta)
+        assert got[1] == pytest.approx(s)
+
+
+def test_a_slanted_cut_only_keeps_what_lies_on_the_face():
+    """Der schräg abgeschnittene Zylinder läuft rundum, ist aber kein Rechteck."""
+    assert dev.usable_span([(0.0, 0.0), (6.0, 6.0)]) == (0.0, 6.0)
+    assert dev.usable_span([(0.0, 0.0), (5.0, 6.0)]) == (0.0, 5.0)
+    assert dev.usable_span([(-0.5, 0.5), (5.0, 6.0)]) == (0.5, 5.0)
+    # Beide Kurven auf derselben Seite, oder nur eine: kein brauchbares Stück
+    assert dev.usable_span([(0.0, 0.0)]) is None
+    assert dev.usable_span([(0.0, 3.0), (0.5, 3.5)]) is None
+
+
+def test_describe_speaks_millimetres():
+    assert dev.describe(
+        {"kind": "cylinder", "radius": 2.5, "length": 6.0, "periodic": True}
+    ) == "Zylinder r = 25 mm, L = 60 mm, rundum (nahtlos)"
+    assert dev.describe(
+        {"kind": "cylinder", "radius": 1.25, "length": 3.0, "periodic": False}
+    ) == "Zylinder r = 12.5 mm, L = 30 mm, Teilfläche"
+    assert dev.describe(None) == ""
