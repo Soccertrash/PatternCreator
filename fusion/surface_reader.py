@@ -95,9 +95,18 @@ def read_surface(entity: Any) -> SurfaceSnapshot:
                            "sich nicht abwickeln.")
 
     kind, origin, axis, radius, half_angle = _geometry(face)
-    loops = _loops_in_surface_coords(face, origin, axis)
+    world = _loop_points(face)
+    frame = axis_frame(axis)
+    loops = [surface_coords(points, origin, axis, frame)
+             for points in world if len(points) >= 2]
     if not loops:
         raise SurfaceError("Die Fläche hat keine auswertbaren Randkurven.")
+    if kind == KIND_CONE:
+        # Welche Richtung die Flaeche weiter wird, sagt die Geometrie selbst -
+        # nicht das Vorzeichen aus ``getData``. Ein geratenes Vorzeichen haette
+        # das Muster auf den Kopf gestellt.
+        half_angle = math.copysign(half_angle,
+                                   _taper(_flat(world), origin, axis) or 1.0)
 
     periodic = _is_full_wrap(loops)
     if periodic:
@@ -116,19 +125,24 @@ def read_surface(entity: Any) -> SurfaceSnapshot:
         raise SurfaceError("Die Fläche ist zu schmal für ein Muster.")
 
     middle = (low + high) / 2.0
+    length = high - low
     if kind == KIND_CONE:
         # Der Radius der Flaechengeometrie gilt an ``origin``; gebraucht wird er
-        # in der Mitte der Flaeche, weil die Abwicklung dort ihren Nullpunkt hat.
+        # auf der Beruehrlinie, also in der Mitte der Flaeche - dort hat die
+        # Abwicklung ihren Nullpunkt.
         radius = radius + middle * math.tan(half_angle)
         if radius <= 1e-9:
             raise SurfaceError("Die Fläche läuft in die Spitze des Kegels - "
                                "bitte einen Kegelstumpf wählen.")
+        # Gemessen wird entlang der **Mantellinie**, nicht entlang der Achse:
+        # das Muster liegt auf der Flaeche, nicht daneben.
+        length = length / math.cos(abs(half_angle))
 
     development = {
         "kind": kind,
         "radius": radius,
         "halfAngle": half_angle,
-        "length": high - low,
+        "length": length,
         "periodic": periodic,
         "seamAngle": 0.0,
         "outline": outline,
@@ -160,18 +174,45 @@ def _xyz(p) -> Vector:
     return (p.x, p.y, p.z)
 
 
-def _loops_in_surface_coords(face, origin: Vector, axis: Vector
-                             ) -> List[List[Point]]:
-    """Jede Randkurve als Punktliste in ``(theta, s)``."""
-    frame = axis_frame(axis)
-    out: List[List[Point]] = []
+def _loop_points(face) -> List[List[Vector]]:
+    """Jede Randkurve als Weltpunkte."""
+    out: List[List[Vector]] = []
     for loop in face.loops:
         world: List[Vector] = []
         for co_edge in loop.coEdges:
             world.extend(_strokes(co_edge.edge))
-        if len(world) >= 2:
-            out.append(surface_coords(world, origin, axis, frame))
+        out.append(world)
     return out
+
+
+def _flat(loops: Sequence[Sequence[Vector]]) -> List[Vector]:
+    return [p for loop in loops for p in loop]
+
+
+def _taper(points: Sequence[Vector], origin: Vector, axis: Vector) -> float:
+    """Wie stark waechst der Radius entlang der Achse? (Ausgleichsgerade)
+
+    Beim Kegel ist der Radius **linear** in der Achslage, die Gerade trifft also
+    exakt; der Ausgleich glaettet nur das Abtastrauschen der Randkurven. Das
+    Vorzeichen des Ergebnisses ist die eigentliche Auskunft: es sagt, auf
+    welcher Seite der Apex liegt.
+    """
+    a = normalized(axis)
+    samples = []
+    for p in points:
+        v = (p[0] - origin[0], p[1] - origin[1], p[2] - origin[2])
+        s = sum(v[i] * a[i] for i in range(3))
+        radial = tuple(v[i] - s * a[i] for i in range(3))
+        samples.append((s, math.sqrt(sum(c * c for c in radial))))
+    if len(samples) < 2:
+        return 0.0
+    n = float(len(samples))
+    mean_s = sum(s for s, _ in samples) / n
+    mean_r = sum(r for _, r in samples) / n
+    spread = sum((s - mean_s) ** 2 for s, _ in samples)
+    if spread <= 1e-12:
+        return 0.0
+    return sum((s - mean_s) * (r - mean_r) for s, r in samples) / spread
 
 
 def _strokes(edge) -> List[Vector]:

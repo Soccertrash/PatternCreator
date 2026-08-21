@@ -341,10 +341,17 @@ Was dabei zu wissen ist:
   nicht zu sehen.
 * **Teilflächen** (Halbzylinder, ausgeschnittene Stücke) gehen ebenfalls – dort
   ist der Rahmen die abgewickelte Kontur und läuft ein Rahmenband rundum.
-* **Kegelflächen sind noch nicht freigeschaltet.** Welche der beiden möglichen
-  Abbildungen Fusion beim Kegel benutzt, ist noch nicht gemessen; bis dahin
-  meldet der Editor das im Klartext, statt ein falsch abgewickeltes Muster zu
-  erzeugen.
+* **Kegel** wickeln sich als **Kreisringsektor** ab, nicht als Rechteck – der
+  Abstand zur Spitze bleibt erhalten, der Winkel wird gestaucht. Der Editor
+  zeigt diesen Sektor, und in der Flächenzeile steht, wie weit er reicht
+  („Sektor 71°"). Zwei Folgen davon:
+  * **Zum spitzen Ende hin werden die Zellen schmaler.** Das ist unvermeidlich:
+    ein Muster, das rundum passt, hat auf jedem Höhenkreis gleich viele Zellen,
+    und der Umfang nimmt zur Spitze hin ab. Die Stege gehen mit – wird es dort
+    eng, sagt eine Warnung, wie schmal sie werden.
+  * **Text wird nur gedreht und verschoben, nicht gebogen.** Fusions
+    Skizzentext lässt sich nicht krümmen; bei großen Buchstaben ist das zu
+    sehen.
 
 ### Vorhandenes Muster bearbeiten
 
@@ -641,7 +648,10 @@ Für Mantelflächen zusätzlich:
 | Schräg geschnittener Zylinder | Zylinder schräg abschneiden, Mantelfläche wählen | Muster bleibt vollständig auf der Fläche (nur das gemeinsame Stück wird genutzt) |
 | Prägen | *Auf die Fläche prägen* an, Tiefe 1 mm | **ein** Körper-Zuwachs, zwei Timeline-Einträge „Prägen" |
 | Re-Edit mit Prägung | Zellgröße ändern → erzeugen | alte Prägung verschwindet, neue rechnet durch |
-| Kugelfläche | Kugel wählen | Klartext-Meldung, kein Absturz |
+| Kegelstumpf | Mantelfläche eines Kegelstumpfs ⌀ 50/30 × 60 mm wählen, Wabe | Muster folgt der Verjüngung, Zellen zum schmalen Ende hin schmaler, Naht nicht erkennbar |
+| Kegel, andersherum | denselben Kegel umgedreht aufbauen | Muster steht **nicht** kopf – gleiche Ausrichtung wie zuvor |
+| Kegel prägen | Tiefe 1 mm | zwei Prägungen, ein Körper; Warnung zur Stegbreite am schmalen Ende |
+| Kugelfläche | Kugel wählen | lässt sich gar nicht anwählen (Auswahlfilter) |
 | Fusion ohne Emboss-API | ältere Version | Skizze entsteht, Klartext-Hinweis statt Prägung |
 
 Zusätzlich zu prüfen:
@@ -719,6 +729,9 @@ PatternDoc (JSON)  ──►  Generator  ──►  IR (Fusion-frei)  ──┬�
   Zelle zerschneidet (Kürzeste-Wege-Suche im Kantennetz).
 * **`core/development.py`** – Abwicklung einer Mantelfläche: Flächenkoordinaten,
   Umfang, nutzbares Achsenstück, Beschreibungstext. Ohne Fusion prüfbar.
+* **`core/warp.py`** – biegt die fertige Szene beim Kegel in den Kreisringsektor.
+  Der letzte Schritt vor der Platzierung; alles davor rechnet in geraden
+  Koordinaten.
 * **`fusion/frame_reader.py`** – liest die Außenkontur eines Profils oder einer
   planaren Fläche aus Fusion ein.
 * **`fusion/surface_reader.py`** – liest eine Zylinder- oder Kegelmantelfläche ein.
@@ -782,9 +795,12 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
 * **Ein sehr zerklüfteter eigener Rahmen kostet Rechenzeit.** Ein Umriss mit
   einigen hundert Ecken verdoppelt die Rechenzeit gegenüber einem Rechteck
   (Messwerte in `Context.md`); übliche Konturen sind kaum langsamer.
-* **Kegelmantelflächen sind noch nicht freigeschaltet.** Zwei mögliche
-  Abbildungen passen auf die bisherigen Messungen; welche Fusion benutzt,
-  entscheidet erst ein breites Testrechteck (`Context.md` 15.6).
+* **Auf einem Kegel werden die Zellen zum spitzen Ende hin schmaler.** Das ist
+  keine Ungenauigkeit, sondern die Abwicklung selbst: gleich viele Zellen auf
+  jedem Höhenkreis, aber weniger Umfang. Eine Warnung sagt, wie schmal die
+  Stege dort werden.
+* **Text auf einem Kegel wird nicht gebogen**, nur gedreht und verschoben –
+  Fusions Skizzentext lässt sich nicht krümmen.
 * **Auf einer Mantelfläche entfallen Ursprung, Rahmendrehung und
   Musterdrehung.** Die Lage setzt Fusion selbst, und ein gedrehtes Raster wäre
   nach einem Umlauf nicht mehr fortsetzbar.
@@ -1150,9 +1166,16 @@ Worth knowing:
   the part.
 * **Partial faces** (half cylinders, cut-out pieces) work as well — there the
   container is the developed contour and a border band runs all the way around.
-* **Conical faces are not enabled yet.** Which of the two possible mappings
-  Fusion uses on a cone has not been measured; until then the editor says so in
-  plain text instead of producing a wrongly developed pattern.
+* **Cones** develop into a **circular ring sector**, not a rectangle — the
+  distance to the apex is preserved, the angle is compressed. The editor shows
+  that sector, and the face line says how far it reaches ("Sektor 71°"). Two
+  consequences:
+  * **Cells get narrower towards the pointed end.** That is unavoidable: a
+    pattern that fits all the way around has the same number of cells on every
+    circle, and the circumference shrinks towards the tip. The webs shrink with
+    them — a warning says how thin they get.
+  * **Text is only moved and turned, not bent.** Fusion sketch text cannot be
+    curved; with large letters this is visible.
 
 ### Editing an existing pattern
 
@@ -1536,6 +1559,9 @@ PatternDoc (JSON)  ──►  generator  ──►  IR (Fusion-free)  ──┬�
 * **`core/development.py`** — development of a curved face: face coordinates,
   circumference, usable strip along the axis, description text. Testable without
   Fusion.
+* **`core/warp.py`** — bends the finished scene into the ring sector for a cone.
+  The last step before placement; everything before it works in straight
+  coordinates.
 * **`fusion/surface_reader.py`** — reads a cylindrical or conical face.
 * **`fusion/surface_target.py`** — tangent plane, placement of the sketch on it,
   and the emboss.

@@ -83,15 +83,25 @@ def test_a_broken_development_is_dropped_with_a_message():
         assert "development" in errors
 
 
-def test_the_cone_is_refused_for_now():
-    """Solange nicht gemessen ist, wie Fusion den Kegel abbildet, lieber nicht.
-
-    Ein falsch abgewickeltes Muster fällt erst am gedruckten Teil auf
-    (``Context.md`` 15.6, Punkt 4).
-    """
+def test_the_cone_survives_the_document():
+    """Seit die Abwicklung gemessen ist (``Context.md`` 15.6, Punkt 4)."""
     doc, errors = doc_for(dev=development(kind="cone", halfAngle=0.3))
+    assert not errors
+    assert doc["development"]["kind"] == "cone"
+    assert doc["development"]["halfAngle"] == 0.3
+
+
+def test_the_cone_keeps_the_sign_of_its_half_angle():
+    """Das Vorzeichen sagt, wo der Apex liegt - ohne es stünde das Muster kopf."""
+    doc, errors = doc_for(dev=development(kind="cone", halfAngle=-0.3))
+    assert not errors
+    assert doc["development"]["halfAngle"] == -0.3
+
+
+def test_a_cylinder_with_an_opening_angle_is_refused():
+    doc, errors = doc_for(dev=development(kind="cylinder", halfAngle=0.3))
     assert doc["development"] is None
-    assert "Kegel" in errors["development"]
+    assert "development" in errors
 
 
 def test_an_old_document_has_no_development():

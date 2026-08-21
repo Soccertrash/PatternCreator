@@ -21,8 +21,9 @@ import math
 import random
 from typing import Any, List, Optional, Sequence, Tuple
 
-from . import ir
+from . import ir, warp
 from .containers import Container, make_container
+from .development import development_from_doc
 from .geom import (chain_segments, polygon_area, polygon_segments,
                    polyline_length, rotate, snap_segments)
 from .hatch import hatch_areas, style_from_doc
@@ -56,6 +57,17 @@ SPLIT_WARNING = ("Keine Trennlinie für die Prägung gefunden – das Muster lä
 #: beschnitten, egal was im Dokument steht.
 CLIP_WARNING = ("Auf einer Mantelfläche wird immer am Rand beschnitten – sonst "
                 "läge das Muster nach dem Wickeln auf sich selbst.")
+
+#: Ab welcher Stauchung am schmalen Kegelende gewarnt wird.
+CONE_TAPER_LIMIT = 0.9
+
+
+def cone_taper_warning(narrow: float, thickness: float) -> str:
+    """Klartext dazu, wie schmal das Muster an der Spitze wird."""
+    return ("Am schmalen Ende des Kegels ist das Muster nur %d %% so breit wie "
+            "am weiten – Stege sind dort etwa %.2f mm statt %.2f mm."
+            % (round(narrow * 100.0), thickness * narrow * 10.0,
+               thickness * 10.0))
 
 
 def _shrunk(container: Container, delta: float, warnings: List[str],
@@ -194,6 +206,16 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
     for layer in doc.get("textLayers", []):
         elements.extend(text_elements(layer))
 
+    # Beim Kegel wird die fertige Szene jetzt in den Kreisringsektor gebogen -
+    # nach allem, was in geraden Koordinaten rechnet, und vor der Platzierung,
+    # die nur noch verschiebt und dreht (Context.md 15.14).
+    dev = development_from_doc(development)
+    elements, bend_warnings = warp.bend(elements, dev)
+    warnings.extend(bend_warnings)
+    narrow = _cone_narrowing(dev)
+    if narrow < CONE_TAPER_LIMIT:
+        warnings.append(cone_taper_warning(narrow, thickness))
+
     origin = (float(placement.get("originX", 0.0)), float(placement.get("originY", 0.0)))
     frame_angle = math.radians(float(placement.get("rotation", 0.0)))
     if abs(frame_angle) > 1e-12 or origin != (0.0, 0.0):
@@ -225,10 +247,24 @@ def _context(doc: dict, bbox: Tuple[float, float, float, float], period: float):
     )
 
 
+def _cone_narrowing(dev) -> float:
+    """Wie schmal wird das Muster am spitzen Ende? (1.0 = gar nicht)
+
+    Ein Muster, das rundum passt, hat auf jedem Hoehenkreis gleich viele Zellen -
+    und der Umfang nimmt zur Spitze hin ab. Die Stege gehen mit: ein radial
+    verlaufender Steg ist dort nur noch diesen Bruchteil breit. Fuer den Druck
+    ist das die entscheidende Zahl.
+    """
+    if dev is None or not dev.is_cone():
+        return 1.0
+    rho = dev.apex_distance()
+    if rho <= 0.0:
+        return 1.0
+    return max(0.0, (rho - dev.length / 2.0) / rho)
+
+
 def _period_of(development: Optional[dict], container: Container) -> float:
     """Breite eines Umlaufs - 0, wenn das Muster nicht rundum laeuft."""
-    from .development import development_from_doc
-
     dev = development_from_doc(development)
     if dev is None or not dev.periodic:
         return 0.0

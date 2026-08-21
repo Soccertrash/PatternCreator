@@ -207,3 +207,153 @@ def test_how_much_the_bending_costs():
     # Der Zuwachs ist begrenzt und haengt am Abstand zur Beruehrlinie.
     assert after < 40 * warp.MAX_STEPS
     assert after > before
+
+
+# ------------------------------------------------------- durch die Pipeline
+
+def _cone_doc(pattern="honeycomb", half_angle=ALPHA, **style):
+    from core import pattern_doc
+    doc = pattern_doc.default_doc()
+    doc["pattern"]["type"] = pattern
+    doc["development"] = {
+        "kind": "cone", "radius": 2.5, "halfAngle": half_angle, "length": 6.0,
+        "periodic": True, "seamAngle": 0.0, "outline": [], "axisMiddle": 0.0,
+        "source": {"label": "Kegel", "token": ""},
+    }
+    doc["style"].update(style)
+    parsed, errors = pattern_doc.parse(doc)
+    assert not errors, errors
+    return parsed
+
+
+def _apex_of(dev):
+    return (0.0, -dev.apex_distance())
+
+
+def test_a_cone_pattern_builds_a_ring_sector():
+    """Aussenkontur, Loecher darin - und alles zwischen den beiden Radien."""
+    from core import build
+    doc = _cone_doc()
+    scene = build.build_scene(doc)
+    faces = [el for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_FACE]
+    holes = [el for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE]
+    assert faces and holes
+    apex = _apex_of(DEV)
+    inner, outer = RHO - 3.0, RHO + 3.0
+    for element in faces + holes:
+        for p in element.points:
+            assert inner - 0.01 <= _dist(p, apex) <= outer + 0.01
+
+
+def test_no_hole_pokes_through_the_outer_edge_of_the_cone():
+    """Der Rahmen muss ringsum geschlossen bleiben, sonst zerfaellt der Koerper."""
+    from core import build
+    doc = _cone_doc()
+    scene = build.build_scene(doc)
+    apex = _apex_of(DEV)
+    faces = [el for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_FACE]
+    reach = [_dist(p, apex) for el in faces for p in el.points]
+    holes = [el for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE]
+    for element in holes:
+        for p in element.points:
+            assert min(reach) - 1e-6 <= _dist(p, apex) <= max(reach) + 1e-6
+
+
+def test_a_shift_by_one_turn_becomes_a_rotation_about_the_apex():
+    """Das ist der Grund, warum die Naht auch am Kegel aufgeht.
+
+    Die beiden Nahtkanten sind vor dem Biegen exakte Verschiebungen um eine
+    Periode (das prüft ``test_periodic.py``). Bildet das Biegen eine solche
+    Verschiebung auf eine **Drehung um den Apex** ab, liegen sie nach dem
+    Wickeln aufeinander - egal, wie weit die Zickzack-Naht ausschlägt.
+    """
+    period = DEV.period()
+    omega = DEV.sector_angle()
+    for x, y in ((-2.0, -2.5), (0.0, 0.0), (1.7, 1.0), (3.4, 2.9)):
+        here = warp.point(x, y, RHO)
+        there = warp.point(x + period, y, RHO)
+        assert _dist(there, APEX) == pytest.approx(_dist(here, APEX), abs=1e-12)
+        assert _angle_at_apex(there) - _angle_at_apex(here) == pytest.approx(
+            omega, abs=1e-12)
+
+
+def test_the_seam_of_a_built_cone_pattern_spans_one_sector():
+    """Am fertigen Muster: der Rahmen überstreicht einen Sektor - plus Zickzack.
+
+    Die Naht läuft nicht gerade, sondern an den Zellwänden entlang; um deren
+    Ausschlag ist die Abwicklung breiter als der reine Sektorwinkel. Mehr als
+    eine Zellbreite darf es nicht sein.
+    """
+    from core import build
+    doc = _cone_doc()
+    scene = build.build_scene(doc)
+    faces = [el for el in scene.elements
+             if isinstance(el, ir.Path) and el.role == ir.ROLE_FACE]
+    angles = [_angle_at_apex(p) for el in faces for p in el.points]
+    span = max(angles) - min(angles)
+    cell = float(doc["pattern"]["params"]["cellSize"]) / RHO
+    assert DEV.sector_angle() <= span <= DEV.sector_angle() + 3.0 * cell
+
+
+def test_bending_a_real_pattern_costs_about_a_fifth():
+    """Die Zahl steht in Context.md 15.14 - hier bleibt sie ehrlich."""
+    from core import build
+    from core.development import cylinder as make_cylinder
+    doc = _cone_doc()
+    bent = build.build_scene(doc)
+    flat = dict(doc)
+    flat["development"] = dict(doc["development"])
+    flat["development"]["kind"] = "cylinder"
+    flat["development"]["halfAngle"] = 0.0
+    straight = build.build_scene(flat)
+    assert make_cylinder(2.5, 6.0).period() == pytest.approx(DEV.period())
+    before = sum(len(getattr(el, "points", []) or []) for el in straight.elements)
+    after = sum(len(getattr(el, "points", []) or []) for el in bent.elements)
+    assert before > 0
+    assert 1.0 <= after / before < 1.6
+
+
+def test_every_pattern_stays_inside_the_ring_sector():
+    """Kein Element darf über die beiden Randkreise hinausragen.
+
+    Sonst läge es nach dem Prägen neben der Fläche.
+    """
+    import generators
+    from core import build
+    from core.development import development_from_doc
+    for cls in generators.GENERATOR_CLASSES:
+        doc = _cone_doc(cls().id)
+        scene = build.build_scene(doc)
+        dev = development_from_doc(doc["development"])
+        apex = _apex_of(dev)
+        inner, outer = dev.apex_distance() - 3.0, dev.apex_distance() + 3.0
+        for element in scene.elements:
+            for p in getattr(element, "points", []) or []:
+                assert inner - 0.01 <= _dist(p, apex) <= outer + 0.01, cls().id
+
+
+def test_a_steep_cone_warns_about_thin_webs_at_the_narrow_end():
+    """Für den Druck ist das die entscheidende Zahl."""
+    from core import build
+    doc = _cone_doc(half_angle=ALPHA)
+    scene = build.build_scene(doc)
+    assert any("schmalen Ende" in w for w in scene.warnings)
+
+
+def test_a_shallow_cone_says_nothing():
+    from core import build
+    scene = build.build_scene(_cone_doc(half_angle=0.05))
+    assert not any("schmalen Ende" in w for w in scene.warnings)
+
+
+def test_the_narrowing_is_the_ratio_of_the_two_radii():
+    from core.build import _cone_narrowing
+    from core.development import cone as make_cone, cylinder as make_cylinder
+    dev = make_cone(radius=2.5, length=6.0, half_angle=ALPHA)
+    assert _cone_narrowing(dev) == pytest.approx((RHO - 3.0) / RHO)
+    assert _cone_narrowing(make_cylinder(2.5, 6.0)) == 1.0
+    assert _cone_narrowing(None) == 1.0

@@ -385,20 +385,13 @@ def _apply_development(raw: Any, errors: Dict[str, str]) -> Optional[dict]:
     Pipeline nicht zum Absturz bringen.
     """
     from .containers import MAX_FRAME_POINTS
-    from .development import KIND_CONE, development_from_doc
+    from .development import development_from_doc
 
     if not isinstance(raw, dict) or not raw:
         return None
     dev = development_from_doc(raw)
     if dev is None:
         errors["development"] = "Die gespeicherte Mantelfläche ist unbrauchbar."
-        return None
-    if dev.kind == KIND_CONE:
-        # Welche der beiden Abbildungen Fusion beim Kegel benutzt, ist noch
-        # nicht gemessen (Context.md 15.6, Punkt 4). Bis dahin lieber ein
-        # ebener Rahmen als ein falsch abgewickeltes Muster.
-        errors["development"] = ("Kegelflächen sind noch nicht umgesetzt – "
-                                 "bitte eine Zylinderfläche wählen.")
         return None
 
     try:

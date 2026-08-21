@@ -159,6 +159,13 @@ def sketch_placement(sketch: Any, development: dict, face: Any) -> Dict[str, flo
 
     base, along_axis, along_theta = _measure(sketch, where, axis, around)
 
+    # Die Abwicklung zaehlt ihr y **vom Apex weg**. Beim Zylinder ist das die
+    # Achsrichtung; beim Kegel die Gegenrichtung, wenn die Flaeche entgegen der
+    # Achse weiter wird. Das Vorzeichen des Halbwinkels sagt welche
+    # (Context.md 15.14) - stuende es falsch, laege das Muster kopfueber.
+    if float(development.get("halfAngle", 0.0)) < 0.0:
+        along_axis = (-along_axis[0], -along_axis[1])
+
     handedness = along_theta[0] * along_axis[1] - along_theta[1] * along_axis[0]
     if handedness <= 0.0:
         # Waere die Skizze gespiegelt, liesse sich die Abwicklung nicht durch

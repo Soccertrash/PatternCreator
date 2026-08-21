@@ -1326,3 +1326,43 @@ wird beim Parsen abgelehnt.
 **Text auf einem Kegel** wird nur verschoben und gedreht, nicht gebogen –
 Fusions `SketchText` lässt sich nicht krümmen. Bei großen Buchstaben ist das zu
 sehen, deshalb gibt es dafür eine Warnung.
+
+### 15.15 Der Kegel in der Pipeline (Paket 3.2)
+
+Angeschlossen ist der Kegel an fünf Stellen – und an vier davon war es eine
+Zeile:
+
+1. **`core/pattern_doc.py`** lehnt Kegel nicht mehr ab. Neu abgelehnt wird
+   dafür ein *Zylinder mit Öffnungswinkel* – das wäre ein widersprüchliches
+   Dokument.
+2. **`core/build.py`** biegt die Szene nach den Textebenen und vor der
+   Platzierung (`warp.bend`). Der Rest der Pipeline sieht den Kegel nicht.
+3. **`core/containers.py`** brauchte gar nichts: `dev.bounds()` liefert für
+   beide Arten das Rechteck, `frame_points` rechnet die Kontur einer Teilfläche
+   über `to_plane` um.
+4. **`fusion/surface_reader.py`**: zwei echte Fehler behoben. Die Länge wird
+   jetzt entlang der **Mantellinie** gemessen statt entlang der Achse (das
+   Muster liegt auf der Fläche, nicht daneben), und das Vorzeichen des
+   Halbwinkels kommt aus der Geometrie statt aus `getData`. Dafür wird über die
+   Randpunkte eine Ausgleichsgerade *Radius über Achslage* gelegt; ihre
+   Steigung sagt, auf welcher Seite der Apex liegt. Beim Kegel ist der Radius
+   linear in der Achslage, die Gerade trifft also exakt – der Ausgleich glättet
+   nur das Abtastrauschen. Vorher stand dort ein geratenes `+`, das jeden
+   zweiten Kegel auf den Kopf gestellt hätte.
+5. **`fusion/surface_target.py`**: die Abwicklung zählt ihr `y` vom Apex weg;
+   ist der Halbwinkel negativ, wird die gemessene Achsrichtung umgedreht.
+
+**Eine neue Warnung.** Auf einem Kegel werden die Stege zum spitzen Ende hin
+schmaler – bei ⌀ 50/30 × 60 mm auf 76 %, ein 0,8-mm-Steg wird dort 0,61 mm
+breit. Für den Druck ist das die entscheidende Zahl, also steht sie im Klartext
+in der Vorschau (ab 10 % Stauchung).
+
+**Geprüft ohne Fusion:** alle neun Muster bauen auf einem Kegel durch, und kein
+einziger Punkt liegt außerhalb des Kreisrings zwischen den beiden Randkreisen.
+Der Nahtbeweis ist eine Eigenschaft der Abbildung: eine Verschiebung um eine
+Periode wird zu einer **Drehung um den Apex**. Weil die beiden Nahtkanten vor
+dem Biegen exakte Verschiebungen voneinander sind (`test_periodic.py`), liegen
+sie nach dem Wickeln aufeinander – egal, wie weit die Zickzack-Naht ausschlägt.
+Genau daran ist der erste Versuch eines Nahttests gescheitert: er verglich den
+Winkelbereich der ganzen Kontur mit dem Sektorwinkel und übersah, dass der
+Zickzack die Abwicklung breiter macht.

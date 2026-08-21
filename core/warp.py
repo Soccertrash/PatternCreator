@@ -51,32 +51,42 @@ TEXT_WARNING = ("Text auf einem Kegel wird nur gedreht und verschoben, nicht "
                 "gebogen – bei großen Buchstaben ist das zu sehen.")
 
 
-def apply(scene: "ir.Scene", development: Optional[Development]) -> None:
-    """Szene in den Sektor biegen. Zylinder und Ebene bleiben unberuehrt."""
+def bend(elements: Sequence[Any], development: Optional[Development]
+         ) -> Tuple[List[Any], List[str]]:
+    """Elemente in den Sektor biegen. Zylinder und Ebene bleiben unberuehrt.
+
+    Liefert die neuen Elemente und die Warnungen dazu.
+    """
+    out = list(elements)
     if development is None or not development.is_cone():
-        return
+        return out, []
     rho = development.apex_distance()
     if rho <= 0.0 or not math.isfinite(rho):
-        return
-    out: List[Any] = []
-    warned = False
-    for el in scene.elements:
+        return out, []
+    bent: List[Any] = []
+    warnings: List[str] = []
+    for el in out:
         if isinstance(el, ir.TextItem):
-            if not warned:
-                scene.warnings.append(TEXT_WARNING)
-                warned = True
-            out.append(_text(el, rho))
+            if TEXT_WARNING not in warnings:
+                warnings.append(TEXT_WARNING)
+            bent.append(_text(el, rho))
         elif isinstance(el, ir.Path):
-            out.append(_path(el, rho))
+            bent.append(_path(el, rho))
         elif isinstance(el, ir.Circle):
-            out.append(_path(_circle_as_path(el), rho))
+            bent.append(_path(_circle_as_path(el), rho))
         elif isinstance(el, ir.Arc):
-            out.append(_path(_arc_as_path(el), rho))
+            bent.append(_path(_arc_as_path(el), rho))
         elif isinstance(el, ir.Ellipse):
-            out.append(_path(_ellipse_as_path(el), rho))
+            bent.append(_path(_ellipse_as_path(el), rho))
         else:
-            out.append(el)
-    scene.elements = out
+            bent.append(el)
+    return bent, warnings
+
+
+def apply(scene: "ir.Scene", development: Optional[Development]) -> None:
+    """Wie :func:`bend`, aber an einer fertigen Szene."""
+    scene.elements, warnings = bend(scene.elements, development)
+    scene.warnings.extend(warnings)
 
 
 def point(x: float, y: float, rho: float) -> Point:

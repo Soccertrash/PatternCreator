@@ -282,6 +282,9 @@ def describe(development: Optional[dict]) -> str:
     text = "%s r = %s mm, L = %s mm" % (kind, _mm(dev.radius), _mm(dev.length))
     if dev.kind == KIND_CONE:
         text += ", Öffnung %s°" % _round(math.degrees(abs(dev.half_angle)) * 2.0)
+        # Der Sektorwinkel sagt mehr ueber die Abwicklung als der Oeffnungs-
+        # winkel: er ist die Form, die auf der Skizze liegt.
+        text += ", Sektor %s°" % _round(math.degrees(dev.sector_angle()))
     return text + (", rundum (nahtlos)" if dev.periodic else ", Teilfläche")
 
 
