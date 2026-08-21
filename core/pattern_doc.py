@@ -434,9 +434,21 @@ def _apply_development(raw: Any, errors: Dict[str, str]) -> Optional[dict]:
 
     source = raw.get("source")
     source = source if isinstance(source, dict) else {}
+    # Der Radius, unter dem Fusion die Flaeche selbst fuehrt. Beim Kegel weicht
+    # er vom Radius auf der Beruehrlinie ab; ohne ihn fände das Praegen die
+    # Flaeche nicht wieder. Alte Dokumente kennen ihn nicht - dort sind beide
+    # gleich, denn es gab nur Zylinder.
+    try:
+        face_radius = float(raw.get("faceRadius", dev.radius))
+    except (TypeError, ValueError):
+        face_radius = dev.radius
+    if not math.isfinite(face_radius) or face_radius <= 0.0:
+        face_radius = dev.radius
+
     return {
         "kind": dev.kind,
         "radius": dev.radius,
+        "faceRadius": face_radius,
         "halfAngle": dev.half_angle,
         "length": dev.length,
         "periodic": dev.periodic,

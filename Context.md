@@ -1366,3 +1366,23 @@ sie nach dem Wickeln aufeinander – egal, wie weit die Zickzack-Naht ausschläg
 Genau daran ist der erste Versuch eines Nahttests gescheitert: er verglich den
 Winkelbereich der ganzen Kontur mit dem Sektorwinkel und übersah, dass der
 Zickzack die Abwicklung breiter macht.
+
+### 15.16 Zwei Radien, und warum es zwei sein müssen
+
+Beim Kegel hat „der Radius" zwei Bedeutungen, und sie auseinanderzuhalten war
+nötig, sonst hätte das Prägen die Fläche nicht wiedergefunden:
+
+* **`radius`** – der Radius **auf der Berührlinie**, also in der Mitte der
+  Fläche. Damit rechnet die Abwicklung: `x = radius · θ`, Periode
+  `2π·radius`, Apex-Abstand `radius / sin α`.
+* **`faceRadius`** – der Radius, den Fusions Flächengeometrie selbst meldet
+  (`Cone.getData` liefert ihn am *Ursprung* der Kegelgeometrie, nicht in der
+  Mitte der gewählten Fläche). Nur damit lässt sich die Fläche in
+  `surface_target.target_face` wiederfinden – und wiedergefunden werden muss sie
+  vor jedem Emboss, weil Flächenreferenzen nach jedem Feature veralten.
+
+Beim Zylinder sind beide gleich; alte Dokumente kennen `faceRadius` deshalb
+nicht und fallen sauber auf `radius` zurück. Aufgefallen wäre der Fehler erst in
+Fusion, und zwar als „Die Mantelfläche ist nach dem Prägen nicht mehr
+auffindbar" – ein Satz, der in die Irre geführt hätte, weil die Fläche ja da
+war.

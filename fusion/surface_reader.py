@@ -95,6 +95,11 @@ def read_surface(entity: Any) -> SurfaceSnapshot:
                            "sich nicht abwickeln.")
 
     kind, origin, axis, radius, half_angle = _geometry(face)
+    # Der Radius, den die Flaechengeometrie meldet - zum Wiederfinden der
+    # Flaeche. Beim Kegel ist das ein **anderer** als der auf der Beruehrlinie,
+    # und wiederfinden laesst sich die Flaeche nur ueber den, den Fusion selbst
+    # nennt (Context.md 15.16).
+    face_radius = radius
     world = _loop_points(face)
     frame = axis_frame(axis)
     loops = [surface_coords(points, origin, axis, frame)
@@ -141,6 +146,7 @@ def read_surface(entity: Any) -> SurfaceSnapshot:
     development = {
         "kind": kind,
         "radius": radius,
+        "faceRadius": face_radius,
         "halfAngle": half_angle,
         "length": length,
         "periodic": periodic,

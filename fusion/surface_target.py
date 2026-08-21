@@ -383,7 +383,10 @@ def target_face(design: Any, development: dict,
     Gesucht wird deshalb die groesste Flaeche mit dem **urspruenglichen**
     Radius.
     """
-    radius = float(development.get("radius", 0.0))
+    # Gesucht wird mit dem Radius, den die Flaechengeometrie meldet - nicht mit
+    # dem auf der Beruehrlinie. Beim Kegel sind das zwei verschiedene Zahlen.
+    radius = float(development.get("faceRadius")
+                   or development.get("radius", 0.0))
     token = (development.get("source") or {}).get("token", "")
     face = _by_token(design, token)
     if face is not None and _radius_of(face) is not None \

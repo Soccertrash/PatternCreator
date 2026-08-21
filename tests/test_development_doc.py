@@ -397,3 +397,31 @@ def test_every_style_combination_stays_inside_the_turn():
         # Der Rahmen ist genau einen Umlauf breit, seine Kanten zickzacken aber
         # um bis zu einem Suchband - mehr als das darf nichts überstehen.
         assert max(xs) - min(xs) < PERIOD + 2.0, style
+
+
+def test_the_face_radius_is_kept_alongside_the_touch_line_radius():
+    """Beim Kegel sind das zwei verschiedene Zahlen.
+
+    ``radius`` ist der auf der Berührlinie – damit rechnet die Abwicklung.
+    ``faceRadius`` ist der, unter dem Fusion die Fläche führt – damit wird sie
+    zum Prägen wiedergefunden.
+    """
+    doc, errors = doc_for(dev=development(kind="cone", halfAngle=0.3,
+                                          faceRadius=1.25))
+    assert not errors
+    assert doc["development"]["radius"] != doc["development"]["faceRadius"]
+    assert doc["development"]["faceRadius"] == 1.25
+
+
+def test_an_old_document_falls_back_to_the_one_radius_it_has():
+    """Vor dem Kegel gab es nur Zylinder - dort sind beide Radien gleich."""
+    raw = development()
+    raw.pop("faceRadius", None)
+    doc, errors = doc_for(dev=raw)
+    assert not errors
+    assert doc["development"]["faceRadius"] == doc["development"]["radius"]
+
+
+def test_a_nonsense_face_radius_falls_back():
+    doc, errors = doc_for(dev=development(faceRadius="viel"))
+    assert doc["development"]["faceRadius"] == doc["development"]["radius"]
