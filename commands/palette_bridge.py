@@ -465,21 +465,22 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
             trace.step("Prägungen entfernen")
             surface_target.remove(design, development.get("embossTokens") or ())
             development["embossTokens"] = []
-        trace.step("Skizze leeren")
-        renderer.clear_pattern_geometry(sketch)
-        if development:
-            # Die Ebene erst **nach** dem Leeren anfassen: an einer leeren
-            # Skizze kostet der Wechsel nichts, an einer vollen rechnet Fusion
-            # jede Kurve neu durch (Context.md 15.12).
             trace.step("Tangentialebene prüfen")
             plane, stale = surface_target.ensure_tangent_plane(
                 design, comp, development)
+            # Die Skizze wird **ersetzt**, nicht geleert: tausende Kurven
+            # einzeln zu loeschen hat Fusion minutenlang beschaeftigt
+            # (Context.md 15.13). Hier ist das gefahrlos - was an der Skizze
+            # hing, waren unsere Praegungen, und die sind schon weg.
+            trace.step("Skizze neu anlegen")
+            sketch = _replant(comp, sketch, plane)
+            SESSION.sketch = sketch
+            SESSION.plane = plane
             if stale:
-                trace.step("Skizze auf die neue Tangentialebene umziehen")
-                sketch = _replant(comp, sketch, plane)
-                SESSION.sketch = sketch
-                SESSION.plane = plane
                 surface_target.remove(design, stale)
+        else:
+            trace.step("Skizze leeren")
+            renderer.clear_pattern_geometry(sketch)
     else:
         plane = SESSION.plane or design.rootComponent.xYConstructionPlane
         if development:
@@ -584,18 +585,23 @@ def _unfold_timeline(design, sketch) -> None:
 
 
 def _replant(comp, sketch, plane):
-    """Die geleerte Skizze auf eine neue Ebene umziehen - als neue Skizze.
+    """Die Musterskizze durch eine leere auf ``plane`` ersetzen.
 
-    ``Sketch.redefine`` waere der direkte Weg und war der Grund fuer zwei
-    Freezes: Fusion muss die Skizze in der Zeitleiste hinter die neue Ebene
-    haengen und rechnet dabei das ganze Muster durch; danach lieferte sie
-    entartete Koordinaten - ``modelToSketchSpace`` bildete zwei Zentimeter
-    auseinanderliegende Punkte auf denselben Skizzenpunkt ab, woran das
-    Ausrichten scheiterte (Context.md 15.12).
+    Das loest gleich zwei Freezes auf einmal:
 
-    Eine neue, leere Skizze auf der neuen Ebene ist derselbe Zustand, nur ohne
-    diesen Weg: gezeichnet wird das Muster ohnehin gleich neu, und alles, was
-    an der alten Skizze hing, schreibt ``storage.save`` wieder an die neue.
+    * **Kurven loeschen.** Tausende Skizzenelemente einzeln zu loeschen kostet
+      Fusion Minuten. Die Skizze wegzuwerfen ist **ein** Aufruf.
+    * **Ebene wechseln.** ``Sketch.redefine`` waere der direkte Weg und war der
+      Grund fuer zwei Haenger: Fusion muss die Skizze in der Zeitleiste hinter
+      die neue Ebene haengen und rechnet dabei das ganze Muster durch; danach
+      lieferte sie entartete Koordinaten - ``modelToSketchSpace`` bildete zwei
+      Zentimeter auseinanderliegende Punkte auf denselben Skizzenpunkt ab,
+      woran das Ausrichten scheiterte (Context.md 15.12).
+
+    Gefahrlos ist das, weil an einer Musterskizze auf einer Mantelflaeche nur
+    unsere eigenen Praegungen haengen - und die sind zu diesem Zeitpunkt schon
+    geloescht. Alles, was sonst an ihr hing, schreibt ``storage.save`` gleich
+    wieder an die neue.
     """
     name = sketch.name
     try:

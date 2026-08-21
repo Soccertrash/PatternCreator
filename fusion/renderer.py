@@ -17,6 +17,8 @@ import adsk.fusion
 
 from core import ir
 
+from . import trace
+
 Point = Tuple[float, float]
 
 
@@ -34,19 +36,31 @@ def _p3(x: float, y: float) -> "adsk.core.Point3D":
 def clear_pattern_geometry(sketch: "adsk.fusion.Sketch") -> int:
     """Alle Kurven und Texte der Skizze loeschen (Re-Generate).
 
-    Wie beim Zeichnen laeuft auch das Loeschen unter ``isComputeDeferred``:
-    sonst rechnet Fusion nach **jedem** einzelnen ``deleteMe()`` die Profile neu,
-    und ein Re-Edit dauert bei mehreren tausend Elementen genauso lange wie der
-    Aufbau selbst.
+    Gedacht fuer Muster auf einer Ebene. Auf einer Mantelflaeche wird die Skizze
+    stattdessen ersetzt (``palette_bridge._replant``) - das ist **ein** Aufruf
+    statt tausender und damit unvergleichlich schneller.
+
+    Drei Schalter muessen um das Loeschen herum stehen, nicht nur einer:
+    ``isComputeDeferred`` haelt die Neuberechnung an, aber die **Darstellung**
+    laeuft weiter. Eine Musterskizze zeigt tausende schattierte Profile; jedes
+    ``deleteMe()`` liess Fusion sie neu aufbauen. Genau daran ist die Anwendung
+    haengengeblieben (gemessen 2026-08-21, siehe Context.md 15.13) - der
+    Aufwand waechst quadratisch mit der Elementzahl.
     """
     removed = 0
     previous_defer = sketch.isComputeDeferred
+    previous_profiles = sketch.areProfilesShown
+    previous_points = getattr(sketch, "arePointsShown", None)
     try:
         sketch.isComputeDeferred = True
+        _quiet(sketch, profiles=False, points=False)
+        trace.step("Skizze leeren: %d Kurven" % sketch.sketchCurves.count)
         for c in list(sketch.sketchCurves):
             try:
                 c.deleteMe()
                 removed += 1
+                if removed % 500 == 0:
+                    trace.step("   %d gelöscht" % removed)
             except Exception:
                 pass
         for t in list(sketch.sketchTexts):
@@ -63,8 +77,23 @@ def clear_pattern_geometry(sketch: "adsk.fusion.Sketch") -> int:
             except Exception:
                 pass
     finally:
+        _quiet(sketch, profiles=previous_profiles, points=previous_points)
         sketch.isComputeDeferred = previous_defer
     return removed
+
+
+def _quiet(sketch: "adsk.fusion.Sketch", profiles, points) -> None:
+    """Profil- und Punktdarstellung setzen - beides ist reine Anzeige."""
+    if profiles is not None:
+        try:
+            sketch.areProfilesShown = profiles
+        except Exception:
+            pass
+    if points is not None:
+        try:
+            sketch.arePointsShown = points
+        except Exception:
+            pass
 
 
 def render_scene(sketch: "adsk.fusion.Sketch", scene: ir.Scene) -> RenderResult:
@@ -75,16 +104,9 @@ def render_scene(sketch: "adsk.fusion.Sketch", scene: ir.Scene) -> RenderResult:
     previous_points = getattr(sketch, "arePointsShown", None)
     try:
         sketch.isComputeDeferred = True
-        try:
-            sketch.areProfilesShown = False
-        except Exception:
-            pass
-        try:
-            # Jede Linie bringt zwei Skizzenpunkte mit - bei tausenden Elementen
-            # kostet allein deren Darstellung spuerbar Zeit.
-            sketch.arePointsShown = False
-        except Exception:
-            pass
+        # Jede Linie bringt zwei Skizzenpunkte mit, und jede Masche ein Profil -
+        # bei tausenden Elementen kostet allein deren Darstellung spuerbar Zeit.
+        _quiet(sketch, profiles=False, points=False)
         curves = sketch.sketchCurves
         for el in scene.elements:
             try:
@@ -107,15 +129,7 @@ def render_scene(sketch: "adsk.fusion.Sketch", scene: ir.Scene) -> RenderResult:
                 result.warnings.append("Ein Element konnte nicht gezeichnet werden:\n"
                                        + traceback.format_exc(limit=1))
     finally:
-        try:
-            sketch.areProfilesShown = previous_profiles
-        except Exception:
-            pass
-        if previous_points is not None:
-            try:
-                sketch.arePointsShown = previous_points
-            except Exception:
-                pass
+        _quiet(sketch, profiles=previous_profiles, points=previous_points)
         sketch.isComputeDeferred = previous_defer
     return result
 

@@ -1230,3 +1230,39 @@ ungepuffert nach `~/Desktop/PatternCreator-Log.txt`. Die letzte Zeile ist im
 Freeze-Fall der Schuldige, die Abstände dazwischen sind die Dauern. Das ist
 Diagnosewerkzeug, kein Feature – es darf nie etwas kaputt machen und verschluckt
 jeden eigenen Fehler.
+
+### 15.13 Dritter Lauf: das Löschen war es
+
+Nach 15.12 fror Fusion erneut ein – diesmal beim Wechsel von Gitter auf Wabe.
+Das Protokoll aus `fusion/trace.py` hat sofort geliefert, wofür vorher zwei
+Fusion-Läufe und viel Raten nötig waren:
+
+```
+2026-08-21 16:56:26  Muster erzeugen (honeycomb, edit)
+    0.05 s  Prägungen entfernen
+    0.05 s  Skizze leeren
+```
+
+Danach nichts mehr. Es hängt im **Leeren der Skizze**, nicht an Ebene oder
+Prägung. Das rechtfertigt das Protokoll für sich genommen.
+
+**Warum das Leeren so teuer ist.** `isComputeDeferred` hält die Neuberechnung
+der Skizze an, aber nicht ihre **Darstellung**. Eine Musterskizze zeigt tausende
+schattierte Profile, und nach jedem einzelnen `deleteMe()` baut Fusion sie neu
+auf – der Aufwand wächst quadratisch mit der Elementzahl. Beim Zeichnen war das
+längst berücksichtigt (`areProfilesShown = False`), beim Löschen nicht: dort
+stand nur der eine Schalter. Jetzt stehen alle drei um beide Schleifen, über
+denselben Helfer `renderer._quiet`.
+
+**Und auf einer Mantelfläche wird gar nicht mehr gelöscht.** Dort wird die
+Skizze **ersetzt** (`palette_bridge._replant`) – ein Aufruf statt tausender.
+Gefahrlos ist das genau hier, weil an einer Musterskizze auf einer Mantelfläche
+nur unsere eigenen Prägungen hängen und die zu diesem Zeitpunkt schon gelöscht
+sind. Damit erledigt `_replant` beide Freezes auf einmal: das Löschen und den
+Ebenenwechsel aus 15.12.
+
+**Offen:** Auf einer *Ebene* wird weiterhin Kurve für Kurve gelöscht, damit
+darauf aufbauende Features (eine Extrusion des Benutzers) nicht mitverschwinden.
+Mit abgeschalteter Profildarstellung sollte das tragen; ob es bei zehntausend
+Elementen noch tragfähig ist, sagt das Protokoll beim nächsten Mal – es schreibt
+die Kurvenzahl und dann alle 500 gelöschten Kurven eine Zeile.

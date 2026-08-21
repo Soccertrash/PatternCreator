@@ -139,18 +139,41 @@ def test_no_sketch_is_ever_redefined():
         assert ".redefine(" not in source, "%s/%s" % (folder, name)
 
 
-def test_the_sketch_is_emptied_before_the_tangent_plane_is_touched():
-    """Ein Ebenenwechsel an einer vollen Skizze rechnet jede Kurve neu durch."""
+def test_a_pattern_on_a_surface_is_replanted_not_cleared():
+    """Tausende Kurven einzeln zu loeschen hat Fusion minutenlang beschaeftigt.
+
+    Auf einer Mantelflaeche wird die Skizze deshalb ersetzt - ein Aufruf statt
+    tausender. Gefahrlos, weil an ihr nur unsere eigenen Praegungen hingen.
+    """
     source = read(os.path.join(ROOT, "commands", "palette_bridge.py"))
     tree = ast.parse(source)
     fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
               and n.name == "perform_commit")
-    lines = {}
-    for node in ast.walk(fn):
-        if isinstance(node, ast.Attribute) and node.attr in (
-                "clear_pattern_geometry", "ensure_tangent_plane"):
-            lines.setdefault(node.attr, node.lineno)
-    assert lines["clear_pattern_geometry"] < lines["ensure_tangent_plane"]
+    called = {n.func.id for n in ast.walk(fn)
+              if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert "_replant" in called
+
+
+def test_clearing_a_sketch_also_hides_its_profiles():
+    """``isComputeDeferred`` haelt nur die Berechnung an, nicht die Anzeige.
+
+    Eine Musterskizze zeigt tausende schattierte Profile; ohne Abschalten baut
+    Fusion sie nach jedem Loeschen neu auf.
+    """
+    source = read(os.path.join(ROOT, "fusion", "renderer.py"))
+    tree = ast.parse(source)
+    quiet = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+                 and n.name == "_quiet")
+    assert "areProfilesShown" in ast.dump(quiet)
+    for name in ("clear_pattern_geometry", "render_scene"):
+        fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+                  and n.name == name)
+        assert any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                   and n.func.id == "_quiet"
+                   and any(kw.arg == "profiles"
+                           and isinstance(kw.value, ast.Constant)
+                           and kw.value.value is False for kw in n.keywords)
+                   for n in ast.walk(fn)), name
 
 
 def test_readme_documents_both_platforms_and_limits():
