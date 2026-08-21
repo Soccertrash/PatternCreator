@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from core import ir
 from core.pattern_doc import Param, T_ANGLE, T_LENGTH
 
-from ._util import lattice_cells
+from ._util import lattice_cells, snap_period
 from .base import GenContext, Generator
 
 
@@ -39,7 +39,16 @@ class GridGenerator(Generator):
         sy = float(params["spacingY"])
         theta = math.radians(max(15.0, min(165.0, float(params["skew"]))))
         s = math.sin(theta)
-        e1 = (sx / s, 0.0)
+        # In x wiederholt sich das Gitter nach ``e1.x`` - unabhaengig vom
+        # Scharenwinkel, weil ``e2`` eine y-Komponente hat und deshalb in keiner
+        # ganzzahligen Kombination eine reine x-Verschiebung ergibt.
+        e1x = sx / s
+        origin = (0.0, 0.0)
+        if ctx.periodic:
+            e1x = snap_period(e1x, ctx.period_x)
+            origin = (ctx.bbox[0], 0.0)
+        e1 = (e1x, 0.0)
         e2 = (sy / s * math.cos(theta), sy / s * s)
-        cells = lattice_cells(ctx.bbox, e1, e2, margin=max(sx, sy) * 2)
+        cells = lattice_cells(ctx.bbox, e1, e2, origin=origin,
+                              margin=max(sx, sy) * 2)
         return [ir.path(c, closed=True, role=ir.ROLE_REGION) for c in cells]

@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from core import ir
 from core.pattern_doc import Param, T_LENGTH
 
-from ._util import lattice_cells
+from ._util import lattice_cells, snap_period
 from .base import GenContext, Generator
 
 
@@ -34,7 +34,13 @@ class RhombusGenerator(Generator):
     def generate(self, params: Dict[str, Any], ctx: GenContext) -> List[Any]:
         w = float(params["width"])
         h = float(params["height"])
+        origin = (0.0, 0.0)
+        if ctx.periodic:
+            # ``e1 + e2 = (w, 0)``: das Raster wiederholt sich in x nach genau
+            # einer Rautenbreite.
+            w = snap_period(w, ctx.period_x)
+            origin = (ctx.bbox[0], 0.0)
         e1 = (w / 2.0, h / 2.0)
         e2 = (w / 2.0, -h / 2.0)
-        cells = lattice_cells(ctx.bbox, e1, e2, margin=max(w, h))
+        cells = lattice_cells(ctx.bbox, e1, e2, origin=origin, margin=max(w, h))
         return [ir.path(c, closed=True, role=ir.ROLE_REGION) for c in cells]

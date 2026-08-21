@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from core import ir
 from core.pattern_doc import Param, T_CHOICE, T_FLOAT, T_LENGTH
 
+from ._util import snap_period
 from .base import GenContext, Generator
 
 
@@ -51,15 +52,23 @@ class BrickGenerator(Generator):
             bond, float(params.get("offsetFraction", 0.25)))
 
         x0, y0, x1, y1 = ctx.expanded(max(bw, bh))
+        anchor = x0
+        if ctx.periodic:
+            # Die Ziegelbreite teilt den Umfang ganzzahlig; die Reihen fangen
+            # an der Naht an. Bei Verbaenden mit Versatz liegt die Naht in jeder
+            # zweiten Reihe **in** einem Ziegel - der Steg dort ist genau eine
+            # Fuge breit. Das ist die eine bekannte Ausnahme der Nahtregel.
+            bw = snap_period(bw, ctx.period_x)
+            anchor = ctx.bbox[0] + math.floor((x0 - ctx.bbox[0]) / bw) * bw
         rows = int(math.ceil((y1 - y0) / bh)) + 2
-        cols = int(math.ceil((x1 - x0) / bw)) + 2
+        cols = int(math.ceil((x1 - anchor) / bw)) + 2
         half = joint / 2.0
         out: List[Any] = []
         for j in range(rows):
             by = y0 + j * bh
             shift = ((j * frac) % 1.0) * bw
             for i in range(-1, cols):
-                bx = x0 + i * bw + shift
+                bx = anchor + i * bw + shift
                 ax0, ay0 = bx + half, by + half
                 ax1, ay1 = bx + bw - half, by + bh - half
                 if ax1 - ax0 <= 1e-6 or ay1 - ay0 <= 1e-6:

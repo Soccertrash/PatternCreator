@@ -26,6 +26,16 @@ class GenContext:
     thickness: float = 0.08
     fill_target: str = "webs"
     mode: str = "area"
+    #: Breite eines vollen Umlaufs (cm), wenn das Muster auf eine Mantelflaeche
+    #: gewickelt wird - sonst 0. Ist er gesetzt, **muss** sich das Muster nach
+    #: genau dieser Breite wiederholen: die linke und die rechte Kante der Box
+    #: liegen nach dem Wickeln aufeinander.
+    period_x: float = 0.0
+
+    @property
+    def periodic(self) -> bool:
+        """Muss sich das Muster in x wiederholen (Muster auf einer Mantelflaeche)?"""
+        return self.period_x > 1e-9
 
     @property
     def width(self) -> float:

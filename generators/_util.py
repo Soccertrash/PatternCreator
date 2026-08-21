@@ -11,6 +11,19 @@ Point = Tuple[float, float]
 BBox = Tuple[float, float, float, float]
 
 
+def snap_period(value: float, period: float) -> float:
+    """Wert so anpassen, dass er die Periode **ganzzahlig** teilt.
+
+    Im periodischen Modus (Muster auf einer Mantelflaeche) muss sich das Raster
+    nach genau einem Umlauf wiederholen. Die eingestellte Zellgroesse rastet
+    dafuer auf den naechstgelegenen Teiler des Umfangs - sichtbar wird das als
+    ein paar Prozent Abweichung, unsichtbar bleibt dafuer die Naht.
+    """
+    if period <= EPS or value <= EPS:
+        return value
+    return period / max(1, int(round(period / value)))
+
+
 def bbox_polygon(bbox: BBox) -> List[Point]:
     x0, y0, x1, y1 = bbox
     return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
@@ -59,33 +72,44 @@ def _quad_hits(quad: Sequence[Point], box: BBox) -> bool:
                 or max(ys) < box[1] or min(ys) > box[3])
 
 
-def hex_centers(bbox: BBox, cell_size: float, flat_top: bool, margin: float = 0.0
-                ) -> List[Point]:
-    """Mittelpunkte eines Wabenrasters; ``cell_size`` = Schluesselweite."""
+def hex_centers(bbox: BBox, cell_size: float, flat_top: bool, margin: float = 0.0,
+                anchor_x: float = None) -> List[Point]:
+    """Mittelpunkte eines Wabenrasters; ``cell_size`` = Schluesselweite.
+
+    ``anchor_x`` legt das Spaltenraster auf eine feste x-Position statt auf den
+    linken Rand der (vergroesserten) Box. Im periodischen Modus faengt das
+    Raster damit exakt an der Naht an - sonst waendert die Spalteneinteilung mit
+    der Groesse der Box.
+    """
     if cell_size <= EPS:
         return []
     box = expand(bbox, margin + cell_size)
     r = cell_size / math.sqrt(3.0)          # Umkreisradius aus Schluesselweite
-    if flat_top:
-        dx = 1.5 * r
-        dy = cell_size
-        cols = int(math.ceil((box[2] - box[0]) / dx)) + 2
-        rows = int(math.ceil((box[3] - box[1]) / dy)) + 2
-        out = []
-        for i in range(-1, cols):
-            for j in range(-1, rows):
-                x = box[0] + i * dx
-                y = box[1] + j * dy + (dy / 2 if i % 2 else 0.0)
-                out.append((x, y))
-        return out
-    dx = cell_size
-    dy = 1.5 * r
-    cols = int(math.ceil((box[2] - box[0]) / dx)) + 2
+    dx = 1.5 * r if flat_top else cell_size
+    dy = cell_size if flat_top else 1.5 * r
+
+    if anchor_x is None:
+        first = box[0]
+    else:
+        # Erste Spalte links von der Box, aber im Raster des Ankers
+        first = anchor_x + math.floor((box[0] - anchor_x) / dx) * dx
+    cols = int(math.ceil((box[2] - first) / dx)) + 2
     rows = int(math.ceil((box[3] - box[1]) / dy)) + 2
     out = []
+    if flat_top:
+        for i in range(-1, cols):
+            for j in range(-1, rows):
+                x = first + i * dx
+                # Jede zweite Spalte ist um eine halbe Zelle versetzt; welche
+                # das ist, muss am Anker haengen, nicht am Schleifenindex.
+                shifted = int(round((x - (anchor_x if anchor_x is not None
+                                          else box[0])) / dx)) % 2
+                y = box[1] + j * dy + (dy / 2 if shifted else 0.0)
+                out.append((x, y))
+        return out
     for j in range(-1, rows):
         for i in range(-1, cols):
-            x = box[0] + i * dx + (dx / 2 if j % 2 else 0.0)
+            x = first + i * dx + (dx / 2 if j % 2 else 0.0)
             y = box[1] + j * dy
             out.append((x, y))
     return out

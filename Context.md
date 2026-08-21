@@ -853,3 +853,49 @@ Emboss gemerkte `BRepFace` ist danach ungültig (`InternalValidationError: face`
 Im Add-In muss die Zielfläche vor jedem Zugriff frisch aus dem Körper geholt
 werden (oder über den Entity-Token). Das hat den ersten Spike-Lauf gekostet und
 ist die Art Fehler, die im Re-Edit sonst erst beim Nutzer auffällt.
+
+### 15.7 Die Nahtregel hält nicht für jedes Muster
+
+**Stand 2026-08-21, beim Bau von Paket 2.2.** Der Plan verlangt: „Die Naht ist
+immer ein Steg. Jeder Generator legt im periodischen Modus eine Zellgrenze auf
+die Naht." Der erste Satz gilt, der zweite ist für die Hälfte der Muster
+**geometrisch unmöglich**.
+
+Eine Naht ist eine gerade, senkrechte Linie in der Abwicklung. Sie kann nur dann
+eine Zellgrenze sein, wenn das Muster in **jeder** Reihe eine senkrechte Wand an
+derselben x-Position hat. Das ist der Fall bei:
+
+* **Gitter** (rechtwinklig), **Mauer ohne Versatz**, **Puzzle** – dort rastet die
+  Zellgröße auf einen Teiler des Umfangs und die Naht fällt exakt auf eine Wand.
+* **Organische Zellen** – dort entsteht die Grenze durch gespiegelte
+  Geisterpunkte (Paket 2.2, zweiter Teil).
+
+Nicht der Fall ist es bei **Wabe** (beide Ausrichtungen), **Rauten**, **schiefem
+Gitter** und **Mauer mit Versatz**: dort sind die Reihen um eine halbe Zelle
+versetzt, und eine gerade Linie kann nicht in beiden Reihenarten eine Grenze
+sein. Bei der Wabe kommt hinzu, dass „Fläche oben" überhaupt keine senkrechten
+Wände hat – die natürliche Trennlinie zwischen zwei Spalten ist ein Zickzack.
+
+**Was das praktisch heißt.** Das Muster läuft trotzdem ohne Versatz durch (die
+Zellgröße rastet, die Fortsetzbarkeit ist in `tests/test_periodic.py` geprüft),
+und der Steg an der Naht ist genau einen Steg breit. Aber in jeder zweiten Reihe
+liegt dieser Steg **mitten in einer Zelle** statt auf einer Wand – sichtbar als
+zusätzliche Trennung durch jede zweite Wabe. Der Abnahmepunkt „Vollzylinder mit
+Wabe: Naht nicht erkennbar" ist damit **so nicht erreichbar**.
+
+Drei Wege stehen offen, die Entscheidung liegt beim Nutzer:
+
+1. **So lassen.** Ehrlich dokumentieren: bei versetzten Mustern ist die Naht
+   eine regelmäßige, feine Linie. Kein Mehraufwand.
+2. **Zickzack-Naht.** Die Außenkontur der Abwicklung ist links und rechts kein
+   gerader Schnitt, sondern folgt den Zellwänden – beide Kanten identisch, um
+   die Periode verschoben, sodass sie nach dem Wickeln aufeinanderpassen. Dann
+   ist die Naht auch bei Wabe und Rauten unsichtbar. Kostet: der Generator muss
+   seine „Nahtbahn" melden (neue Methode `seam_path`), und der Container muss
+   sie als Kontur übernehmen (`CustomContainer` kann das bereits).
+3. **Nur bestimmte Muster rundum anbieten.** Bei den übrigen die Mantelfläche
+   nur als Teilfläche (Halbzylinder) unterstützen.
+
+Umgesetzt ist zunächst Weg 1; die Tests halten beides fest – die Zusicherung für
+die sauberen Muster und die Einschränkung für die versetzten, damit ein späterer
+Umbau sofort sichtbar wird.
