@@ -146,6 +146,20 @@ STYLE_PARAMS: List[Param] = [
                "eingestellte Rahmenmaß bleibt also das Außenmaß. 0 = nur so "
                "breit wie ein halber Steg."),
 
+    # -- Praegung: nur sinnvoll, wenn das Muster auf einer Mantelflaeche liegt.
+    # Dass eine Mantelflaeche gewaehlt ist, kann ``visible_if`` nicht ausdruecken
+    # (es sieht nur den Stil-Abschnitt) - der Editor blendet die Gruppe deshalb
+    # zusaetzlich nach ``doc.development`` aus.
+    Param("embossOn", "Auf die Fläche prägen", T_BOOL, False,
+          visible_if={"mode": ["area"], "fillTarget": ["webs"], "border": [True]},
+          help="Legt das Muster mit „Prägen“ auf die Mantelfläche statt es nur "
+               "als Skizze auf der Tangentialebene zu hinterlassen."),
+    Param("embossDepth", "Prägetiefe", T_LENGTH, 0.1, min=-5.0, max=5.0, step=0.01,
+          visible_if={"mode": ["area"], "fillTarget": ["webs"], "border": [True],
+                      "embossOn": [True]},
+          help="Positiv steht das Muster von der Fläche ab, negativ ist es "
+               "eingesenkt."),
+
     # -- Schraffur: fuellt die freien Zellflaechen mit zusaetzlichen Stegen.
     # Nur im Flaechenmodus mit Fuellung "Stege" sinnvoll - nur dort sind die
     # Zellen ueberhaupt offen. Geometrie siehe ``core/hatch.py``.
@@ -229,6 +243,7 @@ def default_doc(pattern_type: str = "grid") -> dict:
         "placement": _defaults(PLACEMENT_PARAMS),
         "pattern": {"type": pattern_type, "params": default_params(pattern_type)},
         "style": _defaults(STYLE_PARAMS),
+        "development": None,
         "textLayers": [default_text_layer()],
         "seed": SEED_PARAM.default,
     }
@@ -337,6 +352,7 @@ def parse(raw: Any) -> Tuple[dict, Dict[str, str]]:
     ]
 
     doc["seed"] = _coerce(SEED_PARAM, raw.get("seed", SEED_PARAM.default), "seed", errors)
+    doc["development"] = _apply_development(raw.get("development"), errors)
 
     # Eigener Rahmen: Punktliste und Quelle liegen neben den Formularfeldern,
     # weil sie kein Formular haben - der Editor zeigt sie als Infozeile.
@@ -353,6 +369,72 @@ def parse(raw: Any) -> Tuple[dict, Dict[str, str]]:
                 % _fmt(min(w, h) / 2.0 * 10))
             c["cornerRadius"] = min(w, h) / 2.0
     return doc, errors
+
+
+#: Groesster Betrag des Nahtwinkels (Grad).
+MAX_SEAM_ANGLE = 180.0
+
+
+def _apply_development(raw: Any, errors: Dict[str, str]) -> Optional[dict]:
+    """``development`` uebernehmen und pruefen. ``None`` = ebener Rahmen.
+
+    Der Abschnitt hat keine Formularfelder: er kommt komplett aus der in Fusion
+    gewaehlten Flaeche (``fusion/surface_reader.py``). Geprueft wird er trotzdem
+    hier - ein Doc aus einer alten Version oder aus einer Datei darf die
+    Pipeline nicht zum Absturz bringen.
+    """
+    from .containers import MAX_FRAME_POINTS
+    from .development import KIND_CONE, development_from_doc
+
+    if not isinstance(raw, dict) or not raw:
+        return None
+    dev = development_from_doc(raw)
+    if dev is None:
+        errors["development"] = "Die gespeicherte Mantelfläche ist unbrauchbar."
+        return None
+    if dev.kind == KIND_CONE:
+        # Welche der beiden Abbildungen Fusion beim Kegel benutzt, ist noch
+        # nicht gemessen (Context.md 15.6, Punkt 4). Bis dahin lieber ein
+        # ebener Rahmen als ein falsch abgewickeltes Muster.
+        errors["development"] = ("Kegelflächen sind noch nicht umgesetzt – "
+                                 "bitte eine Zylinderfläche wählen.")
+        return None
+
+    try:
+        seam_angle = float(raw.get("seamAngle", 0.0))
+    except (TypeError, ValueError):
+        seam_angle = 0.0
+    if not -MAX_SEAM_ANGLE <= seam_angle <= MAX_SEAM_ANGLE:
+        errors["development.seamAngle"] = (
+            "Der Nahtwinkel muss zwischen -180° und 180° liegen.")
+        seam_angle = 0.0
+
+    outline: List[List[float]] = []
+    raw_outline = raw.get("outline")
+    if isinstance(raw_outline, (list, tuple)):
+        if len(raw_outline) > MAX_FRAME_POINTS:
+            errors["development.outline"] = (
+                "Die Flächenkontur hat mehr als %d Punkte." % MAX_FRAME_POINTS)
+        else:
+            try:
+                outline = [[float(a), float(b)] for a, b in raw_outline]
+            except (TypeError, ValueError):
+                errors["development.outline"] = "Die Flächenkontur ist unbrauchbar."
+                outline = []
+
+    source = raw.get("source")
+    source = source if isinstance(source, dict) else {}
+    return {
+        "kind": dev.kind,
+        "radius": dev.radius,
+        "halfAngle": dev.half_angle,
+        "length": dev.length,
+        "periodic": dev.periodic,
+        "seamAngle": seam_angle,
+        "outline": outline,
+        "source": {"label": str(source.get("label", "")),
+                   "token": str(source.get("token", ""))},
+    }
 
 
 def _apply_custom_frame(container: Dict[str, Any], raw: Any,

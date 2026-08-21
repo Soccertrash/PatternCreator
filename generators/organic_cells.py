@@ -386,11 +386,3 @@ class OrganicGenerator(Generator):
             jitter=float(params.get("rowJitter", 1.0)),
         )
 
-    def seam_cells(self, params: Dict[str, Any], ctx: GenContext):
-        """Die Zellen, bevor einzelne von ihnen noch einmal geschrumpft werden.
-
-        Bei den Kieseln verkleinert die Groessenstreuung jede Zelle um einen
-        eigenen Betrag - danach haben zwei Nachbarn keine gemeinsame Wand mehr,
-        an der die Naht entlanglaufen koennte.
-        """
-        return self.cells_for(params, ctx)

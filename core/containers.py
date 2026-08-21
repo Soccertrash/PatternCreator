@@ -101,6 +101,16 @@ class Container:
             self.shrink_failed = True
             return self
 
+    def shrunk_xy(self, dx: float, dy: float) -> "Container":
+        """Wie :meth:`shrunk`, aber mit getrennten Massen fuer x und y.
+
+        Nur die Abwicklung einer Mantelflaeche braucht das: an der Naht darf
+        **kein** Rand stehen (die beiden Haelften des Nahtstegs treffen sich
+        nach dem Wickeln), oben und unten schon. Alle anderen Formen kennen
+        keine Vorzugsrichtung und nehmen das groessere der beiden Masse.
+        """
+        return self.shrunk(max(dx, dy))
+
     def outline(self) -> List[object]:
         """Exakte IR-Geometrie des Umrisses."""
         raise NotImplementedError
@@ -353,6 +363,70 @@ class CustomContainer(Container):
         return self
 
 
+class DevelopmentContainer(CustomContainer):
+    """Abwicklung einer Mantelflaeche, deren Seitenkanten der Naht folgen.
+
+    Ein Rechteck waere der naheliegende Rahmen - Breite = Umfang, Hoehe = Laenge
+    -, aber seine senkrechten Kanten zerschneiden bei versetzten Mustern in jeder
+    zweiten Reihe eine Zelle. Stattdessen ist die linke Kante die Nahtbahn
+    (``core/seam.py``) und die rechte dieselbe Bahn, um genau einen Umlauf
+    versetzt. Nach dem Wickeln liegen beide aufeinander, und die Naht ist eine
+    gewoehnliche Zellwand.
+
+    Die Punkte werden **nicht** normalisiert: ``normalize_frame`` wuerde die
+    Bahn mit Ramer-Douglas-Peucker vereinfachen, und zwar die beiden Kanten
+    unabhaengig voneinander (sie werden in entgegengesetzter Richtung
+    durchlaufen). Genau das duerfen sie nicht sein - sie muessen deckungsgleich
+    bleiben.
+    """
+
+    def __init__(self, path: Sequence[Point], period: float):
+        if len(path) < 2 or period <= 0.0:
+            raise ValueError("Nahtbahn oder Umfang unbrauchbar.")
+        pts = [(float(x), float(y)) for x, y in path]
+        # Die Bahn **vorher** vereinfachen, nicht erst der Optimierer die
+        # fertige Kontur: der wuerde die beiden Kanten unabhaengig voneinander
+        # ausduennen (sie werden in entgegengesetzter Richtung durchlaufen) und
+        # sie damit um bis zu einer Toleranz gegeneinander verschieben.
+        self.path = [pts[i] for i in _reduce_indices(pts, False, TOL)]
+        self.period = float(period)
+        # Gegen den Uhrzeigersinn: unten rechts -> rechte Kante hoch ->
+        # oben links -> linke Kante hinunter.
+        points = ([(x + self.period, y) for x, y in self.path]
+                  + list(reversed(self.path)))
+        CustomContainer.__init__(self, points, normalized=True)
+
+    def shrunk(self, delta: float) -> "Container":
+        return self.shrunk_xy(delta, delta)
+
+    def shrunk_xy(self, dx: float, dy: float) -> "Container":
+        """In y einruecken, in x nicht - an der Naht steht kein Rand.
+
+        Die Bahn wird dafuer nicht geschnitten, sondern in y **geklemmt**: ein
+        Schnitt koennte die Kontur zerlegen, sobald die Bahn im Randband
+        mehrfach ueber die Schnittlinie laeuft (gerundete Zellen). Geklemmt
+        bleibt sie eine Bahn, beide Kanten bleiben deckungsgleich, und im
+        Randband liegt ohnehin kein Loch mehr.
+        """
+        if dy <= 1e-9:
+            return self
+        _x0, y0, _x1, y1 = self.bounding_rect()
+        low, high = y0 + dy, y1 - dy
+        if high - low <= 1e-9:
+            self.shrink_failed = True
+            return self
+        clamped: List[Point] = []
+        for x, y in self.path:
+            p = (x, min(max(y, low), high))
+            if not clamped or abs(p[0] - clamped[-1][0]) > 1e-12 \
+                    or abs(p[1] - clamped[-1][1]) > 1e-12:
+                clamped.append(p)
+        if len(clamped) < 2:
+            self.shrink_failed = True
+            return self
+        return DevelopmentContainer(clamped, self.period)
+
+
 SHAPES = ("rect", "square", "circle", "ellipse", "polygon", "custom")
 
 
@@ -421,8 +495,36 @@ def normalize_frame(points: Sequence[Point]) -> List[Point]:
     return list(pts)
 
 
-def make_container(cfg: dict) -> Container:
+def development_container(development: dict) -> Optional[Container]:
+    """Rahmen aus der Abwicklung einer Mantelflaeche.
+
+    Volle Umwicklung: ein Rechteck, Breite = Umfang, Hoehe = Laenge. Die Naht
+    bekommt es erst in ``core/build.py`` - erst dort ist bekannt, wo die Zellen
+    liegen, an denen sie entlanglaufen kann. Teilflaeche: die abgewickelte
+    Aussenkontur als eigener Rahmen.
+    """
+    from .development import development_from_doc
+
+    dev = development_from_doc(development)
+    if dev is None:
+        return None
+    outline = development.get("outline") or []
+    if not dev.periodic and len(outline) >= 3:
+        try:
+            return CustomContainer(dev.frame_points(
+                [(float(a), float(b)) for a, b in outline]))
+        except (ValueError, TypeError):
+            return None
+    x0, y0, x1, y1 = dev.bounds()
+    return RectContainer(x1 - x0, y1 - y0)
+
+
+def make_container(cfg: dict, development: Optional[dict] = None) -> Container:
     """Container aus dem ``container``-Abschnitt eines PatternDoc bauen."""
+    if development:
+        made = development_container(development)
+        if made is not None:
+            return made
     shape = cfg.get("shape", "rect")
     if shape == "custom":
         pts = cfg.get("customPoints") or []

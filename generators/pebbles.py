@@ -36,6 +36,17 @@ class PebblesGenerator(OrganicGenerator):
               visible_if={"core": [True]}),
     ]
 
+    def seam_cells(self, params: Dict[str, Any], ctx: GenContext):
+        """Die Zellen, bevor die Groessenstreuung sie einzeln schrumpft.
+
+        Danach haben zwei Nachbarn keine gemeinsame Wand mehr, an der die Naht
+        entlanglaufen koennte. Ohne Streuung sind die Loecher die Zellen -
+        dann spart ``None`` das zweite Berechnen des Voronoi-Diagramms.
+        """
+        if float(params.get("sizeSpread", 0.0)) <= 0.0:
+            return None
+        return self.cells_for(params, ctx)
+
     def generate(self, params: Dict[str, Any], ctx: GenContext) -> List[Any]:
         cells = self.cells_for(params, ctx)
         spread = float(params.get("sizeSpread", 0.0)) / 100.0

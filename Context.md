@@ -987,3 +987,57 @@ Kosten (Umfang 15 cm, Höhe 6 cm): Zellbau im periodischen Modus etwa ein
 Viertel teurer als ohne (500 Zellen: 0,20 statt 0,17 s), Nahtsuche 2–16 ms.
 Das Aufteilen der Kanten an fremden Knoten war anfangs 98 % der Suchzeit
 (0,31 s); mit einem nach x sortierten Knotenindex sind es 16 ms.
+
+### 15.9 Datenmodell und Pipeline der Abwicklung (Paket 2.3)
+
+**Stand 2026-08-21.** `doc["development"]` beschreibt die Mantelfläche
+(`kind`, `radius`, `halfAngle`, `length`, `periodic`, `seamAngle`, `source`).
+Vier Abweichungen vom Plan, alle aus der Zickzack-Naht heraus:
+
+1. **Der Rahmen entsteht in zwei Schritten.** Zuerst ein Rechteck – Breite =
+   Umfang, Höhe = Länge –, damit der Generator weiß, was er zu füllen hat. Erst
+   danach, wenn die Zellen liegen, wird daraus der `DevelopmentContainer`,
+   dessen Seitenkanten die Nahtbahn sind. Anders geht es nicht: die Bahn folgt
+   den Zellwänden, und die gibt es vor dem Erzeugen noch nicht.
+2. **Kein Nahtsteg von Hand.** Der Plan wollte die Löcher an der Naht um einen
+   halben Steg zurücknehmen. Das ist überflüssig: jede Zelle wird ohnehin um
+   `(Dicke − eigene Fuge)/2` verkleinert, auch an ihrer Nahtseite. Nach dem
+   Wickeln treffen sich die beiden Hälften und ergeben genau einen Steg.
+   `shrunk_xy(dx, dy)` rückt deshalb nur in y ein (Rand oben und unten), in x
+   gar nicht.
+3. **Zellen jenseits der Naht werden nachgeliefert.** Organische Generatoren
+   liefern jede Zelle genau einmal. Weicht die Bahn nach außen aus, fällt manche
+   davon aus dem Rahmen – und ihr Platz auf der anderen Nahtseite bliebe leer,
+   ein massiver Fleck im Muster. `build._wrapped_copies` legt für jede Zelle im
+   Nahtband die um einen Umlauf versetzte Kopie dazu; welche von beiden im
+   Rahmen liegt, entscheidet das Clipping. Beide zugleich können es nicht sein –
+   der Bereich zwischen den Nahtkanten ist genau einen Umlauf breit.
+4. **Die Bahn wird am Rand geschnitten, nicht geklemmt.** Gitter-Muster erzeugen
+   ein paar Reihen mehr, als der Rahmen hoch ist; die Bahn ragt dann oben und
+   unten heraus und der Rahmen wäre höher als die Fläche. Der Schnittpunkt liegt
+   auf derselben Zellwand, die Bahn bleibt also auf Wänden. Geklemmt (y auf den
+   Rand gezogen) liefe sie stattdessen waagerecht quer durch die Randzellen –
+   probiert, und die Tests haben es sofort gemeldet.
+
+Dazu zwei Dinge, die nicht im Plan standen:
+
+* **Die Bahn wird vor dem Einbauen vereinfacht** (Ramer-Douglas-Peucker, gleiche
+  Toleranz wie überall). Sonst tut es der Optimierer am Ende – und zwar mit den
+  beiden Kanten **unabhängig voneinander**, weil sie in entgegengesetzter
+  Richtung durchlaufen werden. Nach dem Wickeln stünde an der Naht eine Stufe
+  von bis zu 0,02 mm. Der Test vergleicht die beiden Kanten Punkt für Punkt.
+* **`outline`** im `development`-Dict: die abgewickelte Außenkontur einer
+  Teilfläche (Punkte in θ/s). Für die volle Umwicklung leer. Ohne dieses Feld
+  könnte `make_container` für Teilflächen keinen Rahmen bauen.
+
+**Der Kegel wird beim Parsen abgelehnt** (Feldfehler, das Doc fällt auf einen
+ebenen Rahmen zurück), solange nicht gemessen ist, welche Abbildung Fusion
+benutzt (15.6, Punkt 4). Ein falsch abgewickeltes Muster fiele erst am
+gedruckten Teil auf.
+
+**Die Musterdrehung bleibt auf einer Mantelfläche aus.** Ein gedrehtes Gitter
+ist nicht x-periodisch; der Editor blendet das Feld dort aus (Paket 2.6).
+
+Kosten für ein Muster auf dem Zylinder (r = 24 mm, Länge 60 mm), gegenüber
+demselben Muster in der Ebene: Wabe 35 statt 9 ms, Voronoi mit 300 Zellen 108
+statt 77 ms, Gewebe mit 320 Zellen 282 statt 166 ms.

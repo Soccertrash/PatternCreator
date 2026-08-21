@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 Point = Tuple[float, float]
 
@@ -136,6 +136,35 @@ def is_periodic(outline: Sequence[Point], tol: float = PERIODIC_TOL) -> bool:
     keine Mantellinie (``Context.md`` 15.6, Punkt 8).
     """
     return theta_coverage([p[0] for p in outline]) >= 2.0 * math.pi - tol
+
+
+# ------------------------------------------------------------------ aus dem Doc
+
+def development_from_doc(raw) -> Optional["Development"]:
+    """``doc["development"]`` -> :class:`Development`, oder ``None``.
+
+    Bewusst nachsichtig: ein unbrauchbarer Eintrag heisst „keine Mantelflaeche",
+    nicht „Absturz". Die Fehlermeldung fuer den Nutzer macht
+    ``core/pattern_doc.parse``.
+    """
+    if not isinstance(raw, dict):
+        return None
+    try:
+        kind = str(raw.get("kind", KIND_CYLINDER))
+        radius = float(raw.get("radius", 0.0))
+        length = float(raw.get("length", 0.0))
+        half_angle = float(raw.get("halfAngle", 0.0))
+    except (TypeError, ValueError):
+        return None
+    if kind not in (KIND_CYLINDER, KIND_CONE):
+        return None
+    for value in (radius, length, half_angle):
+        if not math.isfinite(value):
+            return None
+    if radius <= 0.0 or length <= 0.0 or not 0.0 <= half_angle < math.pi / 2.0:
+        return None
+    return Development(kind=kind, radius=radius, half_angle=half_angle,
+                       length=length, periodic=bool(raw.get("periodic", False)))
 
 
 # ---------------------------------------------------------------- Zylinder

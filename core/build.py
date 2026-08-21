@@ -41,10 +41,21 @@ ENTITY_WARN_LIMIT = 2000
 SHRINK_WARNING = ("Rahmendicke ist für diesen Rahmen an mindestens einer "
                   "Stelle zu groß.")
 
+#: Auf der Mantelflaeche liess sich keine Bahn entlang der Zellwaende finden -
+#: dann bleibt es beim geraden Schnitt (siehe ``core/seam.py``).
+SEAM_WARNING = ("Keine Naht entlang der Zellwände gefunden – der Schnitt ist "
+                "gerade und kann bei versetzten Mustern sichtbar bleiben.")
 
-def _shrunk(container: Container, delta: float, warnings: List[str]) -> Container:
-    """``container.shrunk`` mit Warnung, wenn der Versatz nicht moeglich war."""
-    inner = container.shrunk(delta)
+
+def _shrunk(container: Container, delta: float, warnings: List[str],
+            seam_free: bool = False) -> Container:
+    """``container.shrunk`` mit Warnung, wenn der Versatz nicht moeglich war.
+
+    ``seam_free`` heisst: in x nicht einruecken. An der Naht einer Mantelflaeche
+    darf kein Rand stehen - dort treffen sich nach dem Wickeln die beiden
+    Haelften des Nahtstegs.
+    """
+    inner = container.shrunk_xy(0.0 if seam_free else delta, delta)
     if getattr(inner, "shrink_failed", False) and SHRINK_WARNING not in warnings:
         warnings.append(SHRINK_WARNING)
     return inner
@@ -52,25 +63,24 @@ def _shrunk(container: Container, delta: float, warnings: List[str]) -> Containe
 
 def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
     """PatternDoc -> fertige IR-Szene (in Skizzenkoordinaten, cm)."""
-    from generators import GenContext, get_generator
+    from generators import get_generator
 
-    container = container or make_container(doc["container"])
+    development = doc.get("development")
+    container = container or make_container(doc["container"], development)
     style = doc["style"]
     placement = doc["placement"]
     warnings: List[str] = []
 
-    pattern_angle = math.radians(float(placement.get("patternAngle", 0.0)))
+    period = _period_of(development, container)
+    # Ein gedrehtes Muster ist nicht x-periodisch - auf einer Mantelflaeche
+    # bleibt die Musterdrehung deshalb aus (der Editor blendet sie dort aus).
+    pattern_angle = (0.0 if period > 0.0
+                     else math.radians(float(placement.get("patternAngle", 0.0))))
     bbox = _generation_bbox(container, pattern_angle)
 
     gen = get_generator(doc["pattern"]["type"])
-    ctx = GenContext(
-        bbox=bbox,
-        rnd=random.Random(int(doc.get("seed", 0))),
-        thickness=float(style.get("thickness", 0.08)),
-        fill_target=str(style.get("fillTarget", "webs")),
-        mode=str(style.get("mode", "area")),
-    )
-    elements = list(gen.generate(dict(doc["pattern"]["params"]), ctx))
+    params = dict(doc["pattern"]["params"])
+    elements = list(gen.generate(params, _context(doc, bbox, period)))
 
     if abs(pattern_angle) > 1e-12:
         elements = [_rotate_element(el, pattern_angle) for el in elements]
@@ -81,6 +91,9 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
 
     mode = str(style.get("mode", "area"))
     clip_mode = str(style.get("clip", "cut"))
+    if period > 0.0 and clip_mode != "off":
+        container, elements = _apply_seam(container, gen, doc, params, bbox,
+                                          elements, period, warnings)
     thickness = float(style.get("thickness", 0.08))
     border_on = bool(style.get("border"))
     border_width = float(style.get("borderWidth", 0.0)) if border_on else 0.0
@@ -101,18 +114,20 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
 
     # Der Rand wird nach innen gemessen: das Muster endet ``border_width`` vor der
     # Aussenkante, ein halber Steg davon entsteht ohnehin durch das Verkleinern.
+    seam_free = period > 0.0
     clip_container = container
     if as_face:
         inset = max(0.0, border_width - thickness / 2.0)
         if inset > 1e-9:
-            clip_container = _shrunk(container, inset, warnings)
+            clip_container = _shrunk(container, inset, warnings, seam_free)
 
     elements = _clip_elements(elements, clip_container, clip_mode)
 
     if as_face:
         elements = _drop_regions_in_text(elements, doc, thickness)
         elements = _to_face(elements, container, thickness, own_gap=own_gap,
-                            hole_limit=_shrunk(container, border_width, warnings))
+                            hole_limit=_shrunk(container, border_width, warnings,
+                                               seam_free))
         if hatch_style is not None:
             # Die Loecher SIND die freien Flaechen - inklusive Randbeschnitt und
             # Splitterfilter. Deshalb hier schraffieren und nicht vorher.
@@ -150,7 +165,7 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
             # daraus ein Koerper statt vieler loser Teile.
             outline = list(container.outline())
             if mode == "area" and border_width > 1e-9:
-                inner = _shrunk(container, border_width, warnings)
+                inner = _shrunk(container, border_width, warnings, seam_free)
                 if inner is not container:
                     outline += list(inner.outline())
             elements = outline + elements
@@ -174,6 +189,103 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
 
 
 # --------------------------------------------------------------- Teilschritte
+
+def _context(doc: dict, bbox: Tuple[float, float, float, float], period: float):
+    """Generator-Kontext. Zweimal gebraucht: fuers Muster und fuer die Naht."""
+    from generators import GenContext
+
+    style = doc["style"]
+    return GenContext(
+        bbox=bbox,
+        rnd=random.Random(int(doc.get("seed", 0))),
+        thickness=float(style.get("thickness", 0.08)),
+        fill_target=str(style.get("fillTarget", "webs")),
+        mode=str(style.get("mode", "area")),
+        period_x=period,
+    )
+
+
+def _period_of(development: Optional[dict], container: Container) -> float:
+    """Breite eines Umlaufs - 0, wenn das Muster nicht rundum laeuft."""
+    from .development import development_from_doc
+
+    dev = development_from_doc(development)
+    if dev is None or not dev.periodic:
+        return 0.0
+    try:
+        period = dev.period()
+    except NotImplementedError:
+        return 0.0
+    x0, _y0, x1, _y1 = container.bounding_rect()
+    # Der Rahmen kommt aus derselben Abwicklung; weicht er ab, wurde er von
+    # aussen vorgegeben (Tests, Vorschau) und die Periode gilt nicht.
+    return period if abs((x1 - x0) - period) < 1e-6 else 0.0
+
+
+def _apply_seam(container: Container, gen, doc: dict, params: dict,
+                bbox: Tuple[float, float, float, float], elements: List[Any],
+                period: float, warnings: List[str]):
+    """Rahmen mit Naht bauen und die Zellen jenseits davon nachliefern."""
+    from . import seam
+    from .containers import DevelopmentContainer
+
+    x0, y0, x1, y1 = container.bounding_rect()
+    net = gen.seam_cells(params, _context(doc, bbox, period))
+    if not net:
+        net = [el.points for el in elements
+               if isinstance(el, ir.Path) and el.closed and el.role == ir.ROLE_REGION]
+    path = None
+    offset = 0.0
+    if len(net) >= 2:
+        offset = seam.suggest_offset(net, period)
+        path = seam.seam_path(net, x0, y0, y1, offset,
+                              grow=gen.gap(params) / 2.0, period=period)
+    if path is not None:
+        try:
+            return (DevelopmentContainer(path, period),
+                    _wrapped_copies(elements, x0, x1, period, offset))
+        except ValueError:
+            pass
+    warnings.append(SEAM_WARNING)
+    return container, list(elements)
+
+
+def _x_span(el: Any) -> Optional[Tuple[float, float]]:
+    if isinstance(el, ir.Path):
+        xs = [p[0] for p in el.points]
+        return (min(xs), max(xs)) if xs else None
+    if isinstance(el, ir.Circle):
+        return (el.center[0] - el.radius, el.center[0] + el.radius)
+    if isinstance(el, ir.Ellipse):
+        r = max(el.rx, el.ry)
+        return (el.center[0] - r, el.center[0] + r)
+    if isinstance(el, ir.Arc):
+        return (el.center[0] - el.radius, el.center[0] + el.radius)
+    return None
+
+
+def _wrapped_copies(elements: Sequence[Any], x0: float, x1: float,
+                    period: float, offset: float) -> List[Any]:
+    """Zellen am Nahtband zusaetzlich um einen Umlauf versetzt anlegen.
+
+    Organische Muster liefern jede Zelle genau **einmal**. Weicht die Nahtbahn
+    nach aussen aus, faellt manche davon aus dem Rahmen - und ihr Platz auf der
+    anderen Nahtseite bliebe leer. Die Kopie fuellt ihn. Welche der beiden im
+    Rahmen liegt, entscheidet das Clipping: der Bereich zwischen den beiden
+    Nahtkanten ist genau einen Umlauf breit, also liegt nie beides drin.
+    """
+    out = list(elements)
+    left, right = x0 + offset, x1 - offset
+    for el in elements:
+        span = _x_span(el)
+        if span is None:
+            continue
+        if span[1] <= left:
+            out.append(_map_points(el, lambda p: (p[0] + period, p[1])))
+        elif span[0] >= right:
+            out.append(_map_points(el, lambda p: (p[0] - period, p[1])))
+    return out
+
 
 def _generation_bbox(container: Container, pattern_angle: float
                      ) -> Tuple[float, float, float, float]:

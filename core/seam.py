@@ -262,8 +262,19 @@ def _search(edges: Sequence[Tuple[Point, Point]], x_seam: float,
 
 def _extend(path: Sequence[Point], cells: Sequence[Sequence[Point]],
             y_bottom: float, y_top: float) -> Optional[List[Point]]:
-    """Bahn senkrecht bis zu den Raendern fuehren, falls die Zellen fehlen."""
-    out = list(path)
+    """Bahn auf die Raender bringen: ueberstehendes klemmen, fehlendes ergaenzen.
+
+    Die Zellen reichen fast nie genau bis zum Rand. Stehen sie darueber hinaus
+    (Gitter-Muster erzeugen immer ein paar Reihen zu viel), wird die Bahn dort
+    **geschnitten** - der Schnittpunkt liegt auf derselben Zellwand, die Bahn
+    laeuft also weiter auf Waenden. Geklemmt werden darf sie nicht: das ergaebe
+    ein waagerechtes Stueck quer durch die Randzellen. Bleiben die Zellen unter
+    dem Rand (Muster mit eigener Fuge lassen oben und unten einen Streifen
+    frei), wird die Bahn senkrecht verlaengert.
+    """
+    out = _trimmed(path, y_bottom, y_top)
+    if out is None or len(out) < 2:
+        return None
     if out[0][1] > y_bottom + EPS_Y:
         foot = (out[0][0], y_bottom)
         if not _free_line(cells, foot, out[0]):
@@ -274,6 +285,41 @@ def _extend(path: Sequence[Point], cells: Sequence[Sequence[Point]],
         if not _free_line(cells, head, out[-1]):
             return None
         out.append(head)
+    return out
+
+
+def _trimmed(path: Sequence[Point], y_bottom: float, y_top: float
+             ) -> Optional[List[Point]]:
+    """Bahnstueck zwischen den beiden Randlinien, an den Kanten geschnitten."""
+    out = list(path)
+    below = [i for i, p in enumerate(out) if p[1] <= y_bottom + EPS_Y]
+    if below:
+        i = below[-1]
+        out = ([_cross_y(out[i], out[i + 1], y_bottom)] + out[i + 1:]
+               if i + 1 < len(out) else out[i:])
+    above = [i for i, p in enumerate(out) if p[1] >= y_top - EPS_Y]
+    if above:
+        j = above[0]
+        out = (out[:j] + [_cross_y(out[j - 1], out[j], y_top)]
+               if j > 0 else out[:1])
+    return _dedupe(out)
+
+
+def _cross_y(a: Point, b: Point, y: float) -> Point:
+    """Punkt auf der Strecke ``a``-``b`` bei der Hoehe ``y``."""
+    if abs(b[1] - a[1]) < 1e-15:
+        return (a[0], y)
+    t = (y - a[1]) / (b[1] - a[1])
+    t = min(max(t, 0.0), 1.0)
+    return (a[0] + t * (b[0] - a[0]), y)
+
+
+def _dedupe(points: Sequence[Point]) -> List[Point]:
+    """Aufeinanderfolgende gleiche Punkte zusammenfassen."""
+    out: List[Point] = []
+    for p in points:
+        if not out or abs(p[0] - out[-1][0]) > 1e-12 or abs(p[1] - out[-1][1]) > 1e-12:
+            out.append(p)
     return out
 
 
