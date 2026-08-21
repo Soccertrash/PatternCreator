@@ -896,6 +896,34 @@ Drei Wege stehen offen, die Entscheidung liegt beim Nutzer:
 3. **Nur bestimmte Muster rundum anbieten.** Bei den übrigen die Mantelfläche
    nur als Teilfläche (Halbzylinder) unterstützen.
 
-Umgesetzt ist zunächst Weg 1; die Tests halten beides fest – die Zusicherung für
-die sauberen Muster und die Einschränkung für die versetzten, damit ein späterer
-Umbau sofort sichtbar wird.
+**Entscheidung (Nutzer, 2026-08-21): Weg 2, die Zickzack-Naht.**
+
+Beim Bauen zeigte sich, dass sie **billiger** ist als gedacht: die Bahn muss
+nicht von jedem Generator geliefert werden, sondern lässt sich im fertigen
+Zellnetz suchen (`core/seam.py`). Eine Kürzeste-Wege-Suche über die Zellkanten,
+beschränkt auf ein schmales Band um die Naht und auf Schritte, die nicht nach
+unten führen; die Kosten sind Kantenlänge plus Aufschlag für den Abstand zur
+Ideallinie. Damit gilt:
+
+* **Kein Generator weiß etwas von Nähten** – die Leitidee „neues Muster = neue
+  Datei" bleibt unangetastet, und künftige Muster bekommen die saubere Naht
+  geschenkt.
+* Wo eine gerade Naht schon eine Zellgrenze ist (Gitter, Mauer ohne Versatz,
+  Puzzle), findet die Suche genau diese Gerade – die Kosten belohnen sie.
+* Bei versetzten Mustern weicht die Bahn im Zickzack aus, ohne je eine Zelle zu
+  zerschneiden (in `tests/test_seam.py` für alle Muster geprüft).
+
+Zwei Dinge waren dabei nicht offensichtlich:
+
+1. *Muster mit eigener Fuge (Mauer) haben gar kein zusammenhängendes
+   Kantennetz* – zwischen den Ziegeln liegt die Fuge. Ihre Zellen werden für die
+   Suche um die halbe Fuge aufgeweitet; die Bahn läuft dann genau in der
+   Fugenmitte, also dort, wo die Naht ohnehin hingehört.
+2. *Überlappende Kanten ohne gemeinsamen Endpunkt* – die Oberkante einer
+   Ziegelreihe liegt auf der Unterkante der nächsten, aber um den Reihenversatz
+   verschoben. Ohne Teilung an fremden Knoten hat der Graph dort keine
+   Verbindung, und die Suche kommt nie von einer Reihe in die nächste.
+
+Kosten: 35 ms für ein feines Wabenmuster (1200 Zellen), nachdem die Auswertung
+auf das Band um die Naht beschränkt ist – ohne diese Beschränkung waren es
+300 ms und die Vorschau hätte gestockt.
