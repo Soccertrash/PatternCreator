@@ -16,12 +16,18 @@ Die Abwicklung eines Zylinders ist damit das Rechteck
 ``[-pi*r, pi*r] x [-L/2, L/2]``; ``x = 0`` ist die Beruehrlinie, die Naht liegt
 bei ``x = +-pi*r``.
 
-**Der Kegel fehlt noch.** Zwei Modelle passen auf die bisherige Messung und
-liegen bei schmalen Mustern nur Hundertstelgrad auseinander; welches gilt,
-entscheidet ein breites Testrechteck (``Context.md`` 15.6, Punkt 4). Davon
-haengt ab, ob die Skizze fuer den Vollkegel ein Kreisringsektor oder ein Trapez
-sein muss - also eine Zeile Mathematik, aber die falsche Zeile faellt erst am
-gedruckten Teil auf.
+**Der Kegel** wickelt sich als Kreisringsektor ab - gemessen, nicht geraten
+(``Context.md`` 15.6, Punkt 4: der Abstand zum Apex bleibt erhalten, der Winkel
+wird um ``sin(alpha)`` gestaucht). Das Ueberraschende daran: in den Koordinaten
+dieses Moduls sieht der Kegel **genauso aus wie der Zylinder**. Mit ``radius``
+als Radius auf der Beruehrlinie und ``y`` als Weg entlang der Mantellinie gilt
+fuer beide
+
+    x = radius * theta,   Periode = 2*pi*radius
+
+Der Unterschied steckt allein im letzten Schritt: die fertige Szene wird beim
+Kegel noch in den Sektor gebogen (``core/warp.py``). Generatoren, Naht,
+Behaelter und Flaechenmodell merken davon nichts.
 """
 
 from __future__ import annotations
@@ -47,8 +53,12 @@ PERIODIC_TOL = 1e-3
 class Development:
     """Beschreibung einer abwickelbaren Mantelflaeche.
 
-    ``radius``    Zylinder: der Radius. Kegel: der Radius bei ``s = 0``.
-    ``half_angle`` Kegel: halber Oeffnungswinkel (rad); Zylinder: 0.
+    ``radius``    Der Radius auf der Beruehrlinie, also in der Mitte der
+                  Flaeche. Beim Kegel ist das **nicht** der Radius an der
+                  Flaechengeometrie - der Leser rechnet ihn um.
+    ``half_angle`` Kegel: halber Oeffnungswinkel (rad), **mit Vorzeichen**:
+                  positiv, wenn die Flaeche in Achsrichtung weiter wird, also
+                  wenn der Apex entgegen der Achse liegt. Zylinder: 0.
     ``length``    Zylinder: axiale Laenge. Kegel: Laenge der Mantellinie.
     ``periodic``  Laeuft die Flaeche rundum?
     """
@@ -61,18 +71,43 @@ class Development:
 
     # -- Abbildung -------------------------------------------------------
     def to_plane(self, theta: float, s: float) -> Point:
-        """Flaechenkoordinaten ``(theta, s)`` -> Abwicklung ``(x, y)``."""
+        """Flaechenkoordinaten ``(theta, s)`` -> Abwicklung ``(x, y)``.
+
+        ``s`` ist der axiale Abstand von der Mitte der Flaeche. Beim Kegel wird
+        daraus der Weg entlang der **Mantellinie** - laenger als der axiale Weg,
+        und entgegengesetzt gezaehlt, wenn der Apex in Achsrichtung liegt.
+        Die Umfangsrichtung ist bei beiden dieselbe Formel.
+        """
         if self.kind == KIND_CYLINDER:
             return (self.radius * theta, s)
-        raise NotImplementedError(
-            "Die Abwicklung des Kegels steht noch aus - siehe Context.md 15.6.")
+        alpha = abs(self.half_angle)
+        away = 1.0 if self.half_angle >= 0.0 else -1.0
+        return (self.radius * theta, away * s / math.cos(alpha))
 
     def period(self) -> float:
-        """Breite eines vollen Umlaufs in der Abwicklung."""
-        if self.kind == KIND_CYLINDER:
-            return 2.0 * math.pi * self.radius
-        raise NotImplementedError(
-            "Die Abwicklung des Kegels steht noch aus - siehe Context.md 15.6.")
+        """Breite eines vollen Umlaufs in der Abwicklung.
+
+        Beim Kegel ist das die Breite des **Rechtecks vor dem Biegen**: der
+        Sektor ueberstreicht ``2*pi*sin(alpha)`` bei einem Apex-Abstand von
+        ``radius / sin(alpha)`` - das Produkt ist wieder ``2*pi*radius``.
+        """
+        return 2.0 * math.pi * self.radius
+
+    # -- Kegel -----------------------------------------------------------
+    def is_cone(self) -> bool:
+        return self.kind == KIND_CONE and abs(self.half_angle) > 1e-12
+
+    def apex_distance(self) -> float:
+        """Abstand Beruehrlinie -> Apex entlang der Mantellinie."""
+        if not self.is_cone():
+            return 0.0
+        return self.radius / math.sin(abs(self.half_angle))
+
+    def sector_angle(self) -> float:
+        """Winkel, den die volle Abwicklung als Kreisringsektor ueberstreicht."""
+        if not self.is_cone():
+            return 0.0
+        return 2.0 * math.pi * math.sin(abs(self.half_angle))
 
     def bounds(self) -> Tuple[float, float, float, float]:
         """Rechteck der vollen Abwicklung (nur sinnvoll bei ``periodic``)."""
@@ -246,7 +281,7 @@ def describe(development: Optional[dict]) -> str:
     kind = "Zylinder" if dev.kind == KIND_CYLINDER else "Kegel"
     text = "%s r = %s mm, L = %s mm" % (kind, _mm(dev.radius), _mm(dev.length))
     if dev.kind == KIND_CONE:
-        text += ", Öffnung %s°" % _round(math.degrees(dev.half_angle) * 2.0)
+        text += ", Öffnung %s°" % _round(math.degrees(abs(dev.half_angle)) * 2.0)
     return text + (", rundum (nahtlos)" if dev.periodic else ", Teilfläche")
 
 
@@ -282,15 +317,25 @@ def development_from_doc(raw) -> Optional["Development"]:
     for value in (radius, length, half_angle):
         if not math.isfinite(value):
             return None
-    if radius <= 0.0 or length <= 0.0 or not 0.0 <= half_angle < math.pi / 2.0:
+    if radius <= 0.0 or length <= 0.0 or abs(half_angle) >= math.pi / 2.0:
+        return None
+    if kind == KIND_CYLINDER and half_angle != 0.0:
         return None
     return Development(kind=kind, radius=radius, half_angle=half_angle,
                        length=length, periodic=bool(raw.get("periodic", False)))
 
 
-# ---------------------------------------------------------------- Zylinder
+# ------------------------------------------------------- fertige Formen
 
 def cylinder(radius: float, length: float, periodic: bool = True) -> Development:
     return Development(kind=KIND_CYLINDER, radius=float(radius),
                        half_angle=0.0, length=float(length),
+                       periodic=bool(periodic))
+
+
+def cone(radius: float, length: float, half_angle: float,
+         periodic: bool = True) -> Development:
+    """``radius`` auf der Beruehrlinie, ``length`` entlang der Mantellinie."""
+    return Development(kind=KIND_CONE, radius=float(radius),
+                       half_angle=float(half_angle), length=float(length),
                        periodic=bool(periodic))

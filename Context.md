@@ -462,7 +462,9 @@ hier das, was am Bauteil zu prüfen ist:
   Fläche.
 - **Prägen** ergibt **einen** Körper-Zuwachs (zwei Timeline-Einträge) und
   überlebt ein Re-Edit mit geänderter Zellgröße.
-- **Kugelfläche** wählen ⇒ Klartext-Meldung, kein Absturz.
+- **Kugelfläche**: lässt sich gar nicht erst anwählen (der Auswahlfilter
+  kennt nur Ebenen, planare Flächen, Profile, Zylinder und Kegel) – besser
+  als eine Meldung, die man wegklicken muss. Bestätigt am 2026-08-21.
 - Fusion **ohne** Emboss-API: die Skizze entsteht, statt der Prägung kommt ein
   Klartext-Hinweis.
 
@@ -1266,3 +1268,61 @@ darauf aufbauende Features (eine Extrusion des Benutzers) nicht mitverschwinden.
 Mit abgeschalteter Profildarstellung sollte das tragen; ob es bei zehntausend
 Elementen noch tragfähig ist, sagt das Protokoll beim nächsten Mal – es schreibt
 die Kurvenzahl und dann alle 500 gelöschten Kurven eine Zeile.
+
+### 15.14 Der Kegel: das Rechteck bleibt, gebogen wird zum Schluss
+
+Die Messung war eindeutig (15.6, Punkt 4): Fusion wickelt einen Kegel als
+**Kreisringsektor** ab – der Abstand zum Apex bleibt erhalten, der Winkel wird
+um `sin α` gestaucht. Die naheliegende Umsetzung wäre gewesen, das Muster
+gleich im Sektor zu erzeugen. Das wäre teuer geworden: jeder Generator, die
+Nahtsuche, der Behälter und das Flächenmodell rechnen in geraden Koordinaten,
+und die Periodizität ist dort eine **Verschiebung**. Im Sektor wäre sie eine
+Drehung.
+
+**Der Kegel sieht in unseren Koordinaten aus wie ein Zylinder.** Mit `radius`
+als Radius auf der Berührlinie und `y` als Weg entlang der *Mantellinie* gilt
+für beide
+
+```
+x = radius · θ        Periode = 2π · radius
+```
+
+Beim Kegel ist das die Breite des Rechtecks **vor** dem Biegen: der Sektor
+überstreicht `2π·sin α` bei einem Apex-Abstand von `radius / sin α` – das
+Produkt ist wieder `2π·radius`. Also ändert sich an Generatoren, Naht,
+Behälter und Flächenmodell **nichts**. Der ganze Unterschied ist ein letzter
+Schritt, `core/warp.py`:
+
+```
+x, y  ->  ((ρ + y)·sin(x/ρ),  (ρ + y)·cos(x/ρ) − ρ)
+```
+
+Der Apex bei `(0, −ρ)` bleibt stehen, die Berührlinie `x = 0` bleibt gerade,
+und die beiden Nahtkanten `x = ±π·radius` haben nach dem Biegen genau den
+Sektorwinkel Abstand – sie treffen sich beim Wickeln als *eine* radiale Linie.
+
+**Zwei Dinge, die das Biegen kostet.**
+
+*Geraden werden zu Bögen.* Jede Strecke wird so fein unterteilt, dass ihre
+Sehnenhöhe unter `optimize.TOL` bleibt; radiale Strecken bleiben gerade und
+werden nicht angefasst. Gemessen an einem vollen Wabenmuster (⌀ 50 mm, Halb-
+winkel 0,2 rad): **1000 → 1188 Stützpunkte, Faktor 1,19.** Der oft zitierte
+Schreckensfall – eine einzelne Gerade über den ganzen Umfang – kostet Faktor 13
+bis 25, kommt in einem Muster aber nicht vor, weil dort keine Strecke länger
+ist als eine Zelle.
+
+*Zellen werden zum Apex hin schmaler.* Das ist kein Fehler, sondern
+unvermeidlich: ein Muster, das rundum passt, hat auf jedem Höhenkreis gleich
+viele Zellen, und der Umfang nimmt zur Spitze hin ab. Genau so sieht die
+Abwicklung eines Kegels aus. Die Stegbreite verhält sich mit – am schmalen Ende
+ist ein 1-mm-Steg nur noch `1 mm · d_min/ρ` breit.
+
+**Das Vorzeichen des Halbwinkels** sagt jetzt, wo der Apex liegt: positiv heißt
+„die Fläche wird in Achsrichtung weiter", der Apex liegt also entgegen der
+Achse. Ohne dieses Vorzeichen wüsste die Abwicklung nicht, in welche Richtung
+`y` zählt, und das Muster stünde auf dem Kopf. Ein Zylinder mit Öffnungswinkel
+wird beim Parsen abgelehnt.
+
+**Text auf einem Kegel** wird nur verschoben und gedreht, nicht gebogen –
+Fusions `SketchText` lässt sich nicht krümmen. Bei großen Buchstaben ist das zu
+sehen, deshalb gibt es dafür eine Warnung.

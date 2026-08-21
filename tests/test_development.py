@@ -124,14 +124,63 @@ def test_frame_points_of_an_empty_contour():
 
 # ------------------------------------------------------------------ Kegel
 
-def test_the_cone_refuses_to_guess():
-    """Solange die Messung fehlt, muss der Kegel scheitern - nicht raten."""
-    cone = dev.Development(kind=dev.KIND_CONE, radius=R, half_angle=0.16,
-                           length=LENGTH, periodic=True)
-    with pytest.raises(NotImplementedError):
-        cone.to_plane(0.0, 0.0)
-    with pytest.raises(NotImplementedError):
-        cone.period()
+ALPHA = 0.2
+
+
+def test_the_cone_looks_like_a_cylinder_in_these_coordinates():
+    """Umfangsrichtung: dieselbe Formel. Der Unterschied kommt erst beim Biegen."""
+    cone = dev.cone(radius=R, length=LENGTH, half_angle=ALPHA)
+    assert cone.period() == pytest.approx(2.0 * math.pi * R)
+    assert cone.to_plane(0.5, 0.0)[0] == pytest.approx(R * 0.5)
+    assert cone.to_plane(0.0, 0.0) == pytest.approx((0.0, 0.0))
+
+
+def test_the_slant_is_longer_than_the_axial_way():
+    """Ein Zentimeter entlang der Achse ist mehr als ein Zentimeter Mantellinie."""
+    cone = dev.cone(radius=R, length=LENGTH, half_angle=ALPHA)
+    assert cone.to_plane(0.0, 1.0)[1] == pytest.approx(1.0 / math.cos(ALPHA))
+    assert cone.to_plane(0.0, 1.0)[1] > 1.0
+
+
+def test_the_sign_of_the_half_angle_says_where_the_apex_is():
+    """Positiv = die Flaeche wird in Achsrichtung weiter, der Apex liegt hinten."""
+    widening = dev.cone(radius=R, length=LENGTH, half_angle=ALPHA)
+    narrowing = dev.cone(radius=R, length=LENGTH, half_angle=-ALPHA)
+    assert widening.to_plane(0.0, 1.0)[1] > 0.0
+    assert narrowing.to_plane(0.0, 1.0)[1] < 0.0
+    assert widening.apex_distance() == pytest.approx(narrowing.apex_distance())
+
+
+def test_apex_distance_and_sector_angle():
+    cone = dev.cone(radius=R, length=LENGTH, half_angle=ALPHA)
+    assert cone.apex_distance() == pytest.approx(R / math.sin(ALPHA))
+    assert cone.sector_angle() == pytest.approx(2.0 * math.pi * math.sin(ALPHA))
+    # Sektorwinkel mal Apex-Abstand ist wieder der Umfang der Beruehrlinie
+    assert cone.sector_angle() * cone.apex_distance() == pytest.approx(cone.period())
+
+
+def test_a_cylinder_is_not_a_cone():
+    cylinder = dev.cylinder(radius=R, length=LENGTH)
+    assert not cylinder.is_cone()
+    assert cylinder.apex_distance() == 0.0
+    assert cylinder.sector_angle() == 0.0
+
+
+def test_a_cylinder_with_an_opening_angle_is_nonsense():
+    assert dev.development_from_doc({"kind": "cylinder", "radius": R,
+                                     "length": LENGTH, "halfAngle": 0.3}) is None
+
+
+def test_a_negative_half_angle_survives_the_document():
+    parsed = dev.development_from_doc({"kind": "cone", "radius": R,
+                                       "length": LENGTH, "halfAngle": -ALPHA})
+    assert parsed is not None and parsed.half_angle == pytest.approx(-ALPHA)
+
+
+def test_the_description_never_shows_a_negative_opening():
+    text = dev.describe({"kind": "cone", "radius": R, "length": LENGTH,
+                         "halfAngle": -ALPHA, "periodic": True})
+    assert "Öffnung" in text and "-" not in text
 
 
 # ------------------------------------------------- Fläche -> Flächenkoordinaten
