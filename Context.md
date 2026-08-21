@@ -813,18 +813,24 @@ Umfangsrichtung → (−4,34 / −30). Skizzen-y zeigt also **entgegen** der Ach
 Skizzen-x **entgegen** der Umfangsrichtung. Die Platzierung im Doc muss das
 spiegeln (Plan 2.5 sieht genau das vor).
 
-**6. Rundum geht nur mit einem Spalt an der Naht.** Ein Profil über exakt 360°
-ergibt „Sketch profiles create a self-intersecting body" (healthState 1). Zwei
-Hälften in **einem** Feature: derselbe Fehler – Fusion prüft den entstehenden
-Körper, nicht das einzelne Profil. Ein Profil, das etwas schmaler ist als der
-Umfang, funktioniert dagegen: 0,5 mm, 0,1 mm **und 0,02 mm** Spalt ergaben alle
-healthState 0. **Entscheidung: das Muster wird um 0,02 mm schmaler als der
-Umfang erzeugt.** Der Spalt liegt mitten in einem Nahtsteg (Nahtregel), ist
-kleiner als jede Druck- oder Frästoleranz und wird als Einschränkung
-dokumentiert. Zwei getrennte Emboss-Features wären die spaltfreie Alternative;
-der erste Durchgang war gesund, der zweite scheiterte an der Flächenauswahl des
-Skripts (nach dem ersten Emboss ist auch die Prägungs-Oberseite eine
-Zylinderfläche) – wird nachgereicht.
+**6. Rundum braucht zwei Emboss-Features.** Ein Profil über exakt 360° ergibt
+„Sketch profiles create a self-intersecting body" (healthState 1). Zwei Hälften
+in **einem** Feature: derselbe Fehler – Fusion prüft den entstehenden Körper,
+nicht das einzelne Profil. Was funktioniert:
+
+* **Zwei getrennte Features zu je 180°** – beide healthState 0. Dabei muss für
+  das zweite die **ursprüngliche** Mantelfläche gewählt werden: nach dem ersten
+  Emboss ist auch die Oberseite der Prägung eine Zylinderfläche (Radius +
+  Tiefe), und beide zusammen sind nicht zusammenhängend („Faces are not
+  connected"). Auswahlkriterium: konische/zylindrische Fläche mit dem
+  Originalradius, größte davon.
+* **Ein Profil mit Spalt an der Naht** – 0,5 mm, 0,1 mm und selbst **0,02 mm**
+  ergeben healthState 0.
+
+**Entscheidung: zwei Features.** Das Muster bleibt dann exakt periodisch, ohne
+Spalt im Steg. Die beiden Trennlinien laufen mitten durch einen Nahtsteg, sind
+also im Ergebnis unsichtbar. Der Haarspalt bleibt als Rückfallebene notiert,
+falls sich die Zweiteilung im Re-Edit als zu fragil erweist.
 
 **7. Das Emboss-Feature überlebt kein Neuzeichnen der Skizze.** Nach dem Leeren
 und Neuzeichnen: „The profile reference is lost and this feature is using cached
