@@ -24,7 +24,7 @@ import adsk.fusion
 
 from core import build, pattern_doc
 from fusion import (frame_reader, renderer, storage, surface_reader,
-                    surface_target, trace)
+                    surface_target)
 
 PALETTE_ID = "PatternCreatorEditorPalette"
 COMMIT_CMD_ID = "PatternCreatorCommitCmd"
@@ -429,13 +429,6 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
     if design is None:
         raise _Abort("Kein Konstruktionsdokument aktiv.")
 
-    trace.begin("Muster erzeugen (%s, %s)"
-                % (doc["pattern"]["type"], SESSION.mode))
-    if doc.get("development"):
-        # Die rohen Zahlen der Flaeche ins Protokoll: geht beim Praegen etwas
-        # schief, laesst sich hinterher nachrechnen, ob die Flaeche richtig
-        # gelesen wurde - ohne den Benutzer nach Massen fragen zu muessen.
-        trace.step("Fläche: %s" % _numbers(doc["development"]))
     scene = build.build_scene(doc)
     estimate = build.entity_estimate(scene)
     if estimate > build.ENTITY_WARN_LIMIT and not SESSION.force:
@@ -487,29 +480,24 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
             # Features durch - bei tausend Loechern steht die Anwendung dabei
             # minutenlang, und die Skizze kommt beschaedigt daraus hervor
             # (gemessen 2026-08-21, siehe Context.md 15.11).
-            trace.step("Prägungen entfernen")
             surface_target.remove(design, development.get("embossTokens") or ())
             development["embossTokens"] = []
-            trace.step("Tangentialebene prüfen")
             plane, stale = surface_target.ensure_tangent_plane(
                 design, comp, development)
             # Die Skizze wird **ersetzt**, nicht geleert: tausende Kurven
             # einzeln zu loeschen hat Fusion minutenlang beschaeftigt
             # (Context.md 15.13). Hier ist das gefahrlos - was an der Skizze
             # hing, waren unsere Praegungen, und die sind schon weg.
-            trace.step("Skizze neu anlegen")
             sketch = _replant(comp, sketch, plane)
             SESSION.sketch = sketch
             SESSION.plane = plane
             if stale:
                 surface_target.remove(design, stale)
         else:
-            trace.step("Skizze leeren")
             renderer.clear_pattern_geometry(sketch)
     else:
         plane = SESSION.plane or design.rootComponent.xYConstructionPlane
         if development:
-            trace.step("Tangentialebene anlegen")
             plane, _stale = surface_target.ensure_tangent_plane(
                 design, comp, development)
         # Auf einer Flaeche **ohne** projizierte Kanten skizzieren: Fusion legte
@@ -525,7 +513,6 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
         SESSION.mode = "edit"
 
     if development:
-        trace.step("Lage der Abwicklung messen")
         # Erst jetzt steht die Skizze - und damit, wie die Abwicklung auf ihr
         # liegen muss. Die Szene wird deshalb mit der gemessenen Platzierung
         # noch einmal gebaut; an der Elementzahl aendert eine starre
@@ -537,19 +524,14 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
             surface_target.sketch_placement(sketch, development, face))
         scene = build.build_scene(doc)
 
-    trace.step("Muster zeichnen")
     result = renderer.render_scene(sketch, scene)
 
     message = "Muster erzeugt: %d Elemente in „%s“." % (result.entities, sketch.name)
     if development and doc["style"].get("embossOn"):
-        trace.step("prägen")
         message += "\n" + _emboss(design, comp, sketch, doc, development)
-    trace.step("Muster im Dokument sichern")
     storage.save(sketch, doc, sketch.sketchCurves.count + sketch.sketchTexts.count)
     if development:
-        trace.step("Zeitleiste zusammenfalten")
         _fold_timeline(design, sketch, development)
-    trace.end(message.splitlines()[0])
     for warn in result.warnings:
         message += "\n" + warn
     return message
@@ -616,13 +598,6 @@ def _adopt_tokens(sketch, development: Optional[dict]) -> None:
     for key in TOKEN_KEYS:
         if stored.get(key):
             development[key] = stored[key]
-
-
-def _numbers(development: dict) -> str:
-    """Die Masse der Mantelflaeche in einer Zeile - fuer das Protokoll."""
-    keys = ("kind", "radius", "faceRadius", "halfAngle", "length", "axisMiddle",
-            "periodic", "seamAngle")
-    return ", ".join("%s=%s" % (key, development.get(key)) for key in keys)
 
 
 def _unfold_timeline(design, sketch) -> None:

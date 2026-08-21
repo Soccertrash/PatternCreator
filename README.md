@@ -729,7 +729,6 @@ Zusätzlich zu prüfen:
 | **„Die Mantelfläche ist nicht mehr auffindbar“** | Der Körper wurde gelöscht oder neu aufgebaut. Das Muster neu erzeugen. |
 | **„Die Fläche läuft in die Spitze des Kegels“** | An der Spitze hätte ein Muster keine Breite mehr. Einen Kegel**stumpf** verwenden. |
 | **Prägen bleibt aus, obwohl angehakt** | *Prägen* braucht das Flächenmodell. Steht die Vorschau auf *Linien*, Füllung *Zellen* oder ist *Rahmen zeichnen* aus, verschwindet das Feld – der angehakte Wert bleibt aber stehen. Die Vorschau sagt es dann im Klartext. |
-| **Fusion reagiert nicht mehr** | Das Add-In schreibt vor jedem heiklen Schritt eine Zeile nach `~/Desktop/PatternCreator-Log.txt` – ungepuffert, also auch während eines Hängers lesbar. Die **letzte Zeile** nennt den Schritt, an dem es steht; die Abstände dazwischen sind die Dauern. Bei einer Fehlermeldung diese Datei mitschicken. |
 | **Nach dem Bearbeiten verwaist die Extrusion** | Sollte nicht vorkommen – der Re-Commit baut dieselbe Skizze neu auf, eine darauf aufgebaute Extrusion rechnet neu. Falls doch: Fusion-Timeline auf Fehler prüfen und den Fall mit den verwendeten Parametern melden. |
 
 ---
@@ -786,10 +785,6 @@ PatternDoc (JSON)  ──►  Generator  ──►  IR (Fusion-frei)  ──┬�
 * **`fusion/surface_reader.py`** – liest eine Zylinder- oder Kegelmantelfläche ein.
 * **`fusion/surface_target.py`** – Tangentialebene, Lage der Skizze auf ihr und
   die Prägung.
-* **`fusion/trace.py`** – schreibt vor jedem heiklen Schritt eine Zeile nach
-  `~/Desktop/PatternCreator-Log.txt`. Fusion kennt keinen Abbruch; bleibt ein
-  API-Aufruf stehen, ist die letzte Zeile in dieser Datei die Antwort auf die
-  Frage, welcher es war.
 * **`generators/`** – ein Modul je Muster; die organische Familie teilt sich
   `organic_cells.py` (Voronoi, Lloyd, Eckenrundung, Anisotropie, Fuge).
 * **`fusion/`** – der einzige Ort mit `adsk`-Aufrufen.
@@ -1606,7 +1601,6 @@ For the custom container in addition:
 | **„Die Mantelfläche ist nicht mehr auffindbar“** | The body was deleted or rebuilt. Create the pattern again. |
 | **„Die Fläche läuft in die Spitze des Kegels“** | At the tip a pattern would have no width left. Use a truncated cone. |
 | **Embossing does not happen although it is ticked** | *Prägen* needs the face model. In *Linien* mode, with fill *Zellen* or with *Rahmen zeichnen* off the field disappears — but the ticked value stays. The preview then says so in plain text. |
-| **Fusion stops responding** | Before every risky step the add-in writes a line to `~/Desktop/PatternCreator-Log.txt`, unbuffered, so it can be read even while Fusion hangs. The **last line** names the step it is stuck on; the gaps between lines are the durations. Please attach that file to any bug report. |
 | **PatternCreator does not show up in the add-in list** | Folder name ≠ `PatternCreator`, or wrong target folder. The folder must sit directly under `…/API/AddIns/` and be named exactly like `PatternCreator.py`/`.manifest`. Restart Fusion afterwards. |
 | **No buttons at all** | The add-in is not running. Because of `runOnStartup: false` it has to be started once after every Fusion start via **UTILITIES → ADD-INS → Scripts and Add-Ins … → Add-Ins → Run**. For good: tick **Run on Startup**. |
 | **The buttons are missing after clicking Run** | They are on the **SOLID** tab, **CREATE** panel, at the very bottom — open the **CREATE ▾** drop-down if needed. They do not appear in other workspaces (e.g. Render). |
@@ -1670,9 +1664,6 @@ PatternDoc (JSON)  ──►  generator  ──►  IR (Fusion-free)  ──┬�
 * **`fusion/surface_reader.py`** — reads a cylindrical or conical face.
 * **`fusion/surface_target.py`** — tangent plane, placement of the sketch on it,
   and the emboss.
-* **`fusion/trace.py`** — writes a line to `~/Desktop/PatternCreator-Log.txt`
-  before every risky step. Fusion has no way to interrupt an API call; if one
-  hangs, the last line in that file answers the question which one it was.
 * **`core/containers.py` / `core/clip.py`** — container shapes and half-plane
   clipping.
 * **`core/polyclip.py`** — clipping against arbitrary, possibly concave containers

@@ -1236,18 +1236,17 @@ richtiger: bei dünnen Stegen hat ein großes Loch mehr *Fläche* als das ganze
 Stegnetz, während sein *Rechteck* immer im Rechteck des Stegnetzes liegt.
 
 **Und ein Protokoll.** Fusion kennt keinen Abbruch; bleibt ein Aufruf stehen,
-sieht man nur eine tote Anwendung und weiß hinterher nicht, welcher es war.
-`fusion/trace.py` schreibt deshalb vor jedem heiklen Schritt eine Zeile
-ungepuffert nach `~/Desktop/PatternCreator-Log.txt`. Die letzte Zeile ist im
-Freeze-Fall der Schuldige, die Abstände dazwischen sind die Dauern. Das ist
-Diagnosewerkzeug, kein Feature – es darf nie etwas kaputt machen und verschluckt
-jeden eigenen Fehler.
+sieht man nur eine tote Anwendung und weiß hinterher nicht, welcher es war. Für
+die Dauer der Fehlersuche schrieb `fusion/trace.py` deshalb vor jedem heiklen
+Schritt eine Zeile ungepuffert nach `~/Desktop/PatternCreator-Log.txt`. Es hat
+die beiden folgenden Fehler gefunden und ist danach wieder ausgebaut worden
+(15.24).
 
 ### 15.13 Dritter Lauf: das Löschen war es
 
 Nach 15.12 fror Fusion erneut ein – diesmal beim Wechsel von Gitter auf Wabe.
-Das Protokoll aus `fusion/trace.py` hat sofort geliefert, wofür vorher zwei
-Fusion-Läufe und viel Raten nötig waren:
+Das Protokoll (15.12) hat sofort geliefert, wofür vorher zwei Fusion-Läufe und
+viel Raten nötig waren:
 
 ```
 2026-08-21 16:56:26  Muster erzeugen (honeycomb, edit)
@@ -1531,9 +1530,9 @@ vollen Umlauf ab („Emboss result falls outside boundary of selected faces").
   der Mitte: „Kegel ⌀ 50 → 30 mm". Die kann man am Bauteil nachmessen, den
   Mittelwert nicht. Daran wäre der Fehler sofort aufgefallen. Der Zylinder nennt
   aus demselben Grund jetzt seinen Durchmesser statt seines Radius.
-* Das Protokoll (`fusion/trace.py`) schreibt bei jedem Erzeugen die rohen Zahlen
-  der Fläche mit. Geht etwas schief, lässt sich nachrechnen, statt den Benutzer
-  nach Maßen zu fragen.
+* Solange das Protokoll noch lief, schrieb es bei jedem Erzeugen die rohen
+  Zahlen der Fläche mit – damit ließ sich nachrechnen, statt den Benutzer nach
+  Maßen zu fragen.
 
 ### 15.21 Die Palette weiß nicht, was der Commit angelegt hat
 
@@ -1624,3 +1623,17 @@ Dazu ein zweiter Handgriff: `TargetError` wird im Commit-Handler abgefangen und
 als Klartext in den Editor geschickt. Vorher landete jeder Fehler aus der
 Flächenarbeit als Traceback in einer `messageBox` – Text, den niemand lesen
 will, für Fälle, die einen ganzen Satz verdient haben.
+
+### 15.24 Das Protokoll ist wieder ausgebaut
+
+`fusion/trace.py` war Diagnosewerkzeug für die Freeze-Suche, kein Feature. Es
+hat zwei Fehler gefunden, die sonst weiteres Raten gekostet hätten – den Hänger
+beim Leeren der Skizze (15.13) und die Zahlen der falsch gelesenen Kegelfläche
+(15.20) –, und ist danach entfernt worden.
+
+Der Grund, es nicht „für alle Fälle" liegen zu lassen: es legt bei **jedem**
+Erzeugen ungefragt eine Datei auf dem Schreibtisch des Benutzers an. Das ist für
+ein paar Tage Fehlersuche ein fairer Preis und auf Dauer eine Zumutung. Wer es
+wiederbraucht, holt es aus der Git-Historie (`git show 2e2a1f3:fusion/trace.py`);
+die Aufrufe waren bewusst einzeilig und an den heiklen Stellen, damit sie sich
+ohne Spuren wieder herausnehmen lassen.

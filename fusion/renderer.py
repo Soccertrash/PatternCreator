@@ -17,8 +17,6 @@ import adsk.fusion
 
 from core import ir
 
-from . import trace
-
 Point = Tuple[float, float]
 
 
@@ -54,13 +52,10 @@ def clear_pattern_geometry(sketch: "adsk.fusion.Sketch") -> int:
     try:
         sketch.isComputeDeferred = True
         _quiet(sketch, profiles=False, points=False)
-        trace.step("Skizze leeren: %d Kurven" % sketch.sketchCurves.count)
         for c in list(sketch.sketchCurves):
             try:
                 c.deleteMe()
                 removed += 1
-                if removed % 500 == 0:
-                    trace.step("   %d gelöscht" % removed)
             except Exception:
                 pass
         for t in list(sketch.sketchTexts):
