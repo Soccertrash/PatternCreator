@@ -1583,12 +1583,13 @@ hintereinander sind eine Zumutung, und Lochzahl und Elementzahl wachsen ohnehin
 miteinander. Stattdessen nennt die vorhandene Warnung jetzt auch die geschätzte
 **Prägedauer** – 6,5 ms je Loch, aus den Messwerten des Spikes (15.6, Punkt 5).
 
-**Der Hinweis „Prägen braucht das Flächenmodell" steht in der Vorschau**, nicht
-als ausgegraute Checkbox. Der Plan wollte die Checkbox deaktivieren, sobald
-Modus, Füllung oder Rahmen nicht passen. Das wäre eine Sonderregel im generisch
-aus dem Schema gebauten Formular; eine Warnung aus `build_scene` erreicht
-dasselbe – sie erscheint live in der Vorschau, **bevor** die Skizze entsteht,
-und sie sagt zusätzlich, was umzustellen ist.
+**Der Hinweis „Prägen braucht das Flächenmodell" ergänzt das `visible_if`.**
+Die Prägen-Felder verschwinden schon, sobald Modus, Füllung oder Rahmen nicht
+passen – das stand von Anfang an im Schema. Was fehlte, war der Fall danach:
+`embossOn` bleibt im Dokument stehen, während das Feld unsichtbar ist. Wer erst
+prägen anhakt und dann auf *Linien* umstellt, bekäme sonst wortlos keine
+Prägung. Die Warnung aus `build_scene` erscheint dafür live in der Vorschau,
+**bevor** die Skizze entsteht, und sagt, was umzustellen ist.
 
 **Die gestrichelte Nahtlinie in der Vorschau entfällt.** Der Plan wollte beide
 Nahtkanten markieren. Sie *sind* der Rand der Abwicklung, und weil sie im
