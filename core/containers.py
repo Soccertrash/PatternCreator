@@ -93,8 +93,13 @@ class Container:
             return self
         pts = inset_polygon(self.clip_polygon(), delta)
         if not pts or len(pts) < 3:
+            self.shrink_failed = True
             return self
-        return CustomContainer(pts)
+        try:
+            return CustomContainer(pts)
+        except ValueError:
+            self.shrink_failed = True
+            return self
 
     def outline(self) -> List[object]:
         """Exakte IR-Geometrie des Umrisses."""
