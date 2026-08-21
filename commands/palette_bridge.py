@@ -449,6 +449,7 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
 
     if SESSION.mode == "edit" and SESSION.sketch is not None:
         sketch = SESSION.sketch
+        _adopt_tokens(sketch, development)
         if storage.was_modified_manually(sketch):
             answer = ui.messageBox(
                 "Die Skizze „%s“ wurde seit dem Erzeugen von Hand verändert.\n"
@@ -512,7 +513,7 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
         # Verschiebung nichts, die Warnung oben gilt also weiterhin.
         face = surface_target.target_face(design, development)
         if face is None:
-            raise _Abort("Die Mantelfläche ist nicht mehr auffindbar.")
+            raise _Abort(surface_target.missing_face_message(design, development))
         doc["placement"].update(
             surface_target.sketch_placement(sketch, development, face))
         scene = build.build_scene(doc)
@@ -569,6 +570,33 @@ def _fold_timeline(design, sketch, development: dict) -> None:
         group.isCollapsed = True
     except Exception:
         pass
+
+
+#: Was Fusion beim letzten Erzeugen angelegt hat. Diese Felder gehoeren der
+#: Skizze, nicht dem Editor.
+TOKEN_KEYS = ("planeToken", "pointToken", "embossTokens")
+
+
+def _adopt_tokens(sketch, development: Optional[dict]) -> None:
+    """Die Tokens des letzten Erzeugens aus der Skizze uebernehmen.
+
+    Das Doc fuer den Commit kommt aus der Palette - und die kennt nur, was beim
+    **Oeffnen** des Editors im Dokument stand. Was ein Commit anlegt (Ebene,
+    Punkt, Praegungen), erfaehrt sie nie. Beim zweiten „Skizze aktualisieren"
+    aus derselben offenen Palette waeren die Tokens deshalb veraltet: die
+    Praegungen des ersten Durchlaufs bliebe stehen und zeigten ins Leere,
+    und es entstuende bei jedem Mal eine weitere Tangentialebene
+    (Context.md 15.21).
+
+    Massgeblich ist, was an der Skizze steht: ``storage.save`` schreibt es am
+    Ende **jedes** Commits dorthin.
+    """
+    if not development:
+        return
+    stored = (storage.load(sketch) or {}).get("development") or {}
+    for key in TOKEN_KEYS:
+        if stored.get(key):
+            development[key] = stored[key]
 
 
 def _numbers(development: dict) -> str:

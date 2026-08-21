@@ -176,6 +176,25 @@ def test_clearing_a_sketch_also_hides_its_profiles():
                    for n in ast.walk(fn)), name
 
 
+def test_the_commit_takes_its_tokens_from_the_sketch_not_from_the_editor():
+    """Die Palette kennt nur den Stand beim Öffnen des Editors.
+
+    Was ein Commit anlegt – Tangentialebene, Berührpunkt, Prägungen – erfährt
+    sie nie. Ohne diesen Abgleich bliebe beim zweiten Erzeugen aus derselben
+    offenen Palette die alte Prägung stehen (``Context.md`` 15.21).
+    """
+    source = read(os.path.join(ROOT, "commands", "palette_bridge.py"))
+    tree = ast.parse(source)
+    fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+              and n.name == "perform_commit")
+    adopt = [n.lineno for n in ast.walk(fn) if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Name) and n.func.id == "_adopt_tokens"]
+    uses = [n.lineno for n in ast.walk(fn) if isinstance(n, ast.Attribute)
+            and n.attr in ("remove", "ensure_tangent_plane")]
+    assert adopt, "perform_commit muss die Tokens aus der Skizze übernehmen"
+    assert min(adopt) < min(uses)
+
+
 def test_readme_documents_both_platforms_and_limits():
     readme = read(os.path.join(ROOT, "README.md"))
     for needle in ("macOS", "Windows", "AddIns", "500", "pytest"):

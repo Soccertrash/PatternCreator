@@ -455,6 +455,23 @@ def remove(design: Any, tokens: Sequence[str]) -> None:
         _delete(feature)
 
 
+def missing_face_message(design: Any, development: dict) -> str:
+    """Warum ist die Flaeche nicht mehr da - geloescht oder geaendert?
+
+    Zwei sehr verschiedene Faelle mit sehr verschiedenen Auswegen. „Nicht mehr
+    auffindbar" zu melden, waehrend die Flaeche sichtbar im Modell steht und nur
+    andere Masse hat, schickt den Benutzer in die falsche Richtung.
+    """
+    token = (development.get("source") or {}).get("token", "")
+    if _by_token(design, token) is None:
+        return ("Die Mantelfläche ist nicht mehr auffindbar – wurde der Körper "
+                "gelöscht oder neu aufgebaut? Dann bitte das Muster neu "
+                "erzeugen.")
+    return ("Die gewählte Fläche hat sich geändert. Das Muster rechnet noch mit "
+            "den alten Maßen – bitte im Editor „Fläche aus Auswahl übernehmen“ "
+            "und die Fläche erneut wählen.")
+
+
 def find_entity(design: Any, token: Optional[str]) -> Any:
     """Entity zu einem gespeicherten Token - ``None``, wenn es sie nicht mehr gibt."""
     return _by_token(design, token)

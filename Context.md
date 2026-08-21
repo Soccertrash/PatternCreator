@@ -1524,3 +1524,39 @@ vollen Umlauf ab („Emboss result falls outside boundary of selected faces").
 * Das Protokoll (`fusion/trace.py`) schreibt bei jedem Erzeugen die rohen Zahlen
   der Fläche mit. Geht etwas schief, lässt sich nachrechnen, statt den Benutzer
   nach Maßen zu fragen.
+
+### 15.21 Die Palette weiß nicht, was der Commit angelegt hat
+
+„Skizze aktualisieren" tat beim **zweiten** Mal aus derselben offenen Palette
+nichts Sichtbares. Der Grund liegt im Datenfluss, nicht in der Geometrie.
+
+Das Doc für den Commit kommt **komplett aus der Palette** (`_handle_commit`
+nimmt `data["doc"]`). Die Palette kennt aber nur den Stand vom *Öffnen* des
+Editors. Was ein Commit anlegt – `planeToken`, `pointToken`, `embossTokens` –
+schreibt `perform_commit` in seine eigene Kopie und `storage.save` an die
+Skizze; die Palette erfährt davon nie. Beim zweiten Erzeugen kamen deshalb die
+**alten** Tokens zurück:
+
+* Die Prägungen des ersten Durchlaufs standen nicht in der Liste und wurden
+  nicht gelöscht. Sie blieben stehen und zeigten auf eine Skizze, die
+  `_replant` gerade weggeworfen hatte.
+* `planeToken` war leer, also entstand bei jedem Mal eine **weitere**
+  Tangentialebene.
+
+Beim ersten Mal fällt das nicht auf: da kommt das Doc frisch aus den
+Skizzen-Attributen und die Tokens stimmen. Es trifft genau den Ablauf
+„erzeugen → etwas ändern → nochmal erzeugen", ohne die Palette zwischendurch zu
+schließen – also den häufigsten.
+
+**Die Regel dahinter:** diese drei Felder gehören der **Skizze**, nicht dem
+Editor. `_adopt_tokens` holt sie vor jedem Commit aus den Attributen der Skizze
+zurück und überschreibt, was die Palette schickt. Maßgeblich ist damit immer
+das, was zuletzt tatsächlich im Dokument angelegt wurde. Ein Architektur-Test
+hält fest, dass das **vor** dem ersten Zugriff auf die Tokens passiert.
+
+**Nebenbei ein besserer Satz.** Ändert man den Kegel nachträglich, findet
+`target_face` keine passende Fläche mehr und meldete „Die Mantelfläche ist nicht
+mehr auffindbar" – während sie sichtbar im Modell steht und nur andere Maße hat.
+Jetzt wird unterschieden: löst der Token noch auf, lautet die Meldung, dass sich
+die Fläche geändert hat und im Editor neu eingelesen werden muss. Das ist die
+Snapshot-Regel aus Abschnitt 15.9, nur endlich mit dem richtigen Wegweiser.
