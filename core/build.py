@@ -23,12 +23,11 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from . import ir
 from .containers import Container, make_container
-from .geom import (chain_segments, clean_polygon, ensure_ccw, erode_convex,
-                   is_convex, polygon_area, polygon_segments, polyline_length,
-                   remove_loops, rotate, snap_segments)
+from .geom import (chain_segments, polygon_area, polygon_segments,
+                   polyline_length, rotate, snap_segments)
 from .hatch import hatch_areas, style_from_doc
 from .optimize import optimize
-from .stroker import offset_polyline, stroke
+from .stroker import shrink_polygon as _shrink_cell, stroke
 
 Point = Tuple[float, float]
 
@@ -36,6 +35,19 @@ Point = Tuple[float, float]
 PREVIEW_WARN_LIMIT = 5000
 #: Ab dieser Entity-Zahl warnt der Commit (mit Abbruch-Option)
 ENTITY_WARN_LIMIT = 2000
+
+#: Der Rahmen ist irgendwo schmaler als zweimal die Rahmendicke - dann laesst
+#: sich das Mass dort nicht einhalten (nur bei eigenen Rahmen moeglich).
+SHRINK_WARNING = ("Rahmendicke ist für diesen Rahmen an mindestens einer "
+                  "Stelle zu groß.")
+
+
+def _shrunk(container: Container, delta: float, warnings: List[str]) -> Container:
+    """``container.shrunk`` mit Warnung, wenn der Versatz nicht moeglich war."""
+    inner = container.shrunk(delta)
+    if getattr(inner, "shrink_failed", False) and SHRINK_WARNING not in warnings:
+        warnings.append(SHRINK_WARNING)
+    return inner
 
 
 def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
@@ -93,14 +105,14 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
     if as_face:
         inset = max(0.0, border_width - thickness / 2.0)
         if inset > 1e-9:
-            clip_container = container.shrunk(inset)
+            clip_container = _shrunk(container, inset, warnings)
 
     elements = _clip_elements(elements, clip_container, clip_mode)
 
     if as_face:
         elements = _drop_regions_in_text(elements, doc, thickness)
         elements = _to_face(elements, container, thickness, own_gap=own_gap,
-                            hole_limit=container.shrunk(border_width))
+                            hole_limit=_shrunk(container, border_width, warnings))
         if hatch_style is not None:
             # Die Loecher SIND die freien Flaechen - inklusive Randbeschnitt und
             # Splitterfilter. Deshalb hier schraffieren und nicht vorher.
@@ -138,7 +150,7 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
             # daraus ein Koerper statt vieler loser Teile.
             outline = list(container.outline())
             if mode == "area" and border_width > 1e-9:
-                inner = container.shrunk(border_width)
+                inner = _shrunk(container, border_width, warnings)
                 if inner is not container:
                     outline += list(inner.outline())
             elements = outline + elements
@@ -399,34 +411,6 @@ def _drop_regions_in_text(elements: Sequence[Any], doc: dict,
             continue
         out.append(el)
     return out
-
-
-def _shrink_cell(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
-    """Zelle um ``delta`` verkleinern - auch bei konkaven Konturen.
-
-    ``inset_polygon`` arbeitet mit Winkelhalbierenden und kollabiert an starken
-    Einbuchtungen (Puzzle-Nasen). Der Offset des Strokers kommt damit zurecht;
-    das Ergebnis wird verworfen, wenn es umklappt oder groesser wird.
-
-    Konvexe Zellen - also alle Gitter-, Waben- und Voronoi-Muster - gehen den
-    exakten Weg ueber die Halbebenen-Erosion. Der Gehrungs-Offset legt an einer
-    spitz zulaufenden Zelle sonst eine kleine Schleife an, und ein sich selbst
-    schneidendes Profil ist in Fusion unbrauchbar.
-    """
-    if delta <= 1e-12:
-        return list(pts)
-    src = clean_polygon(ensure_ccw(pts))
-    if len(src) < 3:
-        return None
-    if is_convex(src):
-        return erode_convex(src, delta)
-    poly = remove_loops(offset_polyline(src, [delta] * len(src), closed=True))
-    if not poly or len(poly) < 3:
-        return None
-    a_src, a_new = polygon_area(src), polygon_area(poly)
-    if a_new <= 1e-10 or a_new >= a_src:
-        return None
-    return poly
 
 
 #: Ein Loch, dessen mittlere Breite darunter liegt, ist ein Splitter aus einer

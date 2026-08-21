@@ -617,3 +617,83 @@ Prüfergebnis: **ja, für abwickelbare Flächen; nein für Kugel und Freiform.**
 Performance-Faktor konkaver Rahmen vs. Rechteck (Plan 1.2), Punktzahl eines
 Beispielrahmens vor/nach RDP, Ergebnisse aller **[prüfen]**-Punkte, Emboss-Dauer
 je Lochzahl, Elementzuwachs durch den Kegel-Warp, gestrichene Erwartungen.
+
+### 15.4 Umsetzung: Messwerte und Abweichungen vom Plan
+
+**Stand: 2026-08-21, Phase 1.** Wird waehrend der Umsetzung fortgeschrieben.
+
+**Messwerte (Plan 1.2).** Voronoi mit 500 Zellen, Flaechenmodell, Dicke 1 mm,
+Rahmendicke 2 mm; Laufzeit von `build_scene` gegen dasselbe Muster im
+Rechteck (bestes von drei Laeufen, Caches jeweils geleert):
+
+| Rahmen | Punkte roh → nach RDP | Laufzeit | Faktor |
+| --- | --- | --- | --- |
+| Rechteck (Referenz) | – | 0,177 s | 1,00 |
+| L-Form | 6 → 6 | 0,180 s | 1,02 |
+| Herz | 400 → 170 | 0,219 s | 1,24 |
+| Stern, 200 Zacken | 400 → 400 | 0,356 s | 2,02 |
+
+Der Plan hatte 1,5 als Schranke gesetzt. Realistische Rahmen bleiben darunter;
+der 400-Punkte-Stern nicht. Er ist der denkbar unguenstigste Fall: 200 Zacken,
+von denen die Vereinfachung keinen Punkt entfernen kann, und mehr als die
+Haelfte aller Zellen liegt im Zackenkranz, also im Beschnitt. Dazu kommt, dass
+angeschnittene Zellen dort konkav werden und deshalb den teuren Stroker-Offset
+statt der Halbebenen-Erosion brauchen. Der Test sichert 2,5 ab – als Schranke
+gegen Rueckschritte um Groessenordnungen, nicht gegen Messrauschen.
+
+Ohne Beschleunigungsraster und Kantenindex lag derselbe Fall bei Faktor **7,1**.
+Was die 7,1 auf 2,0 gebracht hat: 64x64-Raster mit innen/aussen/Rand je
+Rasterzelle (Scanline-Fuellung), Kantenindex je Rasterzelle (eine Musterzelle
+wird nur gegen die Rahmenkanten in ihrer Nachbarschaft getestet), Punkt-in-
+Polygon nur ueber die Kanten der eigenen Rasterzeile, und ein Cache fuer den
+Versatz `shrunk()` (die Vorschau baut den Container bei jeder Reglerbewegung
+neu, der Rahmen bleibt derselbe).
+
+**Punktzahl vor/nach RDP.** Kreis mit 2000 Tesselierungspunkten → 62 Punkte bei
+0,02 mm Toleranz, Flaeche auf 0,1 % gleich. Herz mit 400 Punkten → 170.
+Der Stern mit 200 Zacken → 400 (jeder Punkt traegt Form, nichts faellt weg).
+
+**Abweichungen vom Plan (mit Begruendung):**
+
+1. *Das Beschleunigungsraster liegt in `core/polyclip.py`, nicht in
+   `core/containers.py`.* Der Plan beschreibt es unter Paket 1.2, verlangt es
+   aber schon fuer die Schnellpfade in 1.1. Es liegt deshalb dort, wo es zuerst
+   gebraucht wird; `CustomContainer` benutzt dasselbe Objekt (`grid_for`, Cache
+   auf Modulebene). Aus dem Raster wurde dabei mehr als eine Innen/Aussen-Karte:
+   es traegt zusaetzlich den Kantenindex (siehe Messwerte).
+2. *`normalize_frame` vereinfacht (RDP) **vor** `remove_loops`, nicht danach.*
+   `remove_loops` ist O(n^2) je Durchgang; bei einer tessellierten Kontur mit
+   2000 Punkten dauert das Sekunden – und zwar bei jedem Parsen des Dokuments.
+   Nach der Vereinfachung ist die Kontur klein genug. Beide Schritte sind
+   voneinander unabhaengig, das Ergebnis ist dasselbe.
+3. *Der Regressionsanker in `tests/test_polyclip.py` vergleicht Ringe nur, wenn
+   Sutherland-Hodgman ueberhaupt einen einfachen Ring liefern kann.* Zerfaellt
+   eine konkave Zelle am Rahmen in mehrere Stuecke, gibt der konvexe Clipper
+   einen entarteten Ring mit Null-Breite-Verbindungen zurueck – genau deshalb
+   gibt es `polyclip`. Verglichen wird dann die Flaeche. Fuer den rechteckigen
+   Rahmen trat der Fall in keinem der 50 Zufallsfaelle ein: alle 50 Ringe sind
+   punktgleich (Abweichung < 1e-14).
+4. *Der Versatz `shrunk()` prueft zusaetzlich, ob der Abstand wirklich
+   eingehalten ist.* Der Plan nennt als Fehlerfaelle „Flaeche waechst, < 3
+   Punkte, Kontur zerfaellt". Bei einer Hantelform schlaegt der Gehrungs-Offset
+   im Hals durch, ohne dass sich die Kanten kreuzen – sie ueberlappen sich nur
+   kollinear, und `remove_loops` sieht das nicht. Geprueft wird deshalb direkt
+   die zugesagte Eigenschaft: jede Ecke und jede Kantenmitte der neuen Kontur
+   liegt innen und mindestens `delta` von der alten Kontur entfernt
+   (Kandidatenkanten aus dem Raster, sonst waere der Test quadratisch).
+5. *`core/build.py` hat drei statt zwei Stellen mit Warnung.* Der Plan nennt
+   `clip_container` und `hole_limit`; das Rahmenband im Nicht-Flaechenmodus
+   (`inner = container.shrunk(border_width)`) hat dieselbe Ursache und dieselbe
+   Folge (der innere Umriss faellt weg), also dieselbe Warnung. Sonst ist
+   `build.py` unveraendert – der Rahmen bleibt ein reines Container-Thema.
+6. *`_shrink_cell` ist nach `core/stroker.py` gewandert* (als `shrink_polygon`
+   / `shrink_polygon_checked`, wie im Plan vorgesehen); `core/build.py`
+   importiert es unter dem alten Namen weiter.
+
+**Bekannte Einschraenkung.** `CustomContainer.fully_inside` behandelt die
+Punktfolge immer als geschlossenen Ring. Fuer den Beschnitt „Angeschnittene
+weglassen" im Linienmodus heisst das: eine offene Kurve, deren gedachte
+Verbindung vom letzten zum ersten Punkt aus dem Rahmen liefe, faellt weg,
+obwohl die Kurve selbst innen liegt. Konservativ und selten; die Alternative
+waere eine Signaturaenderung an `Container.fully_inside` und damit eine
+Aenderung in `core/build.py`.

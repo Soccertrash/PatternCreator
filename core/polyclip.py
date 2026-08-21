@@ -86,6 +86,16 @@ def point_on_boundary(p: Point, poly: Sequence[Point], eps: float = ON_TOL) -> b
     return False
 
 
+def inside_or_on(p: Point, poly: Sequence[Point], eps: float = ON_TOL) -> bool:
+    """Innen oder auf dem Rand (die Regel fuer Zell-Teilkanten)."""
+    return point_in_polygon(p, poly) or point_on_boundary(p, poly, eps)
+
+
+def strictly_inside(p: Point, poly: Sequence[Point], eps: float = ON_TOL) -> bool:
+    """Strikt innen (die Regel fuer Rahmen-Teilkanten)."""
+    return point_in_polygon(p, poly) and not point_on_boundary(p, poly, eps)
+
+
 def segment_intersections(a: Point, b: Point, c: Point, d: Point
                           ) -> List[Tuple[float, float]]:
     """Schnittparameter zweier Strecken als ``(t_ab, t_cd)``.
@@ -129,34 +139,66 @@ def segment_intersections(a: Point, b: Point, c: Point, d: Point
     return out
 
 
+def _prep(poly: Sequence[Point]) -> List[Point]:
+    """Doppelte Folgepunkte und den Schliesspunkt entfernen."""
+    pts = [(float(x), float(y)) for x, y in poly]
+    out: List[Point] = []
+    for p in pts:
+        if not out or dist(out[-1], p) > 1e-12:
+            out.append(p)
+    while len(out) > 1 and dist(out[0], out[-1]) <= 1e-12:
+        out.pop()
+    return out
+
+
+def _edges(poly: Sequence[Point]) -> List[Tuple[Point, Point]]:
+    n = len(poly)
+    return [(poly[i], poly[(i + 1) % n]) for i in range(n)]
+
+
 # ------------------------------------------------- Beschleunigungsraster
 
 class PolygonGrid:
-    """Grobraster ueber der Bounding-Box: innen / aussen / Rand je Rasterzelle.
+    """Grobraster ueber der Bounding-Box - Klassifikation **und** Kantenindex.
 
-    Die Klassifikation entsteht in zwei Schritten: erst wird zeilenweise per
-    Scanline die Paritaet des Zellmittelpunkts bestimmt, dann werden alle
-    Rasterzellen, durch die eine Polygonkante laeuft, als ``BOUNDARY`` markiert.
-    Nur dort ist noch ein exakter Test noetig.
+    Drei Dinge entstehen beim Aufbau:
+
+    * je Rasterzelle ``INSIDE`` / ``OUTSIDE`` / ``BOUNDARY``. Die Paritaet des
+      Zellmittelpunkts kommt zeilenweise per Scanline, danach werden alle
+      Rasterzellen, durch die eine Kante laeuft, als ``BOUNDARY`` markiert.
+    * je Rasterzelle die Kanten, die sie beruehren (``edges_near``). Ohne diesen
+      Index muesste jede Musterzelle gegen **alle** Rahmenkanten getestet werden;
+      bei einem tessellierten Rahmen sind das schnell einige hundert.
+    * je Rasterzeile die Kanten, die sie schneiden - damit ist auch der exakte
+      Punkt-in-Polygon-Test lokal statt ueber die ganze Kontur.
+
+    Der Rahmen wird beim Aufbau einmal aufbereitet (Duplikate weg, CCW); alle
+    Nutzer arbeiten danach mit ``grid.points`` und ``grid.edges``.
     """
 
     def __init__(self, points: Sequence[Point], n: int = GRID_N):
-        self.points = [(float(x), float(y)) for x, y in points]
+        pts = _prep(points)
+        self.points = ensure_ccw(pts) if len(pts) >= 3 else pts
+        self.edges = _edges(self.points) if len(self.points) >= 3 else []
         self.n = max(1, int(n))
-        xs = [p[0] for p in self.points]
-        ys = [p[1] for p in self.points]
+        xs = [p[0] for p in self.points] or [0.0]
+        ys = [p[1] for p in self.points] or [0.0]
         self.x0, self.x1 = min(xs), max(xs)
         self.y0, self.y1 = min(ys), max(ys)
         self.cw = max((self.x1 - self.x0) / self.n, 1e-12)
         self.ch = max((self.y1 - self.y0) / self.n, 1e-12)
         self.cells = bytearray(self.n * self.n)
+        self.buckets: Dict[int, List[int]] = {}
+        self.row_edges: List[List[int]] = [[] for _ in range(self.n)]
         self._fill()
-        self._mark_boundary()
+        self._index_edges()
 
     # -- Aufbau ----------------------------------------------------------
     def _fill(self) -> None:
         poly = self.points
         m = len(poly)
+        if m < 3:
+            return
         n = self.n
         for j in range(n):
             y = self.y0 + (j + 0.5) * self.ch
@@ -175,45 +217,106 @@ class PolygonGrid:
                 if bisect.bisect_right(xs, x) % 2:
                     self.cells[row + i] = INSIDE
 
-    def _mark_boundary(self) -> None:
+    def _index_edges(self) -> None:
         n = self.n
         step = 0.5 * min(self.cw, self.ch)
-        poly = self.points
-        m = len(poly)
         cells = self.cells
-        for i in range(m):
-            a, b = poly[i], poly[(i + 1) % m]
+        for e, (a, b) in enumerate(self.edges):
+            # Zeilenindex ueber die y-Ausdehnung
+            j0 = self._row(min(a[1], b[1]))
+            j1 = self._row(max(a[1], b[1]))
+            for j in range(j0, j1 + 1):
+                self.row_edges[j].append(e)
+            # Rasterzellen entlang der Kante (mit Nachbarschaft, damit auch ein
+            # nur angeschnittenes Eck erfasst ist)
+            touched = set()
             steps = max(1, int(dist(a, b) / step) + 1)
             for k in range(steps + 1):
-                p = lerp(a, b, k / float(steps))
-                ix, iy = self._index(p)
+                ix, iy = self._cell(lerp(a, b, k / float(steps)))
                 for dy in (-1, 0, 1):
                     yy = iy + dy
                     if yy < 0 or yy >= n:
                         continue
-                    row = yy * n
                     for dx in (-1, 0, 1):
                         xx = ix + dx
                         if 0 <= xx < n:
-                            cells[row + xx] = BOUNDARY
+                            touched.add(yy * n + xx)
+            for idx in touched:
+                cells[idx] = BOUNDARY
+                self.buckets.setdefault(idx, []).append(e)
 
-    def _index(self, p: Point) -> Tuple[int, int]:
+    def _row(self, y: float) -> int:
+        return min(self.n - 1, max(0, int((y - self.y0) / self.ch)))
+
+    def _cell(self, p: Point) -> Tuple[int, int]:
         ix = int((p[0] - self.x0) / self.cw)
         iy = int((p[1] - self.y0) / self.ch)
         return (min(self.n - 1, max(0, ix)), min(self.n - 1, max(0, iy)))
 
+    # -- exakte Tests, lokal beschleunigt --------------------------------
+    def point_in(self, p: Point) -> bool:
+        """Ray-Casting, aber nur ueber die Kanten der eigenen Rasterzeile."""
+        x, y = p
+        poly = self.points
+        m = len(poly)
+        inside = False
+        for i in self.row_edges[self._row(y)]:
+            ax, ay = poly[i]
+            bx, by = poly[(i + 1) % m]
+            if (ay > y) != (by > y):
+                if x < ax + (y - ay) * (bx - ax) / (by - ay):
+                    inside = not inside
+        return inside
+
+    def on_boundary(self, p: Point, eps: float = ON_TOL) -> bool:
+        ix, iy = self._cell(p)
+        poly = self.points
+        m = len(poly)
+        for i in self.buckets.get(iy * self.n + ix, ()):
+            if point_segment_distance(p, poly[i], poly[(i + 1) % m]) <= eps:
+                return True
+        return False
+
+    def edges_near(self, x0: float, y0: float, x1: float, y1: float) -> List[int]:
+        """Kantenindizes, die in der Naehe des Rechtecks liegen koennen.
+
+        Die Reihenfolge folgt dem Raster - deterministisch, aber ohne den
+        Sortierschritt, der bei einigen tausend Aufrufen je Muster ins Gewicht
+        faellt.
+        """
+        i0, j0 = self._cell((x0, y0))
+        i1, j1 = self._cell((x1, y1))
+        buckets = self.buckets
+        if i0 == i1 and j0 == j1:
+            return buckets.get(j0 * self.n + i0, [])
+        found: List[int] = []
+        seen = set()
+        for j in range(j0, j1 + 1):
+            row = j * self.n
+            for i in range(i0, i1 + 1):
+                for e in buckets.get(row + i, ()):
+                    if e not in seen:
+                        seen.add(e)
+                        found.append(e)
+        return found
+
     # -- Abfragen --------------------------------------------------------
     def cell_state(self, p: Point) -> int:
-        if p[0] < self.x0 or p[0] > self.x1 or p[1] < self.y0 or p[1] > self.y1:
+        # Der Rand der Bounding-Box bekommt dieselbe Toleranz wie der Rand der
+        # Kontur: ein Punkt, der rechnerisch um ein Bit darueber liegt (etwa
+        # ``2.85 - 0.05 = 2.8000000000000003``), gilt sonst als aussen - und
+        # damit faellt eine ganze Randzelle weg.
+        if (p[0] < self.x0 - ON_TOL or p[0] > self.x1 + ON_TOL
+                or p[1] < self.y0 - ON_TOL or p[1] > self.y1 + ON_TOL):
             return OUTSIDE
-        ix, iy = self._index(p)
+        ix, iy = self._cell(p)
         return self.cells[iy * self.n + ix]
 
     def contains(self, p: Point) -> bool:
         st = self.cell_state(p)
         if st != BOUNDARY:
             return st == INSIDE
-        return point_in_polygon(p, self.points)
+        return self.point_in(p)
 
     def inside_or_on(self, p: Point, eps: float = ON_TOL) -> bool:
         st = self.cell_state(p)
@@ -221,24 +324,23 @@ class PolygonGrid:
             return True
         if st == OUTSIDE:
             return False
-        return (point_in_polygon(p, self.points)
-                or point_on_boundary(p, self.points, eps))
+        return self.point_in(p) or self.on_boundary(p, eps)
 
     def strictly_inside(self, p: Point, eps: float = ON_TOL) -> bool:
         st = self.cell_state(p)
         if st != BOUNDARY:
             return st == INSIDE
-        return (point_in_polygon(p, self.points)
-                and not point_on_boundary(p, self.points, eps))
+        return self.point_in(p) and not self.on_boundary(p, eps)
 
     def classify_bbox(self, x0: float, y0: float, x1: float, y1: float) -> str:
         """``"inside"`` / ``"outside"`` / ``"mixed"`` fuer ein Rechteck."""
-        if x1 < self.x0 or x0 > self.x1 or y1 < self.y0 or y0 > self.y1:
+        if (x1 < self.x0 - ON_TOL or x0 > self.x1 + ON_TOL
+                or y1 < self.y0 - ON_TOL or y0 > self.y1 + ON_TOL):
             return "outside"
         outside_part = (x0 < self.x0 or x1 > self.x1
                         or y0 < self.y0 or y1 > self.y1)
-        i0, j0 = self._index((x0, y0))
-        i1, j1 = self._index((x1, y1))
+        i0, j0 = self._cell((x0, y0))
+        i1, j1 = self._cell((x1, y1))
         first = self.cells[j0 * self.n + i0]
         if first == BOUNDARY:
             return "mixed"
@@ -268,23 +370,6 @@ def grid_for(points: Sequence[Point]) -> PolygonGrid:
 
 
 # ------------------------------------------------------------- Hilfsmittel
-
-def _prep(poly: Sequence[Point]) -> List[Point]:
-    """Doppelte Folgepunkte und den Schliesspunkt entfernen."""
-    pts = [(float(x), float(y)) for x, y in poly]
-    out: List[Point] = []
-    for p in pts:
-        if not out or dist(out[-1], p) > 1e-12:
-            out.append(p)
-    while len(out) > 1 and dist(out[0], out[-1]) <= 1e-12:
-        out.pop()
-    return out
-
-
-def _edges(poly: Sequence[Point]) -> List[Tuple[Point, Point]]:
-    n = len(poly)
-    return [(poly[i], poly[(i + 1) % n]) for i in range(n)]
-
 
 def _bbox(pts: Sequence[Point]) -> Tuple[float, float, float, float]:
     xs = [p[0] for p in pts]
@@ -390,26 +475,24 @@ def _chain_rings(segments: Sequence[Tuple[Point, Point]]) -> List[List[Point]]:
 
 # ---------------------------------------------------------------- Clipping
 
-def clip_polygon_general(subject: Sequence[Point], frame: Sequence[Point]
-                         ) -> List[List[Point]]:
+def clip_polygon_general(subject: Sequence[Point], frame: Sequence[Point],
+                         grid: Optional[PolygonGrid] = None) -> List[List[Point]]:
     """Schnitt zweier einfacher Polygone - beide duerfen konkav sein.
 
     Liefert die Teilstuecke (CCW). Mehrere Stuecke entstehen, wenn eine
-    Einbuchtung des Rahmens die Zelle zerteilt.
+    Einbuchtung des Rahmens die Zelle zerteilt. ``grid`` ist das (gecachte)
+    Raster des Rahmens; wer es hat, spart den Cache-Zugriff je Zelle.
     """
     subj = _prep(subject)
-    fr = _prep(frame)
-    if len(subj) < 3 or len(fr) < 3:
+    if len(subj) < 3:
         return []
     subj = ensure_ccw(subj)
-    fr = ensure_ccw(fr)
-
-    sx0, sy0, sx1, sy1 = _bbox(subj)
-    fx0, fy0, fx1, fy1 = _bbox(fr)
-    if sx1 < fx0 or sx0 > fx1 or sy1 < fy0 or sy0 > fy1:
+    grid = grid or grid_for(frame)
+    fr = grid.points
+    if len(fr) < 3:
         return []
 
-    grid = grid_for(fr)
+    sx0, sy0, sx1, sy1 = _bbox(subj)
     cls = grid.classify_bbox(sx0, sy0, sx1, sy1)
     if cls == "outside":
         return []
@@ -417,20 +500,24 @@ def clip_polygon_general(subject: Sequence[Point], frame: Sequence[Point]
         return [subj]
 
     se = _edges(subj)
-    fe = _edges(fr)
+    # Nur Rahmenkanten in der Naehe der Zelle koennen etwas beitragen: alles
+    # andere liegt ausserhalb der Zell-Bounding-Box und damit ausserhalb der
+    # Zelle. Das ist der Unterschied zwischen "geht" und "dauert ewig".
+    near = grid.edges_near(sx0, sy0, sx1, sy1)
     s_params: List[List[float]] = [[] for _ in se]
-    f_params: List[List[float]] = [[] for _ in fe]
+    f_params: Dict[int, List[float]] = {}
     hits = False
     for i, (a, b) in enumerate(se):
         ax0, ax1 = (a[0], b[0]) if a[0] <= b[0] else (b[0], a[0])
         ay0, ay1 = (a[1], b[1]) if a[1] <= b[1] else (b[1], a[1])
-        for j, (c, d) in enumerate(fe):
+        for j in near:
+            c, d = grid.edges[j]
             if (max(c[0], d[0]) < ax0 - ON_TOL or min(c[0], d[0]) > ax1 + ON_TOL
                     or max(c[1], d[1]) < ay0 - ON_TOL or min(c[1], d[1]) > ay1 + ON_TOL):
                 continue
             for t, u in segment_intersections(a, b, c, d):
                 s_params[i].append(t)
-                f_params[j].append(u)
+                f_params.setdefault(j, []).append(u)
                 hits = True
 
     if not hits:
@@ -441,21 +528,24 @@ def clip_polygon_general(subject: Sequence[Point], frame: Sequence[Point]
             return [fr]
         return []
 
-    sub_grid = grid_for(subj)
+    # Fuer die Zelle kein Raster: sie ist bei jedem Aufruf eine andere, der
+    # Rasteraufbau kostete mehr als der direkte Test auf zwei Dutzend Kanten.
     kept: List[Tuple[Point, Point]] = []
     for i, (a, b) in enumerate(se):
         for p, q in _split(a, b, s_params[i]):
             if grid.inside_or_on(((p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0)):
                 kept.append((p, q))
-    for j, (c, d) in enumerate(fe):
-        for p, q in _split(c, d, f_params[j]):
-            if sub_grid.strictly_inside(((p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0)):
+    for j in near:
+        c, d = grid.edges[j]
+        for p, q in _split(c, d, f_params.get(j, ())):
+            if strictly_inside(((p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0), subj):
                 kept.append((p, q))
     return _chain_rings(kept)
 
 
 def clip_polyline_general(pts: Sequence[Point], frame: Sequence[Point],
-                          closed: bool = False) -> List[List[Point]]:
+                          closed: bool = False,
+                          grid: Optional[PolygonGrid] = None) -> List[List[Point]]:
     """Polylinie gegen einen beliebigen Rahmen beschneiden.
 
     Segmentweise: Schnittparameter mit allen Rahmenkanten sammeln, Teilsegmente
@@ -463,15 +553,14 @@ def clip_polyline_general(pts: Sequence[Point], frame: Sequence[Point],
     verketten. Das ist dasselbe Vorgehen wie in ``clip.clip_polyline`` - nur
     ohne die Voraussetzung, dass der Rahmen konvex ist.
     """
-    fr = _prep(frame)
     src = _prep(pts) if closed else [(float(x), float(y)) for x, y in pts]
-    if len(fr) < 3 or len(src) < 2:
+    if len(src) < 2:
         return []
-    fr = ensure_ccw(fr)
+    grid = grid or grid_for(frame)
+    if len(grid.points) < 3:
+        return []
     if closed and len(src) > 2:
         src = list(src) + [src[0]]
-    grid = grid_for(fr)
-    fe = _edges(fr)
 
     pieces: List[List[Point]] = []
     current: List[Point] = []
@@ -485,8 +574,11 @@ def clip_polyline_general(pts: Sequence[Point], frame: Sequence[Point],
         a, b = src[k], src[k + 1]
         if dist(a, b) < 1e-12:
             continue
+        x0, x1 = (a[0], b[0]) if a[0] <= b[0] else (b[0], a[0])
+        y0, y1 = (a[1], b[1]) if a[1] <= b[1] else (b[1], a[1])
         params: List[float] = []
-        for c, d in fe:
+        for j in grid.edges_near(x0, y0, x1, y1):
+            c, d = grid.edges[j]
             for t, _u in segment_intersections(a, b, c, d):
                 params.append(t)
         for p, q in _split(a, b, params):
@@ -514,14 +606,15 @@ def _dedupe(pts: Sequence[Point], tol: float = 1e-9) -> List[Point]:
 
 
 def polygon_fully_inside(pts: Sequence[Point], frame: Sequence[Point],
-                         closed: bool = True) -> bool:
+                         closed: bool = True,
+                         grid: Optional[PolygonGrid] = None) -> bool:
     """Liegt die Kontur vollstaendig im Rahmen (Rand zaehlt als innen)?"""
     poly = _prep(pts) if closed else [(float(x), float(y)) for x, y in pts]
-    fr = _prep(frame)
-    if not poly or len(fr) < 3:
+    if not poly:
         return False
-    fr = ensure_ccw(fr)
-    grid = grid_for(fr)
+    grid = grid or grid_for(frame)
+    if len(grid.points) < 3:
+        return False
     x0, y0, x1, y1 = _bbox(poly)
     cls = grid.classify_bbox(x0, y0, x1, y1)
     if cls == "inside":
@@ -533,14 +626,15 @@ def polygon_fully_inside(pts: Sequence[Point], frame: Sequence[Point],
             return False
     n = len(poly)
     rng = range(n) if closed else range(n - 1)
-    fe = _edges(fr)
+    near = grid.edges_near(x0, y0, x1, y1)
     for i in rng:
         a, b = poly[i], poly[(i + 1) % n]
         if dist(a, b) < 1e-12:
             continue
         if not grid.inside_or_on(((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)):
             return False
-        for c, d in fe:
+        for j in near:
+            c, d = grid.edges[j]
             for t, u in segment_intersections(a, b, c, d):
                 if (PARAM_TOL < t < 1.0 - PARAM_TOL
                         and PARAM_TOL < u < 1.0 - PARAM_TOL):

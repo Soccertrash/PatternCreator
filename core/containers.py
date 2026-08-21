@@ -4,9 +4,13 @@ Die Generatoren fuellen immer nur das Bounding-Rechteck. Das Beschneiden gegen
 die tatsaechliche Form uebernimmt der Container - dadurch braucht kein Generator
 Container-Wissen.
 
-Alle Formen sind konvex, deshalb genuegt Halbebenen-Clipping (``core/clip.py``).
-Der *gezeichnete* Umriss ist dagegen echte Geometrie (Kreis, Ellipse, Bogen),
-keine Polygon-Naeherung.
+Die **Standardformen** sind konvex, deshalb genuegt dort Halbebenen-Clipping
+(``core/clip.py``). Der *gezeichnete* Umriss ist dagegen echte Geometrie (Kreis,
+Ellipse, Bogen), keine Polygon-Naeherung.
+
+Der **eigene Rahmen** (:class:`CustomContainer`) kommt aus einem Skizzenprofil
+oder einer planaren Flaeche und ist fast nie konvex. Er benutzt deshalb den
+allgemeinen Clipper aus ``core/polyclip.py``.
 """
 
 from __future__ import annotations
@@ -16,8 +20,12 @@ from typing import List, Sequence, Tuple
 
 from . import clip as clipmod
 from . import ir
-from .geom import (circle_points, ellipse_points, inset_polygon, point_in_polygon,
-                   regular_polygon, rounded_rect_points)
+from . import polyclip
+from .geom import (circle_points, clean_polygon, ellipse_points, ensure_ccw,
+                   inset_polygon, point_in_polygon, polygon_area, regular_polygon,
+                   remove_loops, rounded_rect_points)
+from .optimize import TOL, _reduce_indices, _self_intersects
+from .stroker import shrink_polygon_checked
 
 Point = Tuple[float, float]
 
@@ -28,6 +36,10 @@ class Container:
     """Basisklasse. Lokale Koordinaten: Mittelpunkt bei (0, 0)."""
 
     shape = "rect"
+
+    #: Wurde beim letzten ``shrunk()`` die Rahmendicke nicht eingehalten?
+    #: ``build_scene`` haengt daraufhin eine Warnung an die Szene.
+    shrink_failed = False
 
     def bounding_rect(self) -> Tuple[float, float, float, float]:
         raise NotImplementedError
@@ -45,6 +57,35 @@ class Container:
         """
         return ir.path(self.clip_polygon(), closed=True, layer=ir.LAYER_BORDER,
                        role=ir.ROLE_FACE)
+
+    def _keeps_distance(self, poly: Sequence[Point], delta: float) -> bool:
+        """Haelt der versetzte Rahmen ueberall den Abstand ``delta`` ein?
+
+        Der Gehrungs-Offset ist keine echte Erosion: laeuft die Kontur in einen
+        Hals hinein, der schmaler ist als zweimal ``delta``, schlaegt sie dort
+        durch - und ``remove_loops`` sieht das nicht einmal, wenn sich die
+        durchgeschlagenen Kanten nur kollinear ueberlappen (Hantelform). Geprueft
+        wird deshalb direkt die Eigenschaft, die zugesagt ist: jeder Punkt der
+        neuen Kontur (Ecken **und** Kantenmitten) liegt innen und mindestens
+        ``delta`` von der alten Kontur entfernt.
+
+        Die Kandidatenkanten kommen aus dem Raster - sonst waere der Test bei
+        einem tessellierten Rahmen quadratisch.
+        """
+        grid = self.grid
+        tol = 1e-9 * max(1.0, delta)
+        n = len(poly)
+        for i in range(n):
+            a, b = poly[i], poly[(i + 1) % n]
+            for p in (a, ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)):
+                if not grid.contains(p):
+                    return False
+                for j in grid.edges_near(p[0] - delta, p[1] - delta,
+                                         p[0] + delta, p[1] + delta):
+                    c, d = grid.edges[j]
+                    if polyclip.point_segment_distance(p, c, d) < delta - tol:
+                        return False
+        return True
 
     def shrunk(self, delta: float) -> "Container":
         """Gleiche Form, um ``delta`` nach innen versetzt (Rahmenbreite)."""
@@ -214,17 +255,34 @@ class PolygonContainer(Container):
         return PolygonContainer(r * 2.0, self.sides)
 
 
-class CustomContainer(Container):
-    """Container aus einer abgetasteten Profil-/Flaechenkontur (Phase 6).
+#: Der Versatz einer konkaven Kontur ist teuer (Offset plus Schleifensuche),
+#: und die Vorschau baut den Container bei jeder Reglerbewegung neu.
+_SHRINK_CACHE: dict = {}
+SHRINK_CACHE_LIMIT = 32
 
-    Kann konkav sein; Clipping erfolgt dann konservativ ueber Punkt-in-Polygon
-    plus Halbebenen der konvexen Huelle.
+
+class CustomContainer(Container):
+    """Rahmen aus einer abgetasteten Profil- oder Flaechenkontur.
+
+    Darf konkav sein. Die Punkte kommen als Schnappschuss aus dem PatternDoc
+    (``container.customPoints``) - der Rahmen haengt also nicht daran, dass die
+    Quellgeometrie in Fusion noch existiert.
     """
 
     shape = "custom"
 
-    def __init__(self, points: Sequence[Point]):
-        self.points = [(float(x), float(y)) for x, y in points]
+    def __init__(self, points: Sequence[Point], normalized: bool = False):
+        self.points = (list(points) if normalized
+                       else normalize_frame(points))
+        self._grid: Optional[polyclip.PolygonGrid] = None
+
+    # -- Grundlagen ------------------------------------------------------
+    @property
+    def grid(self) -> polyclip.PolygonGrid:
+        """Beschleunigungsraster (ueber den Modul-Cache in ``polyclip``)."""
+        if self._grid is None:
+            self._grid = polyclip.grid_for(self.points)
+        return self._grid
 
     def bounding_rect(self):
         xs = [p[0] for p in self.points]
@@ -235,15 +293,128 @@ class CustomContainer(Container):
         return self.points
 
     def outline(self):
-        return [ir.path(self.points, closed=True, layer=ir.LAYER_BORDER, role=ir.ROLE_EDGE)]
+        return [ir.path(self.points, closed=True, layer=ir.LAYER_BORDER,
+                        role=ir.ROLE_EDGE)]
+
+    # -- Clipping --------------------------------------------------------
+    def contains(self, p: Point) -> bool:
+        return self.grid.contains(p)
+
+    def classify_bbox(self, x0: float, y0: float, x1: float, y1: float) -> str:
+        return self.grid.classify_bbox(x0, y0, x1, y1)
+
+    def clip_path(self, points: Sequence[Point], closed: bool) -> List[List[Point]]:
+        if closed:
+            return polyclip.clip_polygon_general(points, self.points, grid=self.grid)
+        return polyclip.clip_polyline_general(points, self.points, closed=False,
+                                              grid=self.grid)
+
+    def fully_inside(self, points: Sequence[Point]) -> bool:
+        return polyclip.polygon_fully_inside(points, self.points, grid=self.grid)
+
+    def shrunk(self, delta: float) -> "Container":
+        """Kontur nach innen versetzen - ueber den Stroker, nicht ueber Gehrung.
+
+        ``inset_polygon`` kollabiert an Einbuchtungen; genau die hat ein
+        gezeichneter Rahmen. Misslingt der Versatz (die Kontur ist irgendwo
+        schmaler als zweimal ``delta``), bleibt es beim urspruenglichen Rahmen -
+        mit gesetztem :attr:`shrink_failed`, damit ``build_scene`` warnen kann
+        statt still das Mass zu verfehlen.
+        """
+        if delta <= 1e-9:
+            return self
+        key = (tuple(self.points), round(float(delta), 9))
+        cached = _SHRINK_CACHE.get(key)
+        if cached is None:
+            poly, intact = shrink_polygon_checked(self.points, delta)
+            if poly and intact:
+                intact = self._keeps_distance(poly, delta)
+            cached = (poly, intact)
+            if len(_SHRINK_CACHE) >= SHRINK_CACHE_LIMIT:
+                _SHRINK_CACHE.pop(next(iter(_SHRINK_CACHE)))
+            _SHRINK_CACHE[key] = cached
+        poly, intact = cached
+        if poly and len(poly) >= 3:
+            # Der Versatz liefert bereits eine bereinigte, schleifenfreie
+            # Kontur - kein zweites ``normalize_frame`` noetig (und kein
+            # zweites RDP, das die Kontur ein weiteres Mal vereinfachen wuerde).
+            inner = CustomContainer(poly, normalized=True)
+            if intact:
+                return inner
+            inner.shrink_failed = True
+            self.shrink_failed = True
+            return inner
+        self.shrink_failed = True
+        return self
 
 
-SHAPES = ("rect", "square", "circle", "ellipse", "polygon")
+SHAPES = ("rect", "square", "circle", "ellipse", "polygon", "custom")
+
+
+#: Groesste zulaessige Punktzahl einer eigenen Rahmenkontur.
+MAX_FRAME_POINTS = 5000
+
+#: Kleinste zulaessige Flaeche einer eigenen Rahmenkontur (cm^2).
+MIN_FRAME_AREA = 1e-8
+
+
+def normalize_frame(points: Sequence[Point]) -> List[Point]:
+    """Rohe Konturpunkte in die Form bringen, die der Container erwartet.
+
+    Duplikate und Schliesspunkt weg, gegen den Uhrzeigersinn orientiert,
+    Selbstschnitte entfernt, mit Ramer-Douglas-Peucker auf die Optimierer-
+    Toleranz vereinfacht. Letzteres ist keine Kosmetik: Fusion tesselliert einen
+    Bogen in hunderte Punkte, und jeder davon kostet in jeder Zelle des Musters
+    Schnitttests.
+
+    **Abweichung vom Plan:** die Vereinfachung laeuft *vor* ``remove_loops``.
+    ``remove_loops`` ist O(n^2) je Durchgang; bei einer tessellierten Kontur mit
+    ein paar tausend Punkten dauert das Sekunden - und zwar bei jedem Parsen des
+    Dokuments. Nach der Vereinfachung ist die Kontur klein genug.
+
+    Wirft ``ValueError``, wenn nichts Brauchbares uebrig bleibt.
+    """
+    try:
+        pts = [(float(x), float(y)) for x, y in points]
+    except (TypeError, ValueError):
+        raise ValueError("Die Rahmenkontur enthält ungültige Punkte.")
+    if len(pts) > MAX_FRAME_POINTS:
+        raise ValueError("Die Rahmenkontur hat mehr als %d Punkte."
+                         % MAX_FRAME_POINTS)
+    for x, y in pts:
+        if x != x or y != y or x in (float("inf"), float("-inf")) \
+                or y in (float("inf"), float("-inf")):
+            raise ValueError("Die Rahmenkontur enthält ungültige Punkte.")
+    pts = clean_polygon(pts)
+    if len(pts) < 3:
+        raise ValueError("Die Rahmenkontur hat weniger als drei Punkte.")
+    pts = ensure_ccw(pts)
+    reduced = [pts[i] for i in _reduce_indices(pts, True, TOL)]
+    if len(reduced) >= 3 and not (_self_intersects(reduced, True)
+                                  and not _self_intersects(pts, True)):
+        pts = reduced
+    pts = remove_loops(pts)
+    if len(pts) < 3:
+        raise ValueError("Die Rahmenkontur schneidet sich selbst.")
+    pts = ensure_ccw(clean_polygon(pts))
+    if len(pts) < 3 or abs(polygon_area(pts)) <= MIN_FRAME_AREA:
+        raise ValueError("Die Rahmenkontur umschließt keine Fläche.")
+    return pts
 
 
 def make_container(cfg: dict) -> Container:
     """Container aus dem ``container``-Abschnitt eines PatternDoc bauen."""
     shape = cfg.get("shape", "rect")
+    if shape == "custom":
+        pts = cfg.get("customPoints") or []
+        if len(pts) >= 3:
+            try:
+                return CustomContainer(pts)
+            except ValueError:
+                pass
+        # Rueckfall wie in ``pattern_doc.parse``: ein Doc ohne brauchbare
+        # Kontur zeigt lieber ein Rechteck als gar nichts.
+        shape = "rect"
     if shape == "square":
         side = float(cfg.get("width", 10.0))
         return RectContainer(side, side, float(cfg.get("cornerRadius", 0.0)))

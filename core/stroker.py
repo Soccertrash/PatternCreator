@@ -22,7 +22,8 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple
 
-from .geom import (EPS, add, dist, length, mul, normalize, polygon_area,
+from .geom import (EPS, add, clean_polygon, dist, ensure_ccw, erode_convex,
+                   is_convex, length, mul, normalize, polygon_area,
                    remove_loops, sub)
 
 Point = Tuple[float, float]
@@ -152,3 +153,53 @@ def stroke_segments(segments: Sequence[Tuple[Point, Point]], width: float
         if ring:
             out.append(ring)
     return out
+
+
+def shrink_polygon(pts: Sequence[Point], delta: float) -> Optional[List[Point]]:
+    """Geschlossene Kontur um ``delta`` nach innen versetzen.
+
+    ``inset_polygon`` arbeitet mit Winkelhalbierenden und kollabiert an starken
+    Einbuchtungen (Puzzle-Nasen, Einbuchtungen eines gezeichneten Rahmens). Der
+    Offset des Strokers kommt damit zurecht; das Ergebnis wird verworfen, wenn es
+    umklappt oder groesser wird.
+
+    Konvexe Konturen - also alle Gitter-, Waben- und Voronoi-Zellen - gehen den
+    exakten Weg ueber die Halbebenen-Erosion. Der Gehrungs-Offset legt an einer
+    spitz zulaufenden Zelle sonst eine kleine Schleife an, und ein sich selbst
+    schneidendes Profil ist in Fusion unbrauchbar.
+
+    ``None`` heisst: bei diesem Versatz bleibt nichts Brauchbares uebrig.
+    """
+    return shrink_polygon_checked(pts, delta)[0]
+
+
+def shrink_polygon_checked(pts: Sequence[Point], delta: float
+                           ) -> Tuple[Optional[List[Point]], bool]:
+    """Wie :func:`shrink_polygon`, zusaetzlich mit "Versatz sauber?"-Flag.
+
+    Das Flag ist ``False``, wenn der Versatz misslungen ist **oder** die Kontur
+    dabei zerfallen ist (Hantelform: der Hals ist schmaler als zweimal
+    ``delta``). Im zweiten Fall gilt der groesste verbliebene Ring - aber der
+    Aufrufer soll wissen, dass das Mass nicht ueberall eingehalten wird.
+    """
+    if delta <= 1e-12:
+        return list(pts), True
+    src = clean_polygon(ensure_ccw(pts))
+    if len(src) < 3:
+        return None, False
+    if is_convex(src):
+        # Halbebenen-Erosion ist exakt: eine zu schmale Spitze faellt weg, das
+        # Mass bleibt an jeder verbliebenen Stelle eingehalten.
+        out = erode_convex(src, delta)
+        return out, out is not None
+    raw = offset_polyline(src, [delta] * len(src), closed=True)
+    poly = remove_loops(raw)
+    if not poly or len(poly) < 3:
+        return None, False
+    # ``remove_loops`` verkuerzt die Punktfolge genau dann, wenn es eine
+    # Schleife weggeschnitten hat - das ist der Zerfall.
+    intact = len(poly) == len(raw)
+    a_src, a_new = polygon_area(src), polygon_area(poly)
+    if a_new <= 1e-10 or a_new >= a_src:
+        return None, False
+    return poly, intact
