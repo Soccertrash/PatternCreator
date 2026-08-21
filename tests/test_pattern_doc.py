@@ -191,3 +191,32 @@ def test_custom_points_are_kept_for_other_shapes():
     doc, errors = pd.parse(raw)
     assert errors == {}
     assert doc["container"]["customPoints"] == L_FRAME
+
+
+def test_apply_custom_frame_centres_the_contour_and_keeps_its_position():
+    """Der Rahmen liegt lokal um die Bounding-Box-Mitte, die Lage trägt die
+    Platzierung - so bleibt er deckungsgleich auf seiner Quelle."""
+    doc = pd.default_doc("grid")
+    pd.apply_custom_frame(doc, [(2, 1), (8, 1), (8, 5), (2, 5)],
+                          {"kind": "face", "label": "Körper1 / Fläche 3",
+                           "token": "tk"})
+    assert doc["container"]["shape"] == "custom"
+    assert doc["container"]["customPoints"] == [[-3.0, -2.0], [3.0, -2.0],
+                                                [3.0, 2.0], [-3.0, 2.0]]
+    assert doc["placement"]["originX"] == pytest.approx(5.0)
+    assert doc["placement"]["originY"] == pytest.approx(3.0)
+    assert doc["placement"]["rotation"] == 0.0
+    assert doc["container"]["customSource"]["kind"] == "face"
+
+
+def test_apply_custom_frame_result_parses_without_errors():
+    doc = pd.default_doc("grid")
+    pd.apply_custom_frame(doc, [(0, 0), (4, 0), (4, 1), (1, 1), (1, 4), (0, 4)])
+    parsed, errors = pd.parse(doc)
+    assert errors == {}
+    assert parsed["container"]["shape"] == "custom"
+
+
+def test_apply_custom_frame_rejects_a_degenerate_contour():
+    with pytest.raises(ValueError):
+        pd.apply_custom_frame(pd.default_doc("grid"), [(0, 0), (1, 0), (2, 0)])

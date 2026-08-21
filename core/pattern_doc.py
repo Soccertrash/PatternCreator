@@ -387,6 +387,41 @@ def _apply_custom_frame(container: Dict[str, Any], raw: Any,
         container["shape"] = "rect"
 
 
+def apply_custom_frame(doc: dict, points: Sequence[Sequence[float]],
+                       source: Optional[dict] = None) -> dict:
+    """Eine eingelesene Kontur als eigenen Rahmen ins Doc setzen.
+
+    ``points`` sind **Skizzenkoordinaten** (cm). Im Doc steht die Kontur lokal um
+    den Mittelpunkt ihrer Bounding-Box; die Lage traegt die Platzierung. So
+    bleibt die bestehende Platzierungslogik unveraendert und der Rahmen liegt
+    exakt auf seiner Quelle. Die Drehung wird zurueckgesetzt - der Rahmen kommt
+    ja schon in der richtigen Lage.
+
+    Wirft ``ValueError``, wenn die Kontur unbrauchbar ist.
+    """
+    from .containers import normalize_frame
+
+    pts = normalize_frame(points)
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    cx = (min(xs) + max(xs)) / 2.0
+    cy = (min(ys) + max(ys)) / 2.0
+    container = doc.setdefault("container", {})
+    container["shape"] = "custom"
+    container["customPoints"] = [[x - cx, y - cy] for x, y in pts]
+    if source is not None:
+        container["customSource"] = {
+            "kind": str(source.get("kind", "")),
+            "label": str(source.get("label", "")),
+            "token": str(source.get("token", "")),
+        }
+    placement = doc.setdefault("placement", {})
+    placement["originX"] = cx
+    placement["originY"] = cy
+    placement["rotation"] = 0.0
+    return doc
+
+
 def validate(raw: Any) -> Dict[str, str]:
     return parse(raw)[1]
 

@@ -16,7 +16,7 @@ allgemeinen Clipper aus ``core/polyclip.py``.
 from __future__ import annotations
 
 import math
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from . import clip as clipmod
 from . import ir

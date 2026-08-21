@@ -290,6 +290,49 @@ def chain_segments(segments: Sequence[Tuple[Point, Point]]) -> List[Tuple[List[P
     return chains
 
 
+def chain_polylines(pieces: Sequence[Sequence[Sequence[float]]],
+                    tol: float = 1e-4) -> Optional[List[Tuple[float, ...]]]:
+    """Kurvenstuecke zu **einer** geschlossenen Kontur verketten.
+
+    Fusion liefert die Kurven eines Profil- oder Flaechen-Loops weder in
+    Reihenfolge noch in einheitlicher Richtung. Verkettet wird deshalb ueber die
+    Endpunkte: das naechste Stueck ist das, dessen Anfang **oder** Ende an das
+    bisherige Ende anschliesst (bis auf ``tol``); es wird bei Bedarf umgedreht.
+
+    Arbeitet in beliebiger Dimension - die Kurven einer Flaeche kommen in
+    Weltkoordinaten, also dreidimensional.
+
+    ``None`` heisst: die Stuecke schliessen sich nicht zu einem Ring (Luecke
+    groesser als ``tol``, oder ein Stueck bleibt uebrig).
+    """
+    parts = [[tuple(float(v) for v in p) for p in piece]
+             for piece in pieces if len(piece) >= 2]
+    if not parts:
+        return None
+    chain = parts.pop(0)
+    while parts:
+        end = chain[-1]
+        best, reverse, best_d = None, False, tol
+        for i, part in enumerate(parts):
+            d0 = _point_distance(end, part[0])
+            d1 = _point_distance(end, part[-1])
+            if d0 <= best_d:
+                best, reverse, best_d = i, False, d0
+            if d1 <= best_d:
+                best, reverse, best_d = i, True, d1
+        if best is None:
+            return None
+        part = parts.pop(best)
+        chain.extend(list(reversed(part))[1:] if reverse else part[1:])
+    if _point_distance(chain[0], chain[-1]) > tol:
+        return None
+    return chain[:-1]
+
+
+def _point_distance(a: Sequence[float], b: Sequence[float]) -> float:
+    return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+
+
 def polygon_segments(poly: Sequence[Point]) -> List[Tuple[Point, Point]]:
     n = len(poly)
     return [(poly[i], poly[(i + 1) % n]) for i in range(n)]

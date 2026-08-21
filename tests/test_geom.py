@@ -4,6 +4,7 @@ import math
 
 import pytest
 
+from core import geom
 from core.geom import (chaikin, chain_segments, dedupe_segments, inset_polygon,
                        remove_loops,
                        poisson_disk, polygon_area, polygon_segments, resample,
@@ -102,3 +103,29 @@ def _crosses(a, b, c, d):
     def o(p, q, r):
         return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
     return (o(a, b, c) > 0) != (o(a, b, d) > 0) and (o(c, d, a) > 0) != (o(c, d, b) > 0)
+
+
+# ------------------------------------------------- Kurvenstuecke verketten
+
+def test_chain_polylines_joins_pieces_in_any_order_and_direction():
+    """Fusion liefert die Kurven eines Loops ungeordnet und ungerichtet."""
+    pieces = [[(0, 0), (4, 0)], [(4, 4), (4, 0)], [(4, 4), (0, 4)], [(0, 4), (0, 0)]]
+    ring = geom.chain_polylines(pieces)
+    assert ring == [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)]
+
+
+def test_chain_polylines_works_in_three_dimensions():
+    pieces = [[(0, 0, 1), (4, 0, 1)], [(4, 0, 1), (0, 0, 1)][::-1]]
+    assert geom.chain_polylines(pieces) is not None
+
+
+def test_chain_polylines_reports_an_open_contour():
+    assert geom.chain_polylines([[(0, 0), (4, 0)], [(4, 4), (0, 4)]]) is None
+    assert geom.chain_polylines([]) is None
+
+
+def test_chain_polylines_tolerates_tiny_gaps():
+    pieces = [[(0, 0), (4, 0)], [(4, 1e-6), (4, 4)], [(4, 4), (0, 4)],
+              [(0, 4), (0, 0)]]
+    assert geom.chain_polylines(pieces, tol=1e-4) is not None
+    assert geom.chain_polylines(pieces, tol=1e-9) is None
