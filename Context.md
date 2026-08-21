@@ -638,6 +638,10 @@ Performance-Faktor konkaver Rahmen vs. Rechteck (Plan 1.2), Punktzahl eines
 Beispielrahmens vor/nach RDP, Ergebnisse aller **[prüfen]**-Punkte, Emboss-Dauer
 je Lochzahl, Elementzuwachs durch den Kegel-Warp, gestrichene Erwartungen.
 
+Für Phase 1 ist das nachgetragen: **Messwerte und Abweichungen in 15.4**, die
+**[prüfen]-Punkte in 15.5** (dort stehen sie als Tabelle mit dem jeweils
+eingebauten Rückfall – die Antworten gehören in dieselbe Tabelle).
+
 ### 15.4 Umsetzung: Messwerte und Abweichungen vom Plan
 
 **Stand: 2026-08-21, Phase 1.** Wird waehrend der Umsetzung fortgeschrieben.
