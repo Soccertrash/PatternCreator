@@ -787,12 +787,25 @@ wird also schlicht zur Wahl des Punktes auf der Mantelfläche.
 
 **4. Emboss wickelt wirklich ab – keine Projektion.** Ein 20 × 10 mm-Rechteck
 landet auf dem Zylinder als 45,837° × 25 mm = **20,000 mm Bogenlänge** bei
-10,000 mm Höhe. Am Kegel ist die Bogenlänge an beiden Rändern gleich
-(20,02 mm bei r = 25,00 mm und bei r = 22,59 mm), die Winkelbreite dagegen
-verschieden (45,87° gegen 50,76°). Damit ist die Grundannahme von
-`core/development.py` bestätigt – und zugleich, **warum der Kegel den
-Sektor-Warp braucht**: nur eine zum Apex hin schmaler werdende Skizze wickelt
-sich in jeder Höhe genau einmal um.
+10,000 mm Höhe. Nicht die Sehne (19,471 mm). Für den Zylinder ist damit alles
+geklärt: Skizzen-x ist Bogenlänge, Skizzen-y ist Achslänge, beides längentreu.
+
+Am Kegel ist die Messung **noch nicht entschieden.** Beobachtet wurde: gleiche
+Bogenlänge an beiden Rändern (20,02 mm bei r = 25,00 mm und bei r = 22,59 mm)
+bei verschiedener Winkelbreite (45,87° gegen 50,76°). Das passt auf **zwei**
+Modelle, die sich bei einem so schmalen Testrechteck nicht unterscheiden lassen:
+
+* *Sektor-Abwicklung* (längentreu, der Apex liegt in der Skizzenebene):
+  θ = atan(x / ρ) / sin α
+* *Bogenlängen-Wickeln* (jeder Kreis für sich abgerollt): θ = x / (ρ · sin α)
+
+Für x = 10 mm und ρ = 152 mm sagen beide 22,90° bzw. 22,94° voraus – gemessen
+wurden 22,935°. Erst bei einem breiten Muster gehen sie auseinander (bei
+x = 60 mm: 130,9° gegen 137,5°). Der Unterschied entscheidet, ob die Skizze für
+den Vollkegel ein **Kreisringsektor** (Plan 2.1) oder ein **Trapez** sein muss –
+und damit, wie `core/development.py` rechnet. Ein breites Testrechteck klärt es;
+bis dahin wird nur der Zylinderpfad gebaut (Plan-Reihenfolge: „Zylinder zuerst,
+Kegel-Warp danach").
 
 **5. Die Skizze liegt gespiegelt auf der Tangentialebene.** Gemessen: Berührpunkt
 → Skizze (0 / −30) mm; 10 mm entlang der Achse → (0 / −40); 10° in
