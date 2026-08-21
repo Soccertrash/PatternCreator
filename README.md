@@ -47,6 +47,13 @@ Einzelbilder in voller Auflösung und die Einstellungen dazu:
 Die Rahmenform ist frei kombinierbar: jedes Muster lässt sich in jede der fünf
 Formen (Rechteck, Quadrat, Kreis, Ellipse, Vieleck) einpassen.
 
+**Auf dem Zylinder** läuft das Muster rundum. Das Bild zeigt die Abwicklung an
+der Stelle, an der sie sich schließt – zweimal derselbe Umlauf nebeneinander.
+Die rote Linie ist die **Naht**: sie folgt den Zellwänden, statt gerade
+durchzuschneiden, und deshalb ist am Bauteil keine zu sehen.
+
+![Wabe auf einem Zylinder: die Abwicklung an der Naht](docs/images/10-wabe-zylinder.png)
+
 ---
 
 ## Installation
@@ -851,6 +858,13 @@ Full-resolution images and the settings behind them:
 
 Shape and pattern combine freely: every pattern fits into any of the five shapes
 (rectangle, square, circle, ellipse, polygon).
+
+**On a cylinder** the pattern runs all the way around. The image shows the
+development where it closes — the same turn twice, side by side. The red line is
+the **seam**: it follows the cell walls instead of cutting straight through,
+which is why there is none to see on the part.
+
+![Honeycomb on a cylinder: the development at the seam](docs/images/10-wabe-zylinder.png)
 
 ---
 
