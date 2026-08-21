@@ -74,6 +74,26 @@
               Rahmen neu einlesen</button>
           </div>
         </div>
+        <div id="surfaceBox" hidden>
+          <div id="surfaceInfo"></div>
+          <div class="field">
+            <label for="seamAngle">Nahtwinkel</label>
+            <div class="control">
+              <input id="seamAngle" type="range" min="-180" max="180" step="1">
+              <input id="seamAngleNum" type="number" min="-180" max="180" step="1">
+            </div>
+            <div class="hint">Dreht das Muster um die Achse: legt fest, wo die
+              Naht auf dem Bauteil sitzt. Grad.</div>
+          </div>
+          <div class="frame-buttons">
+            <button id="pickSurfaceBtn" type="button"
+                    title="Liest die im Fusion-Canvas gewählte Mantelfläche ein">
+              Fläche aus Auswahl übernehmen</button>
+            <button id="dropSurfaceBtn" type="button"
+                    title="Zurück zu einem ebenen Rahmen">
+              Fläche verwerfen</button>
+          </div>
+        </div>
         <div id="placementFields"></div>
       </div>
     </details>

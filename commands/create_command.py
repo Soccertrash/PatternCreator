@@ -1,8 +1,10 @@
 """Befehl „Muster erstellen“ - Ziel wählen, dann Editor-Palette öffnen.
 
-Ziel ist eine Konstruktionsebene, eine planare Fläche **oder** ein geschlossenes
-Skizzenprofil. Bei Fläche und Profil wird deren Außenkontur auf Wunsch gleich
-zum Rahmen des Musters (Kontrollkästchen, standardmäßig an).
+Ziel ist eine Konstruktionsebene, eine planare Fläche, ein geschlossenes
+Skizzenprofil **oder** eine Zylinder-/Kegelmantelfläche. Bei Fläche und Profil
+wird deren Außenkontur auf Wunsch gleich zum Rahmen des Musters
+(Kontrollkästchen, standardmäßig an). Bei einer Mantelfläche ist der Rahmen
+immer ihre Abwicklung - dort gibt es nichts zu wählen.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import adsk.core
 import adsk.fusion
 
 from core import pattern_doc
-from fusion import frame_reader
+from fusion import frame_reader, surface_reader
 
 from . import palette_bridge
 
@@ -31,13 +33,17 @@ class _CreatedHandler(adsk.core.CommandCreatedEventHandler):
         try:
             cmd = adsk.core.CommandCreatedEventArgs.cast(args).command
             inputs = cmd.commandInputs
-            sel = inputs.addSelectionInput("planeSel", "Ebene, Fläche oder Profil",
-                                           "Ebene, planare Fläche oder "
-                                           "geschlossenes Skizzenprofil wählen "
+            sel = inputs.addSelectionInput("planeSel",
+                                           "Ebene, Fläche, Profil oder Mantel",
+                                           "Ebene, planare Fläche, geschlossenes "
+                                           "Skizzenprofil oder Zylinder-/"
+                                           "Kegelmantelfläche wählen "
                                            "(leer = XY-Ursprungsebene)")
             sel.addSelectionFilter("ConstructionPlanes")
             sel.addSelectionFilter("PlanarFaces")
             sel.addSelectionFilter("Profiles")
+            sel.addSelectionFilter("CylindricalFaces")
+            sel.addSelectionFilter("ConicalFaces")
             sel.setSelectionLimits(0, 1)
             # Das Kaestchen startet **sichtbar** und wird erst ausgeblendet,
             # wenn die Auswahl eine reine Konstruktionsebene ist. Andersherum
@@ -51,7 +57,8 @@ class _CreatedHandler(adsk.core.CommandCreatedEventHandler):
                              "zum Rahmen des Musters. Innenkonturen bleiben "
                              "unberücksichtigt. Bei einer Konstruktionsebene "
                              "gibt es keine Kontur - dann bleibt der bisherige "
-                             "Rahmen.")
+                             "Rahmen. Bei einer Mantelfläche ist der Rahmen "
+                             "immer ihre Abwicklung.")
             inputs.addTextBoxCommandInput(
                 "hint", "", "Nach OK öffnet sich der Muster-Editor.", 2, True)
 
@@ -82,7 +89,8 @@ class _InputChangedHandler(adsk.core.InputChangedEventHandler):
             entity = sel.selection(0).entity if sel.selectionCount > 0 else None
             # Ohne Auswahl sichtbar lassen: das Kaestchen soll nie fehlen, wenn
             # es gebraucht wird.
-            frame.isVisible = entity is None or frame_reader.is_supported(entity)
+            frame.isVisible = (entity is None or frame_reader.is_supported(entity)
+                               or surface_reader.is_surface(entity))
         except Exception:
             pass          # Sichtbarkeit ist Komfort, kein Grund zum Abbruch
 
@@ -113,6 +121,8 @@ def _target_and_doc(ui, entity, use_frame: bool, doc: dict):
     """
     if entity is None:
         return None, doc
+    if surface_reader.is_surface(entity):
+        return _surface_doc(ui, entity, doc)
     plane = entity
     try:
         plane = frame_reader.plane_of(entity)
@@ -132,6 +142,26 @@ def _target_and_doc(ui, entity, use_frame: bool, doc: dict):
         ui.messageBox("Die Kontur konnte nicht als Rahmen übernommen werden:\n%s"
                       "\n\nDer Editor öffnet mit dem bisherigen Rahmen." % exc)
         return plane, doc
+
+
+def _surface_doc(ui, entity, doc: dict):
+    """Mantelflaeche als Ziel: der Rahmen ist ihre Abwicklung.
+
+    Die Tangentialebene entsteht erst beim Erzeugen - vorher gibt es sie nicht,
+    und der Editor braucht sie auch nicht: er zeigt die Abwicklung.
+    """
+    try:
+        snapshot = surface_reader.read_surface(entity)
+        doc["development"] = snapshot.development
+        parsed, errors = pattern_doc.parse(doc)
+        if errors:
+            raise ValueError("; ".join(errors.values()))
+        return None, parsed
+    except Exception as exc:
+        ui.messageBox("Die Mantelfläche konnte nicht gelesen werden:\n%s"
+                      "\n\nDer Editor öffnet mit dem bisherigen Rahmen." % exc)
+        doc["development"] = None
+        return None, doc
 
 
 def register(ui: "adsk.core.UserInterface") -> "adsk.core.CommandDefinition":

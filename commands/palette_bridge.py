@@ -23,7 +23,8 @@ import adsk.core
 import adsk.fusion
 
 from core import build, pattern_doc
-from fusion import frame_reader, renderer, storage, surface_target
+from fusion import (frame_reader, renderer, storage, surface_reader,
+                    surface_target)
 
 PALETTE_ID = "PatternCreatorEditorPalette"
 COMMIT_CMD_ID = "PatternCreatorCommitCmd"
@@ -131,6 +132,9 @@ def _init_payload() -> dict:
 
 
 def _target_label() -> str:
+    development = SESSION.doc.get("development")
+    if development:
+        return (development.get("source") or {}).get("label") or "Mantelfläche"
     label = _plane_label()
     source = (SESSION.doc.get("container") or {}).get("customSource") or {}
     if SESSION.doc.get("container", {}).get("shape") == "custom" and source.get("label"):
@@ -243,10 +247,21 @@ def perform_frame(app, ui, request: str) -> Dict[str, Any]:
         raise frame_reader.FrameError("Kein Konstruktionsdokument aktiv.")
 
     if request == "rereadFrame":
-        source = (SESSION.doc.get("container") or {}).get("customSource") or {}
-        entity = frame_reader.find_source(source.get("token", ""), design)
+        development = SESSION.doc.get("development")
+        if development:
+            token = (development.get("source") or {}).get("token", "")
+            entity = surface_reader.find_surface(token, design)
+            if entity is None:
+                raise frame_reader.FrameError("Die Mantelfläche ist nicht mehr "
+                                              "auffindbar.")
+        else:
+            source = (SESSION.doc.get("container") or {}).get("customSource") or {}
+            entity = frame_reader.find_source(source.get("token", ""), design)
     else:
         entity = frame_reader.pick_from_selection(ui)
+
+    if surface_reader.is_surface(entity):
+        return _take_surface(entity)
 
     # Im Edit-Modus ist die Skizze das Ziel: ``read_frame`` rechnet dann in
     # deren Koordinaten und lehnt eine Auswahl ab, die nicht in ihrer Ebene
@@ -259,6 +274,9 @@ def perform_frame(app, ui, request: str) -> Dict[str, Any]:
     doc, errors = pattern_doc.parse(doc)
     if errors:
         raise frame_reader.FrameError("; ".join(errors.values()))
+    # Eine ebene Auswahl loest eine vorher gewaehlte Mantelflaeche ab - sonst
+    # bliebe das Muster gewickelt, obwohl der Rahmen jetzt flach ist.
+    doc["development"] = None
     SESSION.doc = doc
     if SESSION.mode != "edit":
         SESSION.plane = snapshot.plane
@@ -268,6 +286,41 @@ def perform_frame(app, ui, request: str) -> Dict[str, Any]:
         "target": _target_label(),
         "message": "Rahmen übernommen: %s (%d Punkte)."
                    % (snapshot.label, len(doc["container"]["customPoints"])),
+    }
+
+
+def _take_surface(entity) -> Dict[str, Any]:
+    """Mantelflaeche als Ziel uebernehmen.
+
+    Im Edit-Modus geht das nur, wenn die Skizze schon zu einer Mantelflaeche
+    gehoert: eine bestehende Skizze laesst sich nicht nachtraeglich von einer
+    Ebene auf einen Zylinder umhaengen.
+    """
+    if SESSION.mode == "edit" and not SESSION.doc.get("development"):
+        raise frame_reader.FrameError(
+            "Diese Skizze liegt auf einer Ebene. Eine Mantelfläche lässt sich "
+            "nur bei einem neuen Muster wählen.")
+    try:
+        snapshot = surface_reader.read_surface(entity)
+    except surface_reader.SurfaceError as err:
+        raise frame_reader.FrameError(str(err))
+    doc = copy.deepcopy(SESSION.doc)
+    previous = doc.get("development") or {}
+    development = dict(snapshot.development)
+    # Nahtwinkel und die Tokens der schon angelegten Geometrie bleiben.
+    development["seamAngle"] = previous.get("seamAngle", 0.0)
+    development["planeToken"] = previous.get("planeToken", "")
+    development["embossTokens"] = previous.get("embossTokens", [])
+    doc["development"] = development
+    doc, errors = pattern_doc.parse(doc)
+    if errors:
+        raise frame_reader.FrameError("; ".join(errors.values()))
+    SESSION.doc = doc
+    return {
+        "ok": True,
+        "doc": doc,
+        "target": _target_label(),
+        "message": "Fläche übernommen: %s." % snapshot.label,
     }
 
 

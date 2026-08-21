@@ -194,6 +194,48 @@
     el.rereadFrameBtn.disabled = !customSource().token;
   }
 
+  /* ---------------------------------------------------------- Mantelfläche */
+
+  function development() {
+    return (doc && doc.development) || null;
+  }
+
+  function updateSurfaceBox() {
+    if (!el.surfaceBox) { return; }
+    var dev = development();
+    el.surfaceBox.hidden = !dev;
+    if (!dev) { return; }
+    var source = dev.source || {};
+    el.surfaceInfo.className = '';
+    el.surfaceInfo.textContent = source.label
+      || 'Mantelfläche (Radius ' + fmtMm(dev.radius) + ' mm)';
+    var angle = Math.round(Number(dev.seamAngle) || 0);
+    el.seamAngle.value = angle;
+    el.seamAngleNum.value = angle;
+  }
+
+  function setSeamAngle(value) {
+    var dev = development();
+    if (!dev) { return; }
+    var angle = Math.max(-180, Math.min(180, Number(value) || 0));
+    dev.seamAngle = angle;
+    el.seamAngle.value = angle;
+    el.seamAngleNum.value = angle;
+    /* Der Nahtwinkel ändert die Abwicklung nicht - nur, wo sie auf dem Bauteil
+       landet. Die Vorschau bleibt also gleich; gespeichert werden muss er
+       trotzdem. */
+    changed();
+  }
+
+  function dropSurface() {
+    if (!development()) { return; }
+    doc.development = null;
+    renderAll();
+    pushHistory();
+    setStatus('Mantelfläche verworfen - der Rahmen ist wieder eben.');
+    requestPreview(true);
+  }
+
   function requestFrame(action) {
     setStatus(action === 'pickFrame'
       ? 'Auswahl wird gelesen …' : 'Rahmen wird neu eingelesen …');
@@ -208,6 +250,7 @@
     customPending = false;
     doc.container = payload.doc.container;
     doc.placement = payload.doc.placement;
+    doc.development = payload.doc.development || null;
     if (payload.target) { el.targetLabel.textContent = payload.target; }
     renderAll();
     pushHistory();
@@ -343,6 +386,7 @@
     buildSection(el.textFields, 'text');
     buildPresets();
     updateCustomFrameBox();
+    updateSurfaceBox();
     el.seedInput.value = doc.seed;
     updateHelp();
     updateHistoryButtons();
@@ -508,10 +552,30 @@
     return wrap;
   }
 
+  /* Was ``visibleIf`` nicht ausdrücken kann: es sieht immer nur den eigenen
+     Abschnitt, die Mantelfläche steht aber daneben im Dokument. */
+  function hiddenByDevelopment(section, key) {
+    var dev = development();
+    if (section === 'container') { return !!dev; }
+    if (section === 'placement') {
+      /* Ursprung und Drehung des Rahmens setzt Fusion beim Erzeugen selbst -
+         die Abwicklung muss auf der Tangentialebene liegen, nicht irgendwo.
+         Die Musterdrehung entfällt zusätzlich, weil ein gedrehtes Gitter sich
+         nach einem Umlauf nicht mehr fortsetzt. */
+      if (key === 'patternAngle') { return !!(dev && dev.periodic); }
+      return !!dev;
+    }
+    if (section === 'style' && (key === 'embossOn' || key === 'embossDepth')) {
+      return !dev;
+    }
+    return false;
+  }
+
   function applyVisibility(host, section) {
     var data = sectionData(section);
     Array.prototype.forEach.call(host.querySelectorAll('.field'), function (f) {
-      if (!f.dataset.visibleIf) { return; }
+      if (hiddenByDevelopment(section, f.dataset.key)) { f.hidden = true; return; }
+      if (!f.dataset.visibleIf) { f.hidden = false; return; }
       var cond = JSON.parse(f.dataset.visibleIf);
       var show = Object.keys(cond).every(function (k) {
         /* Solange nur das Dropdown auf "Eigener Rahmen" steht, sollen die
@@ -525,6 +589,7 @@
 
   function applyVisibilityAll() {
     updateCustomFrameBox();
+    updateSurfaceBox();
     applyVisibility(el.patternFields, 'pattern');
     applyVisibility(el.containerFields, 'container');
     applyVisibility(el.placementFields, 'placement');
@@ -760,6 +825,12 @@
     el.customFrameInfo = document.getElementById('customFrameInfo');
     el.pickFrameBtn = document.getElementById('pickFrameBtn');
     el.rereadFrameBtn = document.getElementById('rereadFrameBtn');
+    el.surfaceBox = document.getElementById('surfaceBox');
+    el.surfaceInfo = document.getElementById('surfaceInfo');
+    el.seamAngle = document.getElementById('seamAngle');
+    el.seamAngleNum = document.getElementById('seamAngleNum');
+    el.pickSurfaceBtn = document.getElementById('pickSurfaceBtn');
+    el.dropSurfaceBtn = document.getElementById('dropSurfaceBtn');
 
     preview = new Preview(document.getElementById('preview'));
     preview.onTextMove = function (dx, dy) {
@@ -789,6 +860,10 @@
     });
     el.diceBtn.addEventListener('click', rollSeed);
     el.pickFrameBtn.addEventListener('click', function () { requestFrame('pickFrame'); });
+    el.pickSurfaceBtn.addEventListener('click', function () { requestFrame('pickFrame'); });
+    el.dropSurfaceBtn.addEventListener('click', dropSurface);
+    el.seamAngle.addEventListener('input', function () { setSeamAngle(el.seamAngle.value); });
+    el.seamAngleNum.addEventListener('input', function () { setSeamAngle(el.seamAngleNum.value); });
     el.rereadFrameBtn.addEventListener('click', function () { requestFrame('rereadFrame'); });
     el.fitBtn.addEventListener('click', function () { preview.fit(); });
     el.undoBtn.addEventListener('click', function () { applyHistory(historyIndex - 1); });
