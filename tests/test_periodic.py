@@ -359,3 +359,43 @@ def test_without_a_period_organic_cells_stay_inside_the_window():
              if isinstance(el, ir.Path) and el.role == ir.ROLE_REGION]
     assert min(min(p[0] for p in c) for c in holes) >= -1e-9
     assert max(max(p[0] for p in c) for c in holes) <= PERIOD + 1e-9
+
+
+# --------------------------------------------------------- Prägen-Hinweise
+
+def test_embossing_without_the_face_model_warns_in_the_preview():
+    """Der Hinweis muss kommen, bevor die Skizze entsteht - nicht danach."""
+    from core import build, pattern_doc
+    doc = pattern_doc.default_doc()
+    doc["style"].update({"embossOn": True, "mode": "lines"})
+    doc["development"] = {"kind": "cylinder", "radius": 2.5, "halfAngle": 0.0,
+                          "length": 6.0, "periodic": True, "seamAngle": 0.0,
+                          "outline": [], "axisMiddle": 0.0,
+                          "source": {"label": "Z", "token": ""}}
+    doc, errors = pattern_doc.parse(doc)
+    assert not errors
+    scene = build.build_scene(doc)
+    assert build.EMBOSS_MODEL_WARNING in scene.warnings
+
+
+def test_the_face_model_says_nothing():
+    from core import build, pattern_doc
+    doc = pattern_doc.default_doc()
+    doc["style"]["embossOn"] = True
+    doc["development"] = {"kind": "cylinder", "radius": 2.5, "halfAngle": 0.0,
+                          "length": 6.0, "periodic": True, "seamAngle": 0.0,
+                          "outline": [], "axisMiddle": 0.0,
+                          "source": {"label": "Z", "token": ""}}
+    doc, _ = pattern_doc.parse(doc)
+    scene = build.build_scene(doc)
+    assert build.EMBOSS_MODEL_WARNING not in scene.warnings
+    assert build.emboss_seconds(scene) > 0.0
+
+
+def test_a_plane_pattern_is_never_told_about_embossing():
+    """Ohne Mantelfläche gibt es die Prägung gar nicht."""
+    from core import build, pattern_doc
+    doc, _ = pattern_doc.parse(pattern_doc.default_doc())
+    scene = build.build_scene(doc)
+    assert build.EMBOSS_MODEL_WARNING not in scene.warnings
+    assert build.emboss_seconds(scene) >= 0.0

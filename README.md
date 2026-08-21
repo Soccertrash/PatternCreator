@@ -659,6 +659,10 @@ Für Mantelflächen zusätzlich:
 | Kegelstumpf | Mantelfläche eines Kegelstumpfs ⌀ 50/30 × 60 mm wählen, Wabe | Muster folgt der Verjüngung, Zellen zum schmalen Ende hin schmaler, Naht nicht erkennbar |
 | Kegel, andersherum | denselben Kegel umgedreht aufbauen | Muster steht **nicht** kopf – gleiche Ausrichtung wie zuvor |
 | Kegel prägen | Tiefe 1 mm | zwei Prägungen, ein Körper; Warnung zur Stegbreite am schmalen Ende |
+| Zweimal erzeugen | ohne die Palette zu schließen zweimal *In Skizze erzeugen* | Skizze wird wirklich neu aufgebaut, **keine** zweite Tangentialebene in der Zeitleiste |
+| Körper nachträglich geändert | Kegel- oder Zylindermaße ändern → *Muster bearbeiten* → erzeugen | Meldung „Die gewählte Fläche hat sich geändert"; *Fläche aus Auswahl übernehmen* zieht nach |
+| Kegel bis in die Spitze | spitzen Kegel (ohne Abschnitt) wählen | Klartext, dass ein Kegelstumpf gebraucht wird |
+| Prägen ohne Flächenmodell | Modus *Linien*, *Auf die Fläche prägen* an | Hinweis in der Vorschau, **bevor** erzeugt wird |
 | Kugelfläche | Kugel wählen | lässt sich gar nicht anwählen (Auswahlfilter) |
 | Fusion ohne Emboss-API | ältere Version | Skizze entsteht, Klartext-Hinweis statt Prägung |
 

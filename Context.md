@@ -461,12 +461,22 @@ hier das, was am Bauteil zu prüfen ist:
 - **Schräg geschnittener Zylinder**: das Muster bleibt vollständig auf der
   Fläche.
 - **Prägen** ergibt **einen** Körper-Zuwachs (zwei Timeline-Einträge) und
-  überlebt ein Re-Edit mit geänderter Zellgröße.
+  überlebt ein Re-Edit mit geänderter Zellgröße. ✔ 2026-08-21
+- **Kegelstumpf**, beide Lagen (schmales Ende oben *und* unten): die
+  Flächenzeile nennt die gebauten Enddurchmesser, das Muster läuft rundum, die
+  Zellen sind am schmalen Ende die kleineren. ✔ 2026-08-21
+- **Zweimal hintereinander erzeugen** aus derselben offenen Palette: die Skizze
+  wird wirklich neu aufgebaut, in der Zeitleiste steht **keine** zweite
+  Tangentialebene. ✔ 2026-08-21
 - **Kugelfläche**: lässt sich gar nicht erst anwählen (der Auswahlfilter
   kennt nur Ebenen, planare Flächen, Profile, Zylinder und Kegel) – besser
-  als eine Meldung, die man wegklicken muss. Bestätigt am 2026-08-21.
+  als eine Meldung, die man wegklicken muss. ✔ 2026-08-21
+- **Kegel bis in die Spitze**: Klartext, dass ein Kegelstumpf gebraucht wird.
+- **Kegel-Teilfläche** (halbierter Kegelstumpf): Rahmenband rundum.
+- **Körper nachträglich geändert**: Meldung „Die gewählte Fläche hat sich
+  geändert" mit dem Hinweis auf *Fläche aus Auswahl übernehmen*.
 - Fusion **ohne** Emboss-API: die Skizze entsteht, statt der Prägung kommt ein
-  Klartext-Hinweis.
+  Klartext-Hinweis. (Nur auf einer alten Version prüfbar.)
 
 ---
 
@@ -1560,3 +1570,30 @@ mehr auffindbar" – während sie sichtbar im Modell steht und nur andere Maße 
 Jetzt wird unterschieden: löst der Token noch auf, lautet die Meldung, dass sich
 die Fläche geändert hat und im Editor neu eingelesen werden muss. Das ist die
 Snapshot-Regel aus Abschnitt 15.9, nur endlich mit dem richtigen Wegweiser.
+
+### 15.22 Was vom Plan bewusst offen bleibt
+
+Mit dem Kegel ist `PLAN-RAHMEN-3D.md` abgearbeitet – bis auf drei Punkte, die
+anders gelöst oder bewusst gestrichen sind. Die ersten beiden stehen schon in
+15.17, hier die restlichen:
+
+**Ein Dialog statt zwei.** Der Plan sah vor der Prägung eine eigene Ja/Nein-
+Rückfrage vor, sobald die Lochzahl eine Schwelle überschreitet. Zwei Dialoge
+hintereinander sind eine Zumutung, und Lochzahl und Elementzahl wachsen ohnehin
+miteinander. Stattdessen nennt die vorhandene Warnung jetzt auch die geschätzte
+**Prägedauer** – 6,5 ms je Loch, aus den Messwerten des Spikes (15.6, Punkt 5).
+
+**Der Hinweis „Prägen braucht das Flächenmodell" steht in der Vorschau**, nicht
+als ausgegraute Checkbox. Der Plan wollte die Checkbox deaktivieren, sobald
+Modus, Füllung oder Rahmen nicht passen. Das wäre eine Sonderregel im generisch
+aus dem Schema gebauten Formular; eine Warnung aus `build_scene` erreicht
+dasselbe – sie erscheint live in der Vorschau, **bevor** die Skizze entsteht,
+und sie sagt zusätzlich, was umzustellen ist.
+
+**Die gestrichelte Nahtlinie in der Vorschau entfällt.** Der Plan wollte beide
+Nahtkanten markieren. Sie *sind* der Rand der Abwicklung, und weil sie im
+Zickzack an den Zellwänden entlanglaufen, sind sie als einzige Kanten des Umrisses
+gezackt – unverwechselbar. Eine zusätzliche Linie hätte nur den Preis: Meta-Daten
+von `build_scene` bis in die Vorschau durchreichen, für Information, die schon da
+ist. Im Galeriebild sind die Nahtkanten rot markiert; dort erklärt es sich einmal
+und für immer.

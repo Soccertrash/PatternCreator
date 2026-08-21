@@ -435,9 +435,16 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
     scene = build.build_scene(doc)
     estimate = build.entity_estimate(scene)
     if estimate > build.ENTITY_WARN_LIMIT and not SESSION.force:
+        extra = ""
+        if doc.get("development") and doc["style"].get("embossOn"):
+            # Die Praegung kommt oben drauf - gemessen etwa 6,5 ms je Loch
+            # (Context.md 15.6, Punkt 5).
+            extra = ("\nDie Prägung braucht danach noch einmal etwa %d s."
+                     % max(1, round(build.emboss_seconds(scene))))
         answer = ui.messageBox(
             "Das Muster erzeugt etwa %d Skizzen-Elemente.\n"
-            "Das kann in Fusion sehr lange dauern.\n\nTrotzdem erzeugen?" % estimate,
+            "Das kann in Fusion sehr lange dauern.%s\n\nTrotzdem erzeugen?"
+            % (estimate, extra),
             "PatternCreator",
             adsk.core.MessageBoxButtonTypes.YesNoButtonType,
             adsk.core.MessageBoxIconTypes.WarningIconType)

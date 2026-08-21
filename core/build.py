@@ -58,6 +58,15 @@ SPLIT_WARNING = ("Keine Trennlinie für die Prägung gefunden – das Muster lä
 CLIP_WARNING = ("Auf einer Mantelfläche wird immer am Rand beschnitten – sonst "
                 "läge das Muster nach dem Wickeln auf sich selbst.")
 
+#: Ohne Flaechenmodell gibt es kein Profil - und ohne Profil keine Praegung.
+EMBOSS_MODEL_WARNING = (
+    "„Auf die Fläche prägen“ braucht das Flächenmodell: Modus „Flächen“, "
+    "Füllung „Stege“ und „Rahmen zeichnen“ an. So entsteht nur eine Skizze.")
+
+#: Dauer einer Praegung je Loch (s). Gemessen im Spike (``Context.md`` 15.6,
+#: Punkt 5): 100 Loecher 0,4 s, 300 Loecher 1,8 s, 600 Loecher 3,9 s.
+EMBOSS_SECONDS_PER_HOLE = 0.0065
+
 #: Ab welcher Stauchung am schmalen Kegelende gewarnt wird.
 CONE_TAPER_LIMIT = 0.9
 
@@ -150,6 +159,10 @@ def build_scene(doc: dict, container: Optional[Container] = None) -> ir.Scene:
     # dann enden die Stege offen am Rand (fuer Gravuren gewollt).
     as_face = (mode == "area" and fill_target == "webs" and border_on
                and bool(getattr(gen, "tiling", False)) and clip_mode != "off")
+    if development and bool(style.get("embossOn")) and not as_face:
+        # Der Hinweis gehoert in die Vorschau, nicht in eine Fehlermeldung nach
+        # dem Erzeugen: dort steht er, bevor die Skizze entsteht.
+        warnings.append(EMBOSS_MODEL_WARNING)
 
     # Der Rand wird nach innen gemessen: das Muster endet ``border_width`` vor der
     # Aussenkante, ein halber Steg davon entsteht ohnehin durch das Verkleinern.
@@ -260,6 +273,18 @@ def _context(doc: dict, bbox: Tuple[float, float, float, float], period: float):
         mode=str(style.get("mode", "area")),
         period_x=period,
     )
+
+
+def emboss_seconds(scene: ir.Scene) -> float:
+    """Grobe Schaetzung, wie lange Fusion fuer die Praegung braucht.
+
+    Gemessen wurde im Spike die Dauer je Lochzahl; dazwischen wird linear
+    interpoliert. Die Zahl steht in der Warnung vor dem Erzeugen - wer 3000
+    Loecher praegt, soll vorher wissen, dass er eine halbe Minute wartet.
+    """
+    holes = sum(1 for el in scene.elements
+                if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE)
+    return holes * EMBOSS_SECONDS_PER_HOLE
 
 
 def _cone_narrowing(dev) -> float:
