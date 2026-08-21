@@ -249,11 +249,36 @@ def test_a_slanted_cut_only_keeps_what_lies_on_the_face():
 def test_describe_speaks_millimetres():
     assert dev.describe(
         {"kind": "cylinder", "radius": 2.5, "length": 6.0, "periodic": True}
-    ) == "Zylinder r = 25 mm, L = 60 mm, rundum (nahtlos)"
+    ) == "Zylinder ⌀ 50 mm, L = 60 mm, rundum (nahtlos)"
     assert dev.describe(
         {"kind": "cylinder", "radius": 1.25, "length": 3.0, "periodic": False}
-    ) == "Zylinder r = 12.5 mm, L = 30 mm, Teilfläche"
+    ) == "Zylinder ⌀ 25 mm, L = 30 mm, Teilfläche"
     assert dev.describe(None) == ""
+
+
+def test_describe_names_both_ends_of_a_cone():
+    """Am Bauteil nachmessbar - der Radius in der Mitte ist es nicht.
+
+    Genau daran wäre ein falsch gelesener Kegel sofort aufgefallen
+    (``Context.md`` 15.20).
+    """
+    alpha = math.atan2(1.0, 6.0)
+    text = dev.describe({"kind": "cone", "radius": 2.0, "halfAngle": -alpha,
+                         "length": 6.0 / math.cos(alpha), "periodic": True})
+    assert text.startswith("Kegel ⌀ 50 → 30 mm")
+    flipped = dev.describe({"kind": "cone", "radius": 2.0, "halfAngle": alpha,
+                            "length": 6.0 / math.cos(alpha), "periodic": True})
+    assert flipped.startswith("Kegel ⌀ 30 → 50 mm")
+
+
+def test_the_end_radii_bracket_the_touch_line():
+    alpha = 0.2
+    cone = dev.cone(radius=2.5, length=6.0, half_angle=-alpha)
+    low, high = cone.end_radii()
+    assert low > high                      # verjüngt sich in Achsrichtung
+    assert (low + high) / 2.0 == pytest.approx(cone.radius)
+    assert low - high == pytest.approx(cone.length * math.sin(alpha))
+    assert dev.cylinder(2.5, 6.0).end_radii() == (2.5, 2.5)
 
 
 # ------------------------------------------------ Radius entlang der Achse

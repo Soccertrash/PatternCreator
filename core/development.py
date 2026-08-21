@@ -117,6 +117,17 @@ class Development:
             return 0.0
         return -1.0 if self.half_angle > 0.0 else 1.0
 
+    def end_radii(self) -> Tuple[float, float]:
+        """Die beiden Radien an den Raendern der Flaeche - in Achsrichtung.
+
+        Zuerst der bei kleinerem ``s``, dann der bei groesserem. Ueber die
+        Mantellinie ``length`` aendert sich der Radius um ``length*sin(alpha)``.
+        """
+        if not self.is_cone():
+            return (self.radius, self.radius)
+        step = self.length / 2.0 * math.sin(self.half_angle)
+        return (self.radius - step, self.radius + step)
+
     def sector_angle(self) -> float:
         """Winkel, den die volle Abwicklung als Kreisringsektor ueberstreicht."""
         if not self.is_cone():
@@ -325,9 +336,16 @@ def describe(development: Optional[dict]) -> str:
     dev = development_from_doc(development)
     if dev is None:
         return ""
-    kind = "Zylinder" if dev.kind == KIND_CYLINDER else "Kegel"
-    text = "%s r = %s mm, L = %s mm" % (kind, _mm(dev.radius), _mm(dev.length))
-    if dev.kind == KIND_CONE:
+    if dev.kind == KIND_CYLINDER:
+        text = "Zylinder ⌀ %s mm, L = %s mm" % (_mm(2.0 * dev.radius),
+                                                _mm(dev.length))
+    else:
+        # Die beiden Enddurchmesser statt des Radius in der Mitte: die kann man
+        # am Bauteil nachmessen, den Mittelwert nicht. Genau daran waere ein
+        # falsch gelesener Kegel sofort aufgefallen (Context.md 15.20).
+        low, high = dev.end_radii()
+        text = "Kegel ⌀ %s → %s mm, L = %s mm" % (_mm(2.0 * low), _mm(2.0 * high),
+                                                  _mm(dev.length))
         text += ", Öffnung %s°" % _round(math.degrees(abs(dev.half_angle)) * 2.0)
         # Der Sektorwinkel sagt mehr ueber die Abwicklung als der Oeffnungs-
         # winkel: er ist die Form, die auf der Skizze liegt.

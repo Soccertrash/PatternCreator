@@ -1483,3 +1483,44 @@ nicht erkennen: `material_profiles` liefert immer zwei Profile, notfalls eben
 das Stegnetz und das größte *Loch*. Jetzt wird verglichen – ist das zweite
 Profil kleiner als ein Viertel des ersten, war es kein zweiter Hälfte, sondern
 ein Loch, und es gibt Klartext statt Fusions Meldung über Prägetiefen.
+
+### 15.20 Der Radius wanderte mit der Lage des Kegels
+
+Derselbe Kegel, einmal so und einmal umgedreht aufgebaut, wurde als `r = 25 mm`
+und als `r = 30 mm` gelesen. Beides kann nicht stimmen, und der Unterschied ist
+genau `axisMiddle · tan α`.
+
+**Die Ursache:** der Radius wurde aus dem Radius der *Flächengeometrie*
+hochgerechnet – `Cone.getData()` liefert ihn an einem `origin`, und wo Fusion
+diesen Ursprung hinlegt, hängt davon ab, wie der Körper entstanden ist. Bei
+einer Extrusion mit Verjüngung liegt er woanders als bei einer Rotation, und
+beim gespiegelten Aufbau wieder woanders.
+
+**Die Lösung:** messen statt hochrechnen. Aus den Randpunkten, die ohnehin
+abgetastet werden, ergeben sich Mittelwert der Radien und Mittelwert der
+Achslagen; mit der exakten Steigung `tan α` verschoben auf die Mitte der Fläche:
+
+```
+radius = mittel_r + tan α · (mitte − mittel_s)
+```
+
+Das ist **exakt**, nicht genähert: weil der Radius eines Kegels linear in der
+Achslage ist, gilt `mittel_r = r(mittel_s)` für jede Gewichtung – auch wenn der
+große Randkreis mehr Abtastpunkte liefert als der kleine. Die Schiefe der
+Abtastung hebt sich heraus.
+
+**Warum es so lange unentdeckt blieb:** ein falscher Radius ist am
+abgewickelten Muster nicht zu sehen. Er wirkt erst beim Prägen, weil der
+Apex-Abstand `ρ = radius / sin α` davon abhängt – der Sektor wird dann um den
+falschen Punkt gebogen, und Fusion bildet ihn auf einen Keil statt auf den
+vollen Umlauf ab („Emboss result falls outside boundary of selected faces").
+
+**Zwei Konsequenzen daraus:**
+
+* Die Flächenzeile nennt jetzt die beiden **Enddurchmesser** statt des Radius in
+  der Mitte: „Kegel ⌀ 50 → 30 mm". Die kann man am Bauteil nachmessen, den
+  Mittelwert nicht. Daran wäre der Fehler sofort aufgefallen. Der Zylinder nennt
+  aus demselben Grund jetzt seinen Durchmesser statt seines Radius.
+* Das Protokoll (`fusion/trace.py`) schreibt bei jedem Erzeugen die rohen Zahlen
+  der Fläche mit. Geht etwas schief, lässt sich nachrechnen, statt den Benutzer
+  nach Maßen zu fragen.

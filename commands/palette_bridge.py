@@ -427,6 +427,11 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
 
     trace.begin("Muster erzeugen (%s, %s)"
                 % (doc["pattern"]["type"], SESSION.mode))
+    if doc.get("development"):
+        # Die rohen Zahlen der Flaeche ins Protokoll: geht beim Praegen etwas
+        # schief, laesst sich hinterher nachrechnen, ob die Flaeche richtig
+        # gelesen wurde - ohne den Benutzer nach Massen fragen zu muessen.
+        trace.step("Fläche: %s" % _numbers(doc["development"]))
     scene = build.build_scene(doc)
     estimate = build.entity_estimate(scene)
     if estimate > build.ENTITY_WARN_LIMIT and not SESSION.force:
@@ -564,6 +569,13 @@ def _fold_timeline(design, sketch, development: dict) -> None:
         group.isCollapsed = True
     except Exception:
         pass
+
+
+def _numbers(development: dict) -> str:
+    """Die Masse der Mantelflaeche in einer Zeile - fuer das Protokoll."""
+    keys = ("kind", "radius", "faceRadius", "halfAngle", "length", "axisMiddle",
+            "periodic", "seamAngle")
+    return ", ".join("%s=%s" % (key, development.get(key)) for key in keys)
 
 
 def _unfold_timeline(design, sketch) -> None:

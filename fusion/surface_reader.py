@@ -136,10 +136,17 @@ def read_surface(entity: Any) -> SurfaceSnapshot:
     middle = (low + high) / 2.0
     length = high - low
     if kind == KIND_CONE:
-        # Der Radius der Flaechengeometrie gilt an ``origin``; gebraucht wird er
-        # auf der Beruehrlinie, also in der Mitte der Flaeche - dort hat die
-        # Abwicklung ihren Nullpunkt.
-        radius = radius + middle * math.tan(half_angle)
+        # Der Radius auf der Beruehrlinie wird **gemessen**, nicht aus dem
+        # Radius der Flaechengeometrie hochgerechnet. Wo Fusion den Ursprung
+        # einer Kegelgeometrie hinlegt, ist nicht festgelegt - je nachdem, wie
+        # der Koerper entstanden ist, kam derselbe Kegel einmal mit r = 25 mm
+        # und einmal mit r = 30 mm heraus (Context.md 15.20). Gemessen wird er
+        # aus dem Mittel der Randpunkte, verschoben mit der exakten Steigung auf
+        # die Mitte der Flaeche: das Mittel glaettet das Abtastrauschen, die
+        # Steigung gleicht ungleich verteilte Punkte aus.
+        mean_s = sum(v for v, _ in samples) / len(samples)
+        mean_r = sum(r for _, r in samples) / len(samples)
+        radius = mean_r + math.tan(half_angle) * (middle - mean_s)
         if radius <= 1e-9:
             raise SurfaceError("Die Fläche läuft in die Spitze des Kegels - "
                                "bitte einen Kegelstumpf wählen.")
