@@ -1185,3 +1185,48 @@ dem Prägen stehen dort tausende Flächen, und ein gleich großer Zylinder woand
 im Dokument wäre ein Fehlgriff), und das Ausrichten der Skizze hat einen zweiten
 Weg über `Sketch.transform`, falls `modelToSketchSpace` wieder etwas Entartetes
 liefert.
+
+### 15.12 Zweiter Lauf: der Freeze war `Sketch.redefine`
+
+Nach 15.11 fror Fusion beim Ändern des Nahtwinkels **wieder** ein. Die
+Umsortierung aus 15.11 (erst die Prägungen weg) war also richtig, aber nicht
+die Ursache. Die Ursache ist `Sketch.redefine`, und dahinter steckt ein zweiter
+Fehler, der sie erst gefährlich gemacht hat.
+
+**Der Vergleich, der nie zutraf.** Ob die vorhandene Tangentialebene noch passt,
+wurde am *Ursprung* der Ebene geprüft. Fusion legt den aber irgendwo auf die
+Ebene, nicht auf den Berührpunkt: Spike 2.0 misst zum Berührpunkt (25|0|30) mm
+einen Ebenenursprung von (-25|0|60) mm. Der Vergleich schlug damit **immer**
+fehl – jedes Bearbeiten legte eine neue Ebene an und definierte die Skizze um,
+auch wenn sich am Nahtwinkel gar nichts geändert hatte. Richtig ist der
+**Abstand des Berührpunkts zur Ebene**: ein Punkt der Mantelfläche liegt genau
+dann auf der Tangentialebene, wenn er ihr Berührpunkt ist – sie berührt die
+Fläche ja nur entlang dieser einen Mantellinie. Damit ist der Normalfall
+(Nahtwinkel unverändert) jetzt ein No-op.
+
+**`redefine` selbst.** Auch wo die Ebene wirklich wandert, wird die Skizze nicht
+mehr umdefiniert. Fusion muss sie dabei in der Zeitleiste hinter die neue Ebene
+hängen und rechnet das ganze Muster durch; danach war sie beschädigt (siehe
+15.11). Stattdessen wird die **geleerte** Skizze durch eine neue auf der neuen
+Ebene ersetzt (`palette_bridge._replant`). Das ist derselbe Zustand über einen
+Weg, der im Erzeugen längst bewiesen ist. Ein Architektur-Test hält
+`.redefine(` aus `fusion/` und `commands/` heraus.
+
+**Reihenfolge, endgültig.** Erst die Zeitleisten-Gruppe auflösen, dann die
+Prägungen löschen, dann die Skizze leeren, **dann** die Ebene anfassen. Der
+letzte Schritt war vorher der vorletzte – ein Ebenenwechsel an einer Skizze mit
+tausend Kurven rechnet jede davon neu durch, an einer leeren kostet er nichts.
+
+**Ein Nebenfund.** `material_profiles` rief für **jedes** Profil
+`areaProperties` auf – bei tausend Löchern tausend Flächenberechnungen. Sortiert
+wird jetzt nach dem Hüllrechteck. Das ist nicht nur billiger, sondern auch
+richtiger: bei dünnen Stegen hat ein großes Loch mehr *Fläche* als das ganze
+Stegnetz, während sein *Rechteck* immer im Rechteck des Stegnetzes liegt.
+
+**Und ein Protokoll.** Fusion kennt keinen Abbruch; bleibt ein Aufruf stehen,
+sieht man nur eine tote Anwendung und weiß hinterher nicht, welcher es war.
+`fusion/trace.py` schreibt deshalb vor jedem heiklen Schritt eine Zeile
+ungepuffert nach `~/Desktop/PatternCreator-Log.txt`. Die letzte Zeile ist im
+Freeze-Fall der Schuldige, die Abstände dazwischen sind die Dauern. Das ist
+Diagnosewerkzeug, kein Feature – es darf nie etwas kaputt machen und verschluckt
+jeden eigenen Fehler.

@@ -127,6 +127,32 @@ def test_clearing_a_sketch_also_defers_compute():
                for n in ast.walk(fn))
 
 
+def test_no_sketch_is_ever_redefined():
+    """``Sketch.redefine`` hat Fusion zweimal einfrieren lassen.
+
+    Statt die Skizze auf eine neue Ebene umzudefinieren, wird sie neu angelegt -
+    siehe ``commands/palette_bridge._replant``.
+    """
+    for folder, name in (("fusion", "surface_target.py"),
+                         ("commands", "palette_bridge.py")):
+        source = read(os.path.join(ROOT, folder, name))
+        assert ".redefine(" not in source, "%s/%s" % (folder, name)
+
+
+def test_the_sketch_is_emptied_before_the_tangent_plane_is_touched():
+    """Ein Ebenenwechsel an einer vollen Skizze rechnet jede Kurve neu durch."""
+    source = read(os.path.join(ROOT, "commands", "palette_bridge.py"))
+    tree = ast.parse(source)
+    fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+              and n.name == "perform_commit")
+    lines = {}
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Attribute) and node.attr in (
+                "clear_pattern_geometry", "ensure_tangent_plane"):
+            lines.setdefault(node.attr, node.lineno)
+    assert lines["clear_pattern_geometry"] < lines["ensure_tangent_plane"]
+
+
 def test_readme_documents_both_platforms_and_limits():
     readme = read(os.path.join(ROOT, "README.md"))
     for needle in ("macOS", "Windows", "AddIns", "500", "pytest"):

@@ -24,7 +24,7 @@ import adsk.fusion
 
 from core import build, pattern_doc
 from fusion import (frame_reader, renderer, storage, surface_reader,
-                    surface_target)
+                    surface_target, trace)
 
 PALETTE_ID = "PatternCreatorEditorPalette"
 COMMIT_CMD_ID = "PatternCreatorCommitCmd"
@@ -425,6 +425,8 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
     if design is None:
         raise _Abort("Kein Konstruktionsdokument aktiv.")
 
+    trace.begin("Muster erzeugen (%s, %s)"
+                % (doc["pattern"]["type"], SESSION.mode))
     scene = build.build_scene(doc)
     estimate = build.entity_estimate(scene)
     if estimate > build.ENTITY_WARN_LIMIT and not SESSION.force:
@@ -451,20 +453,39 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
                 adsk.core.MessageBoxIconTypes.WarningIconType)
             if answer != adsk.core.DialogResults.DialogYes:
                 raise _Abort("Abgebrochen – Skizze wurde nicht verändert.")
+        # Die Gruppe vom letzten Mal zuerst aufloesen: in einer Gruppe laesst
+        # sich schlecht loeschen und umhaengen.
+        _unfold_timeline(design, sketch)
         if development:
             # **Zuerst** die Praegungen weg. Solange sie an der Skizze haengen,
             # rechnet Fusion jede Aenderung an Ebene und Kurven durch beide
             # Features durch - bei tausend Loechern steht die Anwendung dabei
             # minutenlang, und die Skizze kommt beschaedigt daraus hervor
             # (gemessen 2026-08-21, siehe Context.md 15.11).
+            trace.step("Prägungen entfernen")
             surface_target.remove(design, development.get("embossTokens") or ())
             development["embossTokens"] = []
-            surface_target.ensure_tangent_plane(design, comp, development, sketch)
+        trace.step("Skizze leeren")
         renderer.clear_pattern_geometry(sketch)
+        if development:
+            # Die Ebene erst **nach** dem Leeren anfassen: an einer leeren
+            # Skizze kostet der Wechsel nichts, an einer vollen rechnet Fusion
+            # jede Kurve neu durch (Context.md 15.12).
+            trace.step("Tangentialebene prüfen")
+            plane, stale = surface_target.ensure_tangent_plane(
+                design, comp, development)
+            if stale:
+                trace.step("Skizze auf die neue Tangentialebene umziehen")
+                sketch = _replant(comp, sketch, plane)
+                SESSION.sketch = sketch
+                SESSION.plane = plane
+                surface_target.remove(design, stale)
     else:
         plane = SESSION.plane or design.rootComponent.xYConstructionPlane
         if development:
-            plane = surface_target.ensure_tangent_plane(design, comp, development)
+            trace.step("Tangentialebene anlegen")
+            plane, _stale = surface_target.ensure_tangent_plane(
+                design, comp, development)
         # Auf einer Flaeche **ohne** projizierte Kanten skizzieren: Fusion legte
         # sonst die Flaechenkanten in die Skizze - genau auf den Rahmenumriss.
         # Doppelte Kurven zerstoeren die Profile.
@@ -478,6 +499,7 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
         SESSION.mode = "edit"
 
     if development:
+        trace.step("Lage der Abwicklung messen")
         # Erst jetzt steht die Skizze - und damit, wie die Abwicklung auf ihr
         # liegen muss. Die Szene wird deshalb mit der gemessenen Platzierung
         # noch einmal gebaut; an der Elementzahl aendert eine starre
@@ -489,14 +511,19 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
             surface_target.sketch_placement(sketch, development, face))
         scene = build.build_scene(doc)
 
+    trace.step("Muster zeichnen")
     result = renderer.render_scene(sketch, scene)
 
     message = "Muster erzeugt: %d Elemente in „%s“." % (result.entities, sketch.name)
     if development and doc["style"].get("embossOn"):
+        trace.step("prägen")
         message += "\n" + _emboss(design, comp, sketch, doc, development)
+    trace.step("Muster im Dokument sichern")
     storage.save(sketch, doc, sketch.sketchCurves.count + sketch.sketchTexts.count)
     if development:
+        trace.step("Zeitleiste zusammenfalten")
         _fold_timeline(design, sketch, development)
+    trace.end(message.splitlines()[0])
     for warn in result.warnings:
         message += "\n" + warn
     return message
@@ -511,16 +538,8 @@ def _fold_timeline(design, sketch, development: dict) -> None:
     fremde Features ein. Misslingt es, bleibt es bei einzelnen Eintraegen: das
     ist Kosmetik und darf den Commit nicht gefaehrden.
     """
+    _unfold_timeline(design, sketch)
     name = "Muster: %s" % sketch.name
-    try:
-        timeline = design.timeline
-        for index in range(timeline.timelineGroups.count - 1, -1, -1):
-            group = timeline.timelineGroups.item(index)
-            if group.name == name:
-                group.deleteMe(False)          # Gruppe loesen, Inhalt behalten
-    except Exception:
-        pass
-
     entities = [sketch]
     for token in ((development.get("planeToken"), development.get("pointToken"))
                   + tuple(development.get("embossTokens") or ())):
@@ -544,6 +563,48 @@ def _fold_timeline(design, sketch, development: dict) -> None:
         group.isCollapsed = True
     except Exception:
         pass
+
+
+def _unfold_timeline(design, sketch) -> None:
+    """Die Gruppe vom letzten Erzeugen aufloesen, Inhalt behalten.
+
+    Sie wird beim naechsten ``_fold_timeline`` neu gebildet. Solange sie steht,
+    liegen Ebene, Punkt, Skizze und Praegungen in einem zugeklappten Block -
+    darin etwas zu loeschen oder umzuhaengen ist unnoetig heikel.
+    """
+    name = "Muster: %s" % sketch.name
+    try:
+        timeline = design.timeline
+        for index in range(timeline.timelineGroups.count - 1, -1, -1):
+            group = timeline.timelineGroups.item(index)
+            if group.name == name:
+                group.deleteMe(False)          # Gruppe loesen, Inhalt behalten
+    except Exception:
+        pass
+
+
+def _replant(comp, sketch, plane):
+    """Die geleerte Skizze auf eine neue Ebene umziehen - als neue Skizze.
+
+    ``Sketch.redefine`` waere der direkte Weg und war der Grund fuer zwei
+    Freezes: Fusion muss die Skizze in der Zeitleiste hinter die neue Ebene
+    haengen und rechnet dabei das ganze Muster durch; danach lieferte sie
+    entartete Koordinaten - ``modelToSketchSpace`` bildete zwei Zentimeter
+    auseinanderliegende Punkte auf denselben Skizzenpunkt ab, woran das
+    Ausrichten scheiterte (Context.md 15.12).
+
+    Eine neue, leere Skizze auf der neuen Ebene ist derselbe Zustand, nur ohne
+    diesen Weg: gezeichnet wird das Muster ohnehin gleich neu, und alles, was
+    an der alten Skizze hing, schreibt ``storage.save`` wieder an die neue.
+    """
+    name = sketch.name
+    try:
+        sketch.deleteMe()
+    except Exception:
+        pass
+    fresh = comp.sketches.addWithoutEdges(plane)
+    fresh.name = name
+    return fresh
 
 
 def _emboss(design, comp, sketch, doc: Dict[str, Any], development: dict) -> str:

@@ -49,13 +49,19 @@ class TargetError(Exception):
 
 # ------------------------------------------------------- Tangentialebene
 
-def ensure_tangent_plane(design: Any, comp: Any, development: dict,
-                         sketch: Any = None) -> Any:
-    """Tangentialebene zum Nahtwinkel - vorhandene wird wiederverwendet.
+def ensure_tangent_plane(design: Any, comp: Any,
+                         development: dict) -> Tuple[Any, Tuple[str, ...]]:
+    """Tangentialebene zum Nahtwinkel. Liefert ``(Ebene, veraltete Tokens)``.
 
-    Aendert sich der Nahtwinkel im Re-Edit, entsteht eine neue Ebene und die
-    Skizze zieht mit (``Sketch.redefine``). Geht das nicht, ist das ein
-    Klartext-Fehler und kein stiller Versatz.
+    Passt die vorhandene Ebene noch, wird sie weiterverwendet - das ist der
+    Normalfall beim Bearbeiten, und dann ist hier nichts zu tun.
+
+    Ist der Nahtwinkel gewandert, entsteht eine neue Ebene, die alte wird aber
+    **nicht** geloescht: auf ihr liegt noch die Skizze des Musters. Ihre Tokens
+    gehen an den Aufrufer zurueck, der sie wegraeumt, sobald die Skizze
+    umgezogen ist. Die Reihenfolge im Rueckgabewert ist Punkt, dann Ebene -
+    ``remove`` loescht rueckwaerts, also zuerst die Ebene und dann den Punkt,
+    an dem sie haengt.
     """
     face = target_face(design, development)
     if face is None:
@@ -66,21 +72,17 @@ def ensure_tangent_plane(design: Any, comp: Any, development: dict,
 
     existing = _by_token(design, development.get("planeToken"))
     if existing is not None and _touches(existing, wanted):
-        return existing
+        return existing, ()
 
+    stale: Tuple[str, ...] = ()
+    if existing is not None:
+        stale = tuple(token for token in (development.get("pointToken"),
+                                          development.get("planeToken"))
+                      if token)
     plane, point = _tangent_plane(comp, face, wanted)
     development["pointToken"] = _token(point)
-    if existing is not None:
-        if sketch is not None:
-            try:
-                sketch.redefine(plane)
-            except Exception:
-                raise TargetError("Der Nahtwinkel lässt sich an dieser Skizze "
-                                  "nicht mehr ändern. Bitte das Muster neu "
-                                  "erzeugen.")
-        _delete(existing)
     development["planeToken"] = _token(plane)
-    return plane
+    return plane, stale
 
 
 def _tangent_plane(comp: Any, face: Any, where: Vector) -> Tuple[Any, Any]:
@@ -117,12 +119,27 @@ def _point_entity(comp: Any, where: Vector) -> Any:
 
 
 def _touches(plane: Any, where: Vector, tol: float = 1e-6) -> bool:
+    """Beruehrt diese Ebene die Flaeche genau an diesem Punkt?
+
+    Verglichen wird **nicht** der Ursprung der Ebene: den legt Fusion irgendwo
+    auf die Ebene, nicht auf den Beruehrpunkt (gemessen: Beruehrpunkt
+    (25|0|30) mm, Ebenenursprung (-25|0|60) mm - Spike 2.0, Abschnitt 2).
+    Der Ursprungsvergleich schlug deshalb **immer** fehl, und jedes Bearbeiten
+    legte eine neue Ebene an, obwohl sich am Nahtwinkel nichts geaendert hatte.
+
+    Richtig ist der Abstand des Punktes zur Ebene: ein Punkt der Mantelflaeche
+    liegt genau dann auf der Tangentialebene, wenn er ihr Beruehrpunkt ist -
+    die Ebene beruehrt die Flaeche ja nur entlang dieser einen Mantellinie.
+    """
     try:
-        origin = plane.geometry.origin
+        geometry = plane.geometry
+        origin = geometry.origin
+        normal = geometry.normal
     except Exception:
         return False
-    return (abs(origin.x - where[0]) < tol and abs(origin.y - where[1]) < tol
-            and abs(origin.z - where[2]) < tol)
+    offset = (where[0] - origin.x, where[1] - origin.y, where[2] - origin.z)
+    return abs(offset[0] * normal.x + offset[1] * normal.y
+               + offset[2] * normal.z) < tol
 
 
 # ----------------------------------------------------------- Lage im Doc
@@ -325,20 +342,29 @@ def emboss(design: Any, comp: Any, sketch: Any, development: dict,
 def material_profiles(sketch: Any, wanted: int) -> List[Any]:
     """Die Profile, die das Stegnetz sind - nicht die Loecher darin.
 
-    Ein Loch ist ebenfalls ein Profil, aber ein kleines: sortiert wird nach
-    Flaeche, und die groessten sind die beiden Haelften des Stegnetzes.
+    Sortiert wird nach der Groesse des Huellrechtecks. ``areaProperties`` waere
+    naeher an der Anschauung, kostet aber je Aufruf eine eigene
+    Flaechenberechnung - bei tausend Loechern summiert sich das. Und es waere
+    sogar falscher: bei duennen Stegen hat ein grosses Loch mehr **Flaeche** als
+    das ganze Stegnetz. Das Huellrechteck kennt diese Falle nicht, denn jedes
+    Loch liegt im Stegnetz und sein Rechteck damit in dessen Rechteck.
     """
     scored = []
     for i in range(sketch.profiles.count):
         profile = sketch.profiles.item(i)
-        try:
-            area = profile.areaProperties(
-                adsk.fusion.CalculationAccuracy.LowCalculationAccuracy).area
-        except Exception:
-            area = 0.0
-        scored.append((area, i, profile))
-    scored.sort(key=lambda item: -item[0])
+        scored.append((_extent(profile), i, profile))
+    scored.sort(key=lambda item: (-item[0], item[1]))
     return [item[2] for item in scored[:max(1, wanted)]]
+
+
+def _extent(profile: Any) -> float:
+    """Flaeche des Huellrechtecks eines Profils (0.0, wenn unbekannt)."""
+    try:
+        box = profile.boundingBox
+        return ((box.maxPoint.x - box.minPoint.x)
+                * (box.maxPoint.y - box.minPoint.y))
+    except Exception:
+        return 0.0
 
 
 def target_face(design: Any, development: dict,
@@ -400,7 +426,11 @@ def _bodies(design: Any):
 
 
 def remove(design: Any, tokens: Sequence[str]) -> None:
-    """Praegungen loeschen - in umgekehrter Reihenfolge, wie in der Timeline."""
+    """Features zu diesen Tokens loeschen - rueckwaerts, wie in der Timeline.
+
+    Rueckwaerts, weil das spaetere Feature auf dem frueheren aufbaut: erst die
+    Praegung, dann ihre Skizze; erst die Ebene, dann ihr Beruehrpunkt.
+    """
     for token in reversed(list(tokens or ())):
         feature = _by_token(design, token)
         _delete(feature)
