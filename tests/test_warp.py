@@ -15,43 +15,45 @@ from core.optimize import TOL
 
 
 ALPHA = 0.2
-DEV = cone(radius=2.5, length=6.0, half_angle=ALPHA)
+DEV = cone(radius=2.5, length=6.0, half_angle=ALPHA)     # weitet sich, Apex hinten
 RHO = DEV.apex_distance()
-APEX = (0.0, -RHO)
+SIDE = DEV.apex_side()
+APEX = (0.0, SIDE * RHO)
 
 
 def _dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-def _angle_at_apex(p):
+def _angle_at_apex(p, side=None):
     """Winkel gegen die Beruehrlinie, vom Apex aus gesehen."""
-    return math.atan2(p[0], p[1] - APEX[1])
+    side = SIDE if side is None else side
+    return math.atan2(p[0], -side * (p[1] - side * RHO))
 
 
 # ------------------------------------------------------------- die Abbildung
 
 def test_the_apex_is_the_fixed_point():
-    assert warp.point(0.0, -RHO, RHO) == pytest.approx(APEX, abs=1e-12)
+    assert warp.point(0.0, SIDE * RHO, RHO, SIDE) == pytest.approx(APEX, abs=1e-12)
 
 
 def test_the_touch_line_stays_straight():
     for y in (-3.0, -1.0, 0.0, 2.5):
-        assert warp.point(0.0, y, RHO) == pytest.approx((0.0, y), abs=1e-12)
+        assert warp.point(0.0, y, RHO, SIDE) == pytest.approx((0.0, y), abs=1e-12)
 
 
 def test_the_distance_to_the_apex_is_kept():
     """Das ist die Sektor-Abwicklung: radial laengentreu."""
     for x in (-7.0, -2.0, 0.0, 3.0, 7.85):
         for y in (-3.0, 0.0, 3.0):
-            assert _dist(warp.point(x, y, RHO), APEX) == pytest.approx(RHO + y,
+            assert _dist(warp.point(x, y, RHO, SIDE), APEX) == pytest.approx(RHO + y,
                                                                       abs=1e-12)
 
 
 def test_a_full_turn_covers_the_sector_angle():
     period = DEV.period()
-    left = _angle_at_apex(warp.point(-period / 2.0, 0.0, RHO))
-    right = _angle_at_apex(warp.point(period / 2.0, 0.0, RHO))
+    left = _angle_at_apex(warp.point(-period / 2.0, 0.0, RHO, SIDE))
+    right = _angle_at_apex(warp.point(period / 2.0, 0.0, RHO, SIDE))
     assert right - left == pytest.approx(DEV.sector_angle(), abs=1e-12)
     assert DEV.sector_angle() == pytest.approx(2.0 * math.pi * math.sin(ALPHA))
 
@@ -60,8 +62,8 @@ def test_both_seam_edges_become_the_same_radial_line():
     """Nach dem Wickeln liegen sie aufeinander - im Sektor um Omega versetzt."""
     period = DEV.period()
     for y in (-3.0, 0.0, 3.0):
-        left = warp.point(-period / 2.0, y, RHO)
-        right = warp.point(period / 2.0, y, RHO)
+        left = warp.point(-period / 2.0, y, RHO, SIDE)
+        right = warp.point(period / 2.0, y, RHO, SIDE)
         assert _dist(left, APEX) == pytest.approx(_dist(right, APEX))
         assert _angle_at_apex(right) - _angle_at_apex(left) == pytest.approx(
             DEV.sector_angle(), abs=1e-12)
@@ -85,7 +87,7 @@ def test_the_circumference_matches_the_real_cone():
 
 def _true_curve(a, b, rho, samples=400):
     return [warp.point(a[0] + (b[0] - a[0]) * i / samples,
-                       a[1] + (b[1] - a[1]) * i / samples, rho)
+                       a[1] + (b[1] - a[1]) * i / samples, rho, SIDE)
             for i in range(samples + 1)]
 
 
@@ -126,8 +128,8 @@ def test_a_radial_segment_is_not_subdivided():
 
 
 def test_the_subdivision_is_finer_far_from_the_touch_line():
-    near = warp._steps((0.0, 0.0), (0.5, 0.0), RHO)
-    far = warp._steps((0.0, 2.9), (0.5, 2.9), RHO)
+    near = warp._steps((0.0, 0.0), (0.5, 0.0), RHO, SIDE)
+    far = warp._steps((0.0, 2.9), (0.5, 2.9), RHO, SIDE)
     assert far >= near
 
 
@@ -182,8 +184,8 @@ def test_text_is_moved_and_turned_with_a_warning():
                                            height=0.5)])
     warp.apply(scene, DEV)
     item = scene.elements[0]
-    assert (item.x, item.y) == pytest.approx(warp.point(3.0, 1.0, RHO))
-    assert item.angle == pytest.approx(-3.0 / RHO)
+    assert (item.x, item.y) == pytest.approx(warp.point(3.0, 1.0, RHO, SIDE))
+    assert item.angle == pytest.approx(-SIDE * 3.0 / RHO)
     assert any("Kegel" in w for w in scene.warnings)
 
 
@@ -227,7 +229,7 @@ def _cone_doc(pattern="honeycomb", half_angle=ALPHA, **style):
 
 
 def _apex_of(dev):
-    return (0.0, -dev.apex_distance())
+    return (0.0, dev.apex_side() * dev.apex_distance())
 
 
 def test_a_cone_pattern_builds_a_ring_sector():
@@ -274,8 +276,8 @@ def test_a_shift_by_one_turn_becomes_a_rotation_about_the_apex():
     period = DEV.period()
     omega = DEV.sector_angle()
     for x, y in ((-2.0, -2.5), (0.0, 0.0), (1.7, 1.0), (3.4, 2.9)):
-        here = warp.point(x, y, RHO)
-        there = warp.point(x + period, y, RHO)
+        here = warp.point(x, y, RHO, SIDE)
+        there = warp.point(x + period, y, RHO, SIDE)
         assert _dist(there, APEX) == pytest.approx(_dist(here, APEX), abs=1e-12)
         assert _angle_at_apex(there) - _angle_at_apex(here) == pytest.approx(
             omega, abs=1e-12)
@@ -389,3 +391,79 @@ def test_a_partial_cone_becomes_a_partial_sector():
                     <= dev.apex_distance() + reach + 0.01)
             # ein halber Umlauf ist ein halber Sektor
             assert abs(_angle_at_apex(p)) <= dev.sector_angle() / 4.0 + 1e-6
+
+
+# ------------------------------------------------- beide Seiten des Apex
+
+NARROWING = cone(radius=2.5, length=6.0, half_angle=-ALPHA)   # Spitze voraus
+
+
+def test_the_apex_sits_on_the_side_the_half_angle_says():
+    assert DEV.apex_side() == -1.0          # weitet sich in Achsrichtung
+    assert NARROWING.apex_side() == 1.0     # verjüngt sich in Achsrichtung
+    assert cylinder(2.5, 6.0).apex_side() == 0.0
+
+
+def test_the_development_always_counts_y_along_the_axis():
+    """Sonst läge das Muster auf dem halben Kegel-Sortiment spiegelbildlich."""
+    assert DEV.to_plane(0.0, 1.0)[1] > 0.0
+    assert NARROWING.to_plane(0.0, 1.0)[1] > 0.0
+    assert DEV.to_plane(0.0, 1.0) == pytest.approx(NARROWING.to_plane(0.0, 1.0))
+
+
+def test_the_sector_opens_away_from_the_apex_on_both_sides():
+    for dev in (DEV, NARROWING):
+        rho, side = dev.apex_distance(), dev.apex_side()
+        apex = (0.0, side * rho)
+        near = warp.point(0.0, side * 2.0, rho, side)     # Richtung Spitze
+        far = warp.point(0.0, -side * 2.0, rho, side)
+        assert _dist(near, apex) < _dist(far, apex)
+
+
+def test_bending_never_mirrors():
+    """Der eigentliche Fehler: eine spiegelnde Abbildung.
+
+    Ein gegen den Uhrzeigersinn umlaufendes Dreieck muss das auch nach dem
+    Biegen tun - egal wo, egal auf welcher Seite die Spitze liegt. Sonst stünde
+    Text auf dem Bauteil seitenverkehrt, und Fusion lehnte die Skizze ab.
+    """
+    def area(pts):
+        return 0.5 * sum(pts[i][0] * pts[(i + 1) % 3][1]
+                         - pts[(i + 1) % 3][0] * pts[i][1] for i in range(3))
+
+    for dev in (DEV, NARROWING):
+        rho, side = dev.apex_distance(), dev.apex_side()
+        for x in (-7.0, -1.0, 0.0, 2.5, 7.0):
+            for y in (-2.5, 0.0, 2.5):
+                flat = [(x, y), (x + 0.2, y), (x, y + 0.2)]
+                assert area(flat) > 0.0
+                bent = [warp.point(px, py, rho, side) for px, py in flat]
+                assert area(bent) > 0.0, (dev.half_angle, x, y)
+
+
+def test_both_apex_sides_build_the_same_way_up():
+    """Ein umgedrehter Kegel bekommt dasselbe Muster, nur gespiegelt gelegt.
+
+    Genauer: die Zellen am **schmalen** Ende sind in beiden Fällen die
+    kleineren - das ist der Test, der in Fusion mit bloßem Auge geht.
+    """
+    from core import build
+    for half in (ALPHA, -ALPHA):
+        doc = _cone_doc(half_angle=half)
+        scene = build.build_scene(doc)
+        from core.development import development_from_doc
+        dev = development_from_doc(doc["development"])
+        apex = _apex_of(dev)
+        holes = [el for el in scene.elements
+                 if isinstance(el, ir.Path) and el.role == ir.ROLE_HOLE]
+        assert holes
+        by_reach = sorted(holes, key=lambda el: sum(
+            _dist(p, apex) for p in el.points) / len(el.points))
+        inner, outer = by_reach[0], by_reach[-1]
+        assert _width(inner) < _width(outer)
+
+
+def _width(element):
+    xs = [p[0] for p in element.points]
+    ys = [p[1] for p in element.points]
+    return max(max(xs) - min(xs), max(ys) - min(ys))

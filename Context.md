@@ -1409,3 +1409,46 @@ Ebenfalls aus dem Plan, aber anders gelöst: die Rechnung „Radius über Achsla
 liegt in `core/development.py` (`axial_radii`, `taper`) statt im Leser. Der
 Modulkopf von `fusion/surface_reader.py` sagt selbst, dass dort nur API-Arbeit
 stehen soll – und ohne Fusion prüfbar ist die Ausgleichsgerade nur in `core/`.
+
+### 15.18 Der Wächter hatte recht: die Abwicklung zählt y entlang der Achse
+
+Der erste Kegel in Fusion endete mit „Die Tangentialebene liegt spiegelverkehrt
+zur Fläche". Der Fehler war meiner, und die Prüfung hat genau das getan, wofür
+sie eingebaut wurde.
+
+**Der Denkfehler.** Ich hatte die Abwicklung ihr `y` **vom Apex weg** zählen
+lassen – das klingt natürlich, weil der Sektor sich vom Apex aus öffnet. Es ist
+aber falsch herum. Am Berührpunkt eines Kegels, der sich in Achsrichtung
+verjüngt, gilt
+
+```
+θ̂ × û(vom Apex weg) = −n̂      (linkshändig)
+θ̂ × û(in Achsrichtung) = +n̂    (rechtshändig, wie beim Zylinder)
+```
+
+Ein linkshändiges Paar heißt: die Abwicklung ließe sich nur durch **Spiegeln**
+auflegen, nicht durch Drehen. Text stünde seitenverkehrt auf dem Teil. Genau das
+hat der Wächter gemeldet – nicht ein Fusion-Problem, sondern mein Vorzeichen.
+
+**Richtig ist die einfachere Regel:** `y` folgt bei Zylinder **und** Kegel der
+Achse, ohne jede Fallunterscheidung. `to_plane` wurde dadurch kürzer. Der
+Unterschied zwischen den beiden Kegelrichtungen steckt jetzt allein darin, auf
+welcher Seite der Apex sitzt (`Development.apex_side()`), und damit, in welche
+Richtung sich der Sektor öffnet:
+
+```
+d = ρ − seite·y,   φ = x/ρ
+x, y  ->  (d·sin φ,  seite·(ρ − d·cos φ))
+```
+
+Der Apex liegt bei `(0, seite·ρ)`. Für `seite = −1` ist das die alte Formel –
+sie war also für Kegel, die sich in Achsrichtung *weiten*, immer richtig, und
+nur für die anderen falsch. Das ist die Sorte Fehler, die man mit einem
+Testkörper nicht findet: man muss beide bauen.
+
+**Der Test, der das festhält,** prüft nicht die Formel, sondern die Eigenschaft:
+ein gegen den Uhrzeigersinn umlaufendes Dreieck muss das nach dem Biegen immer
+noch tun – an fünfzehn Stellen der Abwicklung, für beide Apex-Seiten. Eine
+spiegelnde Abbildung fällt dabei sofort durch. Dazu ein Test am fertigen Muster:
+die Zellen am schmalen Ende sind die kleineren, auf beiden Seiten. Das ist
+zugleich die Prüfung, die in Fusion mit bloßem Auge geht.

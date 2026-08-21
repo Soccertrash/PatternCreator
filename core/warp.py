@@ -12,12 +12,20 @@ Periodizitaet ist dort eine **Verschiebung** um ``2*pi*radius``. Erst ganz zum
 Schluss - nach Flaechenbildung, Schraffur und Text, vor der Platzierung - wird
 das Rechteck gebogen:
 
-    x, y  ->  ((rho + y) * sin(x / rho),  (rho + y) * cos(x / rho) - rho)
+    d = rho - side*y,   phi = x / rho
+    x, y  ->  (d * sin(phi),  side * (rho - d * cos(phi)))
 
-``rho`` ist der Abstand von der Beruehrlinie zum Apex. Der Apex liegt bei
-``(0, -rho)`` und bleibt dabei stehen, die Beruehrlinie ``x = 0`` bleibt gerade,
-und die beiden Nahtkanten ``x = +-pi*radius`` treffen sich als **eine** radiale
-Linie: ihr Winkelabstand ist genau der Sektorwinkel ``2*pi*sin(alpha)``.
+``rho`` ist der Abstand von der Beruehrlinie zum Apex, ``side`` sagt, auf
+welcher Seite er liegt (``Development.apex_side``): ``+1``, wenn die Flaeche in
+Achsrichtung enger wird. Der Apex liegt bei ``(0, side*rho)`` und bleibt dabei
+stehen, die Beruehrlinie ``x = 0`` bleibt gerade, und die beiden Nahtkanten
+``x = +-pi*radius`` treffen sich als **eine** radiale Linie: ihr Winkelabstand
+ist genau der Sektorwinkel ``2*pi*sin(alpha)``.
+
+Die Seite ist nicht kosmetisch. Bogen sie sich immer in dieselbe Richtung, laege
+das Muster auf jedem zweiten Kegel spiegelbildlich auf dem Teil - ``y`` folgt
+immer der Achse, und je nachdem, wo die Spitze liegt, oeffnet sich der Sektor
+nach oben oder nach unten (Context.md 15.18).
 
 Was das Biegen kostet: Geraden werden zu Bogen. Jede Strecke wird deshalb so
 fein unterteilt, dass ihre Sehnenhoehe unter :data:`core.optimize.TOL` bleibt -
@@ -61,7 +69,8 @@ def bend(elements: Sequence[Any], development: Optional[Development]
     if development is None or not development.is_cone():
         return out, []
     rho = development.apex_distance()
-    if rho <= 0.0 or not math.isfinite(rho):
+    side = development.apex_side()
+    if rho <= 0.0 or not math.isfinite(rho) or side == 0.0:
         return out, []
     bent: List[Any] = []
     warnings: List[str] = []
@@ -69,15 +78,15 @@ def bend(elements: Sequence[Any], development: Optional[Development]
         if isinstance(el, ir.TextItem):
             if TEXT_WARNING not in warnings:
                 warnings.append(TEXT_WARNING)
-            bent.append(_text(el, rho))
+            bent.append(_text(el, rho, side))
         elif isinstance(el, ir.Path):
-            bent.append(_path(el, rho))
+            bent.append(_path(el, rho, side))
         elif isinstance(el, ir.Circle):
-            bent.append(_path(_circle_as_path(el), rho))
+            bent.append(_path(_circle_as_path(el), rho, side))
         elif isinstance(el, ir.Arc):
-            bent.append(_path(_arc_as_path(el), rho))
+            bent.append(_path(_arc_as_path(el), rho, side))
         elif isinstance(el, ir.Ellipse):
-            bent.append(_path(_ellipse_as_path(el), rho))
+            bent.append(_path(_ellipse_as_path(el), rho, side))
         else:
             bent.append(el)
     return bent, warnings
@@ -89,25 +98,29 @@ def apply(scene: "ir.Scene", development: Optional[Development]) -> None:
     scene.warnings.extend(warnings)
 
 
-def point(x: float, y: float, rho: float) -> Point:
-    """Ein Punkt des Rechtecks an seiner Stelle im Sektor."""
+def point(x: float, y: float, rho: float, side: float) -> Point:
+    """Ein Punkt des Rechtecks an seiner Stelle im Sektor.
+
+    ``side`` ist :meth:`Development.apex_side`: ``+1``, wenn der Apex in
+    Achsrichtung liegt (die Flaeche wird enger).
+    """
     angle = x / rho
-    reach = rho + y
-    return (reach * math.sin(angle), reach * math.cos(angle) - rho)
+    reach = rho - side * y
+    return (reach * math.sin(angle), side * (rho - reach * math.cos(angle)))
 
 
 # ------------------------------------------------------------------ Elemente
 
-def _path(el: "ir.Path", rho: float) -> "ir.Path":
-    pts, widths = _dense(el.points, el.widths, el.closed, rho,
+def _path(el: "ir.Path", rho: float, side: float) -> "ir.Path":
+    pts, widths = _dense(el.points, el.widths, el.closed, rho, side,
                          curved=(el.curve == "spline"))
-    return ir.Path(points=[point(x, y, rho) for x, y in pts],
+    return ir.Path(points=[point(x, y, rho, side) for x, y in pts],
                    closed=el.closed, curve=el.curve, role=el.role,
                    layer=el.layer, widths=widths)
 
 
 def _dense(points: Sequence[Point], widths: Optional[Sequence[float]],
-           closed: bool, rho: float, curved: bool):
+           closed: bool, rho: float, side: float, curved: bool):
     """Stuetzpunkte so verdichten, dass die Sehnenhoehe unter ``TOL`` bleibt.
 
     Splines bleiben unangetastet: ihre Stuetzpunkte sind der Kurve ihre
@@ -125,7 +138,7 @@ def _dense(points: Sequence[Point], widths: Optional[Sequence[float]],
     for i in range(last):
         a = pts[i]
         b = pts[(i + 1) % len(pts)]
-        steps = _steps(a, b, rho)
+        steps = _steps(a, b, rho, side)
         for k in range(steps):
             t = k / float(steps)
             out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
@@ -140,10 +153,11 @@ def _dense(points: Sequence[Point], widths: Optional[Sequence[float]],
     return out, (out_w if has_widths else None)
 
 
-def _steps(a: Point, b: Point, rho: float) -> int:
+def _steps(a: Point, b: Point, rho: float, side: float) -> int:
     """In wie viele Stuecke muss diese Strecke zerfallen?
 
-    Nach dem Biegen liegt sie auf einem Bogen mit Radius ``rho + y``. Die
+    Nach dem Biegen liegt sie auf einem Bogen mit dem Apex-Abstand ihres
+    **weitesten** Punktes - dort ist der Bogen am laengsten. Die
     Sehnenhoehe eines Bogenstuecks mit Winkel ``d`` ist ungefaehr
     ``reach * d^2 / 8``; daraus folgt die groesste erlaubte Schrittweite. Eine
     radiale Strecke (gleiches ``x``) bleibt gerade und braucht nichts.
@@ -151,7 +165,7 @@ def _steps(a: Point, b: Point, rho: float) -> int:
     sweep = abs(b[0] - a[0]) / rho
     if sweep <= 1e-12:
         return 1
-    reach = rho + max(a[1], b[1])
+    reach = rho - min(side * a[1], side * b[1])          # der weiteste Punkt
     if reach <= 1e-12:
         return 1
     widest = math.sqrt(8.0 * TOL / reach)
@@ -160,11 +174,11 @@ def _steps(a: Point, b: Point, rho: float) -> int:
     return max(1, min(MAX_STEPS, int(math.ceil(sweep / widest))))
 
 
-def _text(el: "ir.TextItem", rho: float) -> "ir.TextItem":
+def _text(el: "ir.TextItem", rho: float, side: float) -> "ir.TextItem":
     """Text an seine Stelle im Sektor - gedreht, nicht gebogen."""
-    x, y = point(el.x, el.y, rho)
+    x, y = point(el.x, el.y, rho, side)
     return ir.TextItem(text=el.text, x=x, y=y, height=el.height,
-                       angle=el.angle - el.x / rho, font=el.font,
+                       angle=el.angle - side * el.x / rho, font=el.font,
                        layer=el.layer, role=el.role)
 
 

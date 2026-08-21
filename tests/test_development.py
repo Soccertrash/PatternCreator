@@ -143,11 +143,19 @@ def test_the_slant_is_longer_than_the_axial_way():
 
 
 def test_the_sign_of_the_half_angle_says_where_the_apex_is():
-    """Positiv = die Flaeche wird in Achsrichtung weiter, der Apex liegt hinten."""
+    """Positiv = die Flaeche wird in Achsrichtung weiter, der Apex liegt hinten.
+
+    Die Abwicklung zählt ihr ``y`` trotzdem in beiden Fällen **entlang der
+    Achse** – sonst läge das Muster auf jedem zweiten Kegel spiegelbildlich
+    (``Context.md`` 15.18). Der Unterschied steckt allein darin, auf welcher
+    Seite die Spitze sitzt.
+    """
     widening = dev.cone(radius=R, length=LENGTH, half_angle=ALPHA)
     narrowing = dev.cone(radius=R, length=LENGTH, half_angle=-ALPHA)
     assert widening.to_plane(0.0, 1.0)[1] > 0.0
-    assert narrowing.to_plane(0.0, 1.0)[1] < 0.0
+    assert narrowing.to_plane(0.0, 1.0) == pytest.approx(widening.to_plane(0.0, 1.0))
+    assert widening.apex_side() == -1.0
+    assert narrowing.apex_side() == 1.0
     assert widening.apex_distance() == pytest.approx(narrowing.apex_distance())
 
 

@@ -75,14 +75,18 @@ class Development:
 
         ``s`` ist der axiale Abstand von der Mitte der Flaeche. Beim Kegel wird
         daraus der Weg entlang der **Mantellinie** - laenger als der axiale Weg,
-        und entgegengesetzt gezaehlt, wenn der Apex in Achsrichtung liegt.
-        Die Umfangsrichtung ist bei beiden dieselbe Formel.
+        aber in derselben Richtung gezaehlt. Die Umfangsrichtung ist bei beiden
+        dieselbe Formel.
+
+        Dass ``y`` immer der Achse folgt und nicht etwa dem Apex, ist keine
+        Bequemlichkeit: nur so ist die Abwicklung **gleichsinnig** zur Flaeche.
+        Zaehlte man vom Apex weg, waere das Paar (Umfangsrichtung, y) an einem
+        sich verjuengenden Kegel linkshaendig - das Muster laege spiegelbildlich
+        auf dem Teil (Context.md 15.18).
         """
         if self.kind == KIND_CYLINDER:
             return (self.radius * theta, s)
-        alpha = abs(self.half_angle)
-        away = 1.0 if self.half_angle >= 0.0 else -1.0
-        return (self.radius * theta, away * s / math.cos(alpha))
+        return (self.radius * theta, s / math.cos(abs(self.half_angle)))
 
     def period(self) -> float:
         """Breite eines vollen Umlaufs in der Abwicklung.
@@ -102,6 +106,16 @@ class Development:
         if not self.is_cone():
             return 0.0
         return self.radius / math.sin(abs(self.half_angle))
+
+    def apex_side(self) -> float:
+        """Auf welcher Seite liegt der Apex? ``+1`` = in Achsrichtung.
+
+        Die Flaeche wird in Achsrichtung enger, wenn der Halbwinkel negativ ist -
+        dann liegt die Spitze bei ``+apex_distance()`` in der Abwicklung.
+        """
+        if not self.is_cone():
+            return 0.0
+        return -1.0 if self.half_angle > 0.0 else 1.0
 
     def sector_angle(self) -> float:
         """Winkel, den die volle Abwicklung als Kreisringsektor ueberstreicht."""
