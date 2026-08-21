@@ -304,3 +304,48 @@ def test_without_embossing_there_is_no_dividing_line():
     assert not [el for el in scene.elements
                 if isinstance(el, ir.Path) and not el.closed
                 and el.layer == ir.LAYER_BORDER]
+
+
+# ------------------------------------------------------------ Grenzfälle
+
+def test_no_cell_appears_twice():
+    """Die Kopien jenseits der Naht dürfen kein Loch verdoppeln.
+
+    Der Bereich zwischen den beiden Nahtkanten ist genau einen Umlauf breit -
+    von einer Zelle und ihrer Kopie liegt also immer nur eine darin. Ein
+    doppeltes Loch wäre in Fusion ein doppeltes Profil.
+    """
+    from core.geom import centroid
+
+    for pattern_id, params in PATTERNS:
+        for radius in (1.2, RADIUS, 5.0):
+            doc, _errors = doc_for(pattern_id, params, dev=development(radius=radius))
+            _face, holes = face_and_holes(build.build_scene(doc))
+            seen = set()
+            for hole in holes:
+                c = centroid(hole.points)
+                key = (round(c[0], 5), round(c[1], 5))
+                assert key not in seen, "%s r=%.1f: doppeltes Loch" % (pattern_id, radius)
+                seen.add(key)
+
+
+def test_a_turn_too_small_for_the_pattern_falls_back_to_a_straight_cut():
+    """Passt keine Bahn mehr durch, wird es gesagt statt still schiefzugehen."""
+    doc, _errors = doc_for("honeycomb", {"cellSize": 1.2},
+                           dev=development(radius=0.3, length=2.0))
+    scene = build.build_scene(doc)
+    assert build.SEAM_WARNING in scene.warnings
+    assert face_and_holes(scene)[1], "trotzdem soll ein Muster entstehen"
+
+
+def test_a_partial_face_keeps_its_developed_size():
+    outline = [[-0.8, -1.5], [0.8, -1.5], [0.8, 1.5], [-0.8, 1.5]]
+    doc, errors = doc_for("voronoi", dev=development(periodic=False, length=3.0,
+                                                     radius=2.0, outline=outline))
+    assert not errors
+    face, holes = face_and_holes(build.build_scene(doc))
+    xs = [p[0] for p in face.points]
+    ys = [p[1] for p in face.points]
+    assert max(xs) - min(xs) == pytest.approx(2.0 * 1.6)   # Bogenlänge r * Δθ
+    assert max(ys) - min(ys) == pytest.approx(3.0)
+    assert holes

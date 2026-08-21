@@ -37,7 +37,6 @@ def voronoi_cells(sites: Sequence[Point], bbox: BBox,
     """
     x0, y0, x1, y1 = bbox
     base = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
-    n = len(sites)
     pool = list(sites) + list(ghosts)
     cells: List[List[Point]] = []
     for i, s in enumerate(sites):
