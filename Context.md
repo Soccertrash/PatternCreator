@@ -146,6 +146,13 @@ Entscheidungen, die dahinterstehen:
   entfernt: das Add-In erzeugt ausschließlich Skizzen, extrudiert wird mit
   Fusions eigenem Befehl. Alte Dokumente mit gespeichertem `extrude`-Abschnitt
   laden weiterhin, der Abschnitt wird beim Einlesen verworfen.
+- **Das Prägen (1.7.0) ist die bewusste Ausnahme davon** – und zwar aus einem
+  Grund, der beim Extrudieren nicht gilt: eine Skizze auf einer Tangentialebene
+  ist noch **kein** Muster auf dem Zylinder. Ohne `Emboss` gäbe es keinen Weg
+  von der Ebene auf die Fläche; der Nutzer müsste die Prägung selbst anlegen und
+  dabei genau die Profile treffen, die das Add-In gerade erzeugt hat.
+  Extrudieren dagegen ist in Fusion ein Klick auf ein fertiges Profil. Die
+  Checkbox bleibt trotzdem eine Checkbox: ohne sie entsteht nur die Skizze.
 - Re-Edit: PatternDoc als Attribut an der Skizze (`PatternCreator`/`doc` +
   `version`). Beim erneuten Commit werden die erzeugten Kurven gelöscht und neu
   gezeichnet – **dieselbe** Skizze, damit eine darauf gebaute Extrusion neu
@@ -442,6 +449,23 @@ Für den **eigenen Rahmen** (1.6.0):
 - Der Rahmen-Befehl (`PatternCreatorFrameCmd`) hinterlässt keinen
   Timeline-Eintrag und keine Hilfsskizze.
 
+Für **Mantelflächen** (1.7.0) – die Punkte, die den Bau tragen, stehen in 15.10;
+hier das, was am Bauteil zu prüfen ist:
+
+- Vollzylinder mit **Wabe**: die Naht ist nicht zu erkennen; die Stegbreite an
+  der Naht ist die eingestellte Dicke (nachmessen).
+- Vollzylinder mit **Voronoi**: keine halbe Zelle an der Naht, keine verzerrten
+  Zellen, kein massiver Fleck.
+- **Nahtwinkel** auf 90° ⇒ die Naht wandert eine Vierteldrehung.
+- **Halbzylinder**: Rahmenband rundum, Muster füllt die Fläche.
+- **Schräg geschnittener Zylinder**: das Muster bleibt vollständig auf der
+  Fläche.
+- **Prägen** ergibt **einen** Körper-Zuwachs (zwei Timeline-Einträge) und
+  überlebt ein Re-Edit mit geänderter Zellgröße.
+- **Kugelfläche** wählen ⇒ Klartext-Meldung, kein Absturz.
+- Fusion **ohne** Emboss-API: die Skizze entsteht, statt der Prägung kommt ein
+  Klartext-Hinweis.
+
 ---
 
 ## 13. Chronik der Entfernungen
@@ -546,13 +570,15 @@ die Verbinder-Tests und die Tests der entfernten Muster).
 
 ---
 
-## 15. Geplant: Eigener Rahmen (1.6.0) und Mantelflächen (1.7.0)
+## 15. Eigener Rahmen (1.6.0) und Mantelflächen (1.7.0)
 
-**Stand 2026-08-21, vor der Umsetzung.** Die Arbeitspakete stehen in
-`PLAN-RAHMEN-3D.md`; hier stehen die Entscheidungen, die der Plan voraussetzt,
-samt Begründung. Messwerte und Spike-Ergebnisse trägt die Umsetzung hier nach;
-`PLAN-RAHMEN-3D.md` wird danach – wie seine Vorgänger – gelöscht und hier
-eingedampft.
+**Stand 2026-08-21.** Phase 1 (eigener Rahmen, 1.6.0) ist umgesetzt und in
+Fusion abgenommen; Phase 2 (Mantelflächen, 1.7.0) ist gebaut und ohne Fusion
+geprüft – was nur in Fusion zu klären ist, steht als Liste in 15.10. Unten
+stehen die Entscheidungen, die der Plan voraussetzt, samt Begründung, und
+darunter (15.4 bis 15.10) das, was die Umsetzung ergeben hat. Der Kegel fehlt
+noch: welche Abbildung Fusion dort benutzt, entscheidet eine Messung (15.6,
+Punkt 4).
 
 ### 15.1 Eigener Rahmen
 
@@ -641,6 +667,12 @@ je Lochzahl, Elementzuwachs durch den Kegel-Warp, gestrichene Erwartungen.
 Für Phase 1 ist das nachgetragen: **Messwerte und Abweichungen in 15.4**, die
 **[prüfen]-Punkte in 15.5** (dort stehen sie als Tabelle mit dem jeweils
 eingebauten Rückfall – die Antworten gehören in dieselbe Tabelle).
+
+Für Phase 2: **Spike-Ergebnisse in 15.6**, die Nahtregel und die Entscheidung
+für die Zickzack-Naht in **15.7**, die periodischen organischen Muster in
+**15.8**, Datenmodell und Pipeline in **15.9**, Einlesen und Prägen samt der
+Liste offener Fusion-Prüfungen in **15.10**. Offen bleibt der Kegel (15.6,
+Punkt 4) und die Abnahme in Fusion (Abschnitt 12).
 
 ### 15.4 Umsetzung: Messwerte und Abweichungen vom Plan
 

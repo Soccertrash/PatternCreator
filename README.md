@@ -10,6 +10,10 @@ Zellgewebe, Blattadern). Bedient wird alles über ein eigenes Editor-Fenster mit
 Zusätzlich lässt sich in jedes Muster eine **Text-Ebene** einbetten, die das Muster
 optional ausstanzt („Knockout“), damit der Text lesbar bleibt.
 
+Als Rahmen dient wahlweise eine Grundform, die Kontur einer eigenen Skizze – oder
+die **Mantelfläche eines Zylinders**: dann läuft das Muster rundum, ohne sichtbare
+Naht, und kann auf Wunsch gleich auf die Fläche geprägt werden.
+
 **Inhalt:** [Galerie](#galerie) · [Installation](#installation) · [Erste Schritte](#erste-schritte-in-5-minuten) ·
 [Bedienung](#bedienung) · [Grundbegriffe](#grundbegriffe) ·
 [Parameter-Referenz](#parameter-referenz) · [Fehlerbehebung](#fehlerbehebung) ·
@@ -293,6 +297,48 @@ Was dabei zu wissen ist:
   warnt aber ausdrücklich – still danebenliegen soll das Ergebnis nicht.
 * **Zurücksetzen** in der Gruppe *Rahmen* wirft die eingelesene Kontur weg.
 
+### Muster auf Zylinder und Kegel
+
+Ein Muster kann auch auf eine **Mantelfläche** gelegt werden – rundum, ohne
+sichtbare Naht. Der Editor zeigt dabei die **Abwicklung**: das Muster, wie es
+aussähe, wenn man den Zylinder aufschneidet und flach ausrollt. Fusion wickelt es
+beim Erzeugen wieder auf die Fläche.
+
+**So geht es:** Im Dialog **Muster erstellen** eine zylindrische oder konische
+Fläche wählen (oder im Editor *Fläche aus Auswahl übernehmen*). Der Rahmen ist
+dann die Abwicklung – Breite = Umfang, Höhe = Länge der Fläche –, und die
+Rahmenmaße verschwinden aus dem Formular. Nach *In Skizze erzeugen* entstehen
+eine Tangentialebene, die Skizze darauf und – wenn **Auf die Fläche prägen**
+angehakt ist – die Prägung.
+
+Was dabei zu wissen ist:
+
+* **Die Naht ist keine Gerade.** Ein gerader Schnitt würde bei versetzten Mustern
+  (Wabe, Rauten, Mauer im Verband) in jeder zweiten Reihe eine Zelle zerteilen.
+  Stattdessen sucht sich der Schnitt einen Weg **entlang der Zellwände**; die
+  linke und die rechte Kante der Abwicklung sind dieselbe Bahn, um genau einen
+  Umlauf versetzt. Nach dem Wickeln liegen sie aufeinander und die Naht ist eine
+  gewöhnliche Zellwand.
+* **Die Zellgröße rastet.** Sie wird auf den nächstgelegenen Teiler des Umfangs
+  gerundet – sichtbar als ein paar Prozent Abweichung, unsichtbar bleibt dafür
+  die Naht.
+* **Der Nahtwinkel** dreht das Muster um die Achse und legt damit fest, wo die
+  Naht auf dem Bauteil sitzt.
+* **Ursprung, Drehung und Musterdrehung entfallen.** Die Lage setzt Fusion
+  selbst; ein gedrehtes Gitter wäre nach einem Umlauf nicht mehr fortsetzbar.
+* **Prägen** braucht das Flächenmodell (Modus *Flächen*, Füllung *Stege*,
+  *Rahmen zeichnen* an). Positive Tiefe stellt das Muster von der Fläche ab,
+  negative senkt es ein. Rundum entstehen dabei **zwei** Prägungen: ein Profil
+  über volle 360° lehnt Fusion als sich selbst durchdringenden Körper ab. Die
+  Trennlinie zwischen beiden läuft in der Mitte eines Stegs und ist am Teil
+  nicht zu sehen.
+* **Teilflächen** (Halbzylinder, ausgeschnittene Stücke) gehen ebenfalls – dort
+  ist der Rahmen die abgewickelte Kontur und läuft ein Rahmenband rundum.
+* **Kegelflächen sind noch nicht freigeschaltet.** Welche der beiden möglichen
+  Abbildungen Fusion beim Kegel benutzt, ist noch nicht gemessen; bis dahin
+  meldet der Editor das im Klartext, statt ein falsch abgewickeltes Muster zu
+  erzeugen.
+
 ### Vorhandenes Muster bearbeiten
 
 **Volumenkörper → Erstellen → Muster bearbeiten** (englisch: **SOLID → CREATE**)
@@ -347,6 +393,9 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | **Stege / Zellen** | Im Flächenmodus wahlweise die Wände *zwischen* den Zellen oder die Zellflächen selbst. |
 | **Beschnitt** | `Am Rand beschneiden` (cut), `Angeschnittene weglassen` (dropPartial – ergibt ausgefranste, natürliche Ränder) oder `Aus`. |
 | **Schraffur** | Optionale Füllung der offenen Zellflächen mit zusätzlichen, eigenständig dünnen Stegen – parallel oder gekreuzt. Nur im Flächenmodus mit *Stegen*. |
+| **Abwicklung** | Eine Mantelfläche flach ausgerollt: x ist die Bogenlänge (ein voller Umlauf = Umfang), y die Länge entlang der Achse. Der Editor zeigt sie, Fusion wickelt sie beim Erzeugen wieder auf. |
+| **Naht** | Die Linie, an der sich die Abwicklung schließt. Sie läuft entlang der Zellwände, nicht gerade – deshalb zerschneidet sie keine Zelle. |
+| **Prägen** | Optional: Fusion legt das Muster als Körper auf die Mantelfläche (`Emboss`). Rundum in zwei Features, weil ein Profil über volle 360° abgelehnt wird. |
 | **Seed** | Gleicher Seed ⇒ identisches Muster in Vorschau, Skizze und nach dem Bearbeiten. |
 | **Knockout** | Das Muster wird im Bereich der Text-Bounding-Box (plus Rand) ausgestanzt. |
 | **Eine Fläche** | Bei allen Mustern entsteht im Flächenmodus mit *Stegen* **eine** zusammenhängende Kontur mit Löchern statt vieler Einzelstreifen – ein Klick genügt zum Auswählen, und der Körper ist dicht. Voraussetzung: **Rahmen zeichnen** an, Beschnitt ≠ *Aus*. |
@@ -574,6 +623,20 @@ Für den eigenen Rahmen zusätzlich:
 | Zu dicker Rand | Rahmendicke größer als die halbe schmalste Stelle | Warnbanner in der Vorschau, Muster entsteht trotzdem |
 | Extrusion | Flächenmodell im konkaven Rahmen extrudieren | **ein** Körper, STL ohne Reparaturhinweis |
 
+Für Mantelflächen zusätzlich:
+
+| Fall | Vorgehen | Erwartet |
+| --- | --- | --- |
+| Vollzylinder, Wabe | Mantelfläche eines Zylinders wählen, Wabe, Flächenmodell | Naht nicht erkennbar; Stegbreite an der Naht = eingestellte Dicke (nachmessen) |
+| Vollzylinder, Voronoi | 120 Zellen | keine halbe Zelle an der Naht, keine Zellverzerrung |
+| Nahtwinkel | Regler auf 90° | die Naht wandert um eine Vierteldrehung |
+| Halbzylinder | halbe Mantelfläche wählen | Rahmenband rundum, Muster füllt die Fläche |
+| Schräg geschnittener Zylinder | Zylinder schräg abschneiden, Mantelfläche wählen | Muster bleibt vollständig auf der Fläche (nur das gemeinsame Stück wird genutzt) |
+| Prägen | *Auf die Fläche prägen* an, Tiefe 1 mm | **ein** Körper-Zuwachs, zwei Timeline-Einträge „Prägen" |
+| Re-Edit mit Prägung | Zellgröße ändern → erzeugen | alte Prägung verschwindet, neue rechnet durch |
+| Kugelfläche | Kugel wählen | Klartext-Meldung, kein Absturz |
+| Fusion ohne Emboss-API | ältere Version | Skizze entsteht, Klartext-Hinweis statt Prägung |
+
 Zusätzlich zu prüfen:
 
 - **Re-Edit-Zyklus:** erzeugen → in Fusion extrudieren → *Muster bearbeiten* →
@@ -616,8 +679,14 @@ python -m pytest tests/ -q
 Abgedeckt sind unter anderem: Clipping aller Rahmenformen, Stroker (geschlossene
 Profile, Gehrungsbegrenzung), Kanten-Deduplizierung und -Verkettung,
 Seed-Determinismus jedes Generators, PatternDoc-Roundtrip und Validierung,
-Text-Knockout sowie die Struktur-Zusicherung, dass `core/`, `generators/` und
-`text/` niemals `adsk` importieren.
+Text-Knockout, der periodische Modus samt Naht (`test_periodic.py`,
+`test_seam.py`, `test_development_doc.py`) sowie die Struktur-Zusicherung, dass
+`core/`, `generators/` und `text/` niemals `adsk` importieren.
+
+Was Fusion braucht (`fusion/`, `commands/`), lässt sich hier nicht prüfen –
+deshalb liegt jede Rechnung dazu in `core/` und wird dort geprüft; in `fusion/`
+bleibt nur der API-Aufruf. Die Liste der Punkte, die trotzdem nur in Fusion zu
+klären sind, steht in `Context.md` 15.10.
 
 ---
 
@@ -639,8 +708,15 @@ PatternDoc (JSON)  ──►  Generator  ──►  IR (Fusion-frei)  ──┬�
   (Randklassifikation plus Beschleunigungsraster) – für den eigenen Rahmen.
 * **`core/stroker.py`** – Linien → geschlossene Streifen (Gehrung mit Begrenzung),
   dazu der Versatz einer Kontur nach innen (`shrink_polygon`).
+* **`core/seam.py`** – sucht die Naht: eine Bahn entlang der Zellwände, die keine
+  Zelle zerschneidet (Kürzeste-Wege-Suche im Kantennetz).
+* **`core/development.py`** – Abwicklung einer Mantelfläche: Flächenkoordinaten,
+  Umfang, nutzbares Achsenstück, Beschreibungstext. Ohne Fusion prüfbar.
 * **`fusion/frame_reader.py`** – liest die Außenkontur eines Profils oder einer
   planaren Fläche aus Fusion ein.
+* **`fusion/surface_reader.py`** – liest eine Zylinder- oder Kegelmantelfläche ein.
+* **`fusion/surface_target.py`** – Tangentialebene, Lage der Skizze auf ihr und
+  die Prägung.
 * **`generators/`** – ein Modul je Muster; die organische Familie teilt sich
   `organic_cells.py` (Voronoi, Lloyd, Eckenrundung, Anisotropie, Fuge).
 * **`fusion/`** – der einzige Ort mit `adsk`-Aufrufen.
@@ -699,6 +775,19 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
 * **Ein sehr zerklüfteter eigener Rahmen kostet Rechenzeit.** Ein Umriss mit
   einigen hundert Ecken verdoppelt die Rechenzeit gegenüber einem Rechteck
   (Messwerte in `Context.md`); übliche Konturen sind kaum langsamer.
+* **Kegelmantelflächen sind noch nicht freigeschaltet.** Zwei mögliche
+  Abbildungen passen auf die bisherigen Messungen; welche Fusion benutzt,
+  entscheidet erst ein breites Testrechteck (`Context.md` 15.6).
+* **Auf einer Mantelfläche entfallen Ursprung, Rahmendrehung und
+  Musterdrehung.** Die Lage setzt Fusion selbst, und ein gedrehtes Raster wäre
+  nach einem Umlauf nicht mehr fortsetzbar.
+* **Rundum wird in zwei Prägungen erzeugt.** Ein Profil über volle 360° lehnt
+  Fusion ab. Die Trennlinie läuft in der Mitte eines Stegs; nur beim Puzzle kann
+  sie ein Loch kreuzen (dort sind die Stege zwischen zwei Nasen stellenweise
+  zehnmal schmaler als eingestellt) – an der Prägung ändert das nichts, in der
+  Skizze bleibt ein zusätzlicher Strich.
+* **Findet sich keine Naht entlang der Zellwände**, bleibt es beim geraden
+  Schnitt; die Vorschau sagt es an.
 * Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster erscheint
   nicht als eigener Timeline-Eintrag (siehe `Context.md`).
 
@@ -1011,6 +1100,46 @@ Worth knowing:
   explicitly — a silently wrong result is not acceptable.
 * **Zurücksetzen** in the *Rahmen* group discards the contour that was read in.
 
+### Patterns on cylinders and cones
+
+A pattern can also be placed on a **curved face** — all the way around, with no
+visible seam. The editor shows the **development**: the pattern as it would look
+if you cut the cylinder open and rolled it out flat. Fusion wraps it back onto
+the face when the pattern is created.
+
+**How to do it:** pick a cylindrical or conical face in the **Muster erstellen**
+dialog (or use *Fläche aus Auswahl übernehmen* in the editor). The container is
+then the development — width = circumference, height = length of the face — and
+the container size fields disappear from the form. After *In Skizze erzeugen* you
+get a tangent construction plane, the sketch on it, and — if **Auf die Fläche
+prägen** is ticked — the emboss.
+
+Worth knowing:
+
+* **The seam is not a straight line.** A straight cut would slice a cell in half
+  in every other row of a staggered pattern (honeycomb, rhombus, running bond
+  brick). Instead the cut finds its way **along the cell walls**; the left and
+  the right edge of the development are the same path, offset by exactly one
+  turn. Once wrapped they coincide, and the seam is an ordinary cell wall.
+* **The cell size snaps.** It is rounded to the nearest divisor of the
+  circumference — visible as a few percent deviation, in exchange for an
+  invisible seam.
+* **The seam angle** turns the pattern around the axis and thereby decides where
+  the seam sits on the part.
+* **Origin, frame rotation and pattern rotation are gone.** Fusion sets the
+  position itself, and a rotated grid would not continue after one turn.
+* **Embossing** needs the face model (mode *Flächen*, fill *Stege*, *Rahmen
+  zeichnen* on). A positive depth raises the pattern off the face, a negative one
+  sinks it in. All the way around this creates **two** emboss features: Fusion
+  rejects a single profile spanning a full 360° as a self-intersecting body. The
+  dividing line between them runs down the middle of a web and is invisible on
+  the part.
+* **Partial faces** (half cylinders, cut-out pieces) work as well — there the
+  container is the developed contour and a border band runs all the way around.
+* **Conical faces are not enabled yet.** Which of the two possible mappings
+  Fusion uses on a cone has not been measured; until then the editor says so in
+  plain text instead of producing a wrongly developed pattern.
+
 ### Editing an existing pattern
 
 **SOLID → CREATE → Muster bearbeiten** (German: **Volumenkörper → Erstellen**) opens
@@ -1064,6 +1193,9 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | **Webs / cells** (*Stege / Zellen*) | In face mode either the walls *between* the cells or the cell faces themselves. |
 | **Clipping** (*Beschnitt*) | `cut at border` (cut), `drop partial` (ragged, natural edges) or `off`. |
 | **Hatching** (*Schraffur*) | Optional filling of the open cell faces with additional, independently thin webs — parallel or crossed. Face mode with *webs* only. |
+| **Development** | A curved face rolled out flat: x is arc length (one full turn = circumference), y is the length along the axis. The editor shows it, Fusion wraps it back when creating. |
+| **Seam** | The line where the development closes. It runs along the cell walls rather than straight, which is why it cuts no cell. |
+| **Emboss** | Optional: Fusion places the pattern onto the curved face as a body. Two features for a full turn, because a profile spanning 360° is rejected. |
 | **Seed** | Same seed ⇒ identical pattern in the preview, in the sketch and after re-editing. |
 | **Knockout** | The pattern is punched out within the text bounding box (plus margin). |
 | **One single face** | For every pattern, face mode with *webs* produces **one** connected contour with holes instead of many separate strips — one click selects it, and the solid is watertight. Requires **Rahmen zeichnen** (draw container) on and clipping ≠ *off*. |
@@ -1292,6 +1424,20 @@ result.
 | Tissue | 8 rows, stretch 2.5 | 80 rows, stretch 10 | clearly elongated cells in rows |
 | Leaf veins | 14 / 9 cells | 120 / 40, ratio 8 | main veins clearly thicker than secondary ones |
 
+For curved faces:
+
+| Case | Steps | Expected |
+| --- | --- | --- |
+| Full cylinder, honeycomb | pick the cylinder's curved face, honeycomb, face model | seam not recognisable; web width at the seam = the thickness you set (measure it) |
+| Full cylinder, Voronoi | 120 cells | no half cell at the seam, no distorted cells |
+| Seam angle | slider to 90° | the seam moves a quarter turn |
+| Half cylinder | pick half of the curved face | border band all around, pattern fills the face |
+| Obliquely cut cylinder | cut a cylinder at an angle, pick the curved face | the pattern stays fully on the face (only the shared strip is used) |
+| Emboss | *Auf die Fläche prägen* on, depth 1 mm | **one** body added, two "Emboss" timeline entries |
+| Re-edit with emboss | change the cell size → create | the old emboss disappears, the new one recomputes |
+| Spherical face | pick a sphere | plain-text message, no crash |
+| Fusion without the emboss API | older version | the sketch is created, plain-text notice instead of an emboss |
+
 Also worth checking:
 
 - **Re-edit cycle:** create → extrude in Fusion → *Muster bearbeiten* → change
@@ -1345,8 +1491,15 @@ python -m pytest tests/ -q
 
 Covered are, among others: clipping of all container shapes, the stroker (closed
 profiles, miter limit), edge deduplication and chaining, seed determinism of every
-generator, PatternDoc round-trip and validation, text knockout, plus the structural
-guarantee that `core/`, `generators/` and `text/` never import `adsk`.
+generator, PatternDoc round-trip and validation, text knockout, the periodic mode
+including the seam (`test_periodic.py`, `test_seam.py`, `test_development_doc.py`),
+plus the structural guarantee that `core/`, `generators/` and `text/` never import
+`adsk`.
+
+What needs Fusion (`fusion/`, `commands/`) cannot be tested here — which is why
+every calculation lives in `core/` and is tested there, leaving only the API call
+in `fusion/`. The points that still have to be checked inside Fusion are listed in
+`Context.md` 15.10.
 
 ---
 
@@ -1364,6 +1517,14 @@ PatternDoc (JSON)  ──►  generator  ──►  IR (Fusion-free)  ──┬�
   TextItem).
 * **`core/build.py`** — the pipeline: generator → pattern rotation → clipping →
   text knockout → style (stroker/inset) → container → placement.
+* **`core/seam.py`** — finds the seam: a path along the cell walls that cuts no
+  cell (shortest-path search in the edge network).
+* **`core/development.py`** — development of a curved face: face coordinates,
+  circumference, usable strip along the axis, description text. Testable without
+  Fusion.
+* **`fusion/surface_reader.py`** — reads a cylindrical or conical face.
+* **`fusion/surface_target.py`** — tangent plane, placement of the sketch on it,
+  and the emboss.
 * **`core/containers.py` / `core/clip.py`** — container shapes and half-plane
   clipping.
 * **`core/polyclip.py`** — clipping against arbitrary, possibly concave containers
@@ -1405,6 +1566,19 @@ and help text are derived from the class.
 * **Manual changes to a pattern sketch are lost when it is created again.** A warning
   with a cancel option appears beforehand.
 * **From roughly 2000 sketch elements** the commit warns and can be cancelled.
+* **Conical faces are not enabled yet.** Two possible mappings fit the
+  measurements so far; a wide test rectangle will decide which one Fusion uses
+  (`Context.md` 15.6).
+* **On a curved face, origin, frame rotation and pattern rotation are gone.**
+  Fusion sets the position itself, and a rotated lattice would not continue after
+  one turn.
+* **A full turn is created as two emboss features.** Fusion rejects a profile
+  spanning 360°. The dividing line runs down the middle of a web; only with the
+  puzzle can it cross a hole (there the webs between two tabs are locally ten
+  times narrower than set) — which changes nothing about the emboss, but leaves
+  one extra line in the sketch.
+* **If no seam along the cell walls can be found**, the cut stays straight and
+  the preview says so.
 * **Fusion caches the palette HTML.** While developing the UI, `palette_bridge.py`
   appends a version to the URL automatically; for a stubborn cache, restart Fusion.
 * **Without the face model the webs overlap.** With the *Zellen* (cells) fill target,
