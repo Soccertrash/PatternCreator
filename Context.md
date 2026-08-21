@@ -757,3 +757,80 @@ wo es nichts bewirkt (der Hilfetext sagt das).
 (85,5 × 110 mm) landet nach der Vereinfachung bei **7 Punkten**. Die Werte in
 15.4 stammen aus synthetischen Konturen und sind der ungünstige Fall; echte
 Rahmen sind eher klein, und der Rechenaufwand ist damit praktisch nicht messbar.
+
+### 15.6 Spike 2.0 (Mantelflächen) – gemessen am 2026-08-21
+
+Fusion 2704.1.53, macOS. Wegwerf-Skript in einem eigenen Testdokument
+(Vollzylinder ⌀50 × 60 mm, schräg stehender Zylinder, Kegelstumpf 50/30 × 60 mm).
+Das Skript ist bewusst **nicht** eingecheckt; hier steht, was es ergeben hat.
+
+**1. Die Emboss-API gibt es.** `features.embossFeatures` ist vorhanden. Die
+Signatur ist `createInput(profiles, faces, depth)` und erwartet **Listen**, nicht
+`ObjectCollection`; `isTangentChain` ist eine Eigenschaft am Eingabeobjekt, kein
+Argument. Die optionale Emboss-Checkbox bleibt also im Plan.
+
+**2. Die Tangentialebene kommt über einen Punkt, nicht über eine Ebene.**
+`ConstructionPlaneInput.setByTangent(face, angle, planarEntity)` verlangt eine
+Referenzebene **parallel zur Achse** (bei senkrechter: `InternalValidationError`)
+– und scheitert am Kegel mit allen drei Ursprungsebenen.
+`setByTangentAtPoint(face, sketchPoint)` funktioniert dagegen in allen geprüften
+Fällen und liefert am Kegel die korrekt um den halben Öffnungswinkel geneigte
+Ebene (gemessene Normale (0,986 / 0 / 0,164) = 9,46°, rechnerisch
+`atan(10/60)` = 9,46°). **Das ist der Weg.** Der im Plan als Fallback (b)
+genannte Weg über `constructionAxes.setByCircularFace` + `setByAngle` liefert
+eine Ebene *durch* die Achse, keine Tangente – nur mit zusätzlichem Offset um
+den Radius brauchbar und deshalb verworfen.
+
+**3. Der Nahtwinkel ist über den Berührpunkt steuerbar.** Sollwinkel 0° / 30° /
+200° ergaben Berührpunkte bei exakt 0,0° / 30,0° / −160,0°. `development.seamAngle`
+wird also schlicht zur Wahl des Punktes auf der Mantelfläche.
+
+**4. Emboss wickelt wirklich ab – keine Projektion.** Ein 20 × 10 mm-Rechteck
+landet auf dem Zylinder als 45,837° × 25 mm = **20,000 mm Bogenlänge** bei
+10,000 mm Höhe. Am Kegel ist die Bogenlänge an beiden Rändern gleich
+(20,02 mm bei r = 25,00 mm und bei r = 22,59 mm), die Winkelbreite dagegen
+verschieden (45,87° gegen 50,76°). Damit ist die Grundannahme von
+`core/development.py` bestätigt – und zugleich, **warum der Kegel den
+Sektor-Warp braucht**: nur eine zum Apex hin schmaler werdende Skizze wickelt
+sich in jeder Höhe genau einmal um.
+
+**5. Die Skizze liegt gespiegelt auf der Tangentialebene.** Gemessen: Berührpunkt
+→ Skizze (0 / −30) mm; 10 mm entlang der Achse → (0 / −40); 10° in
+Umfangsrichtung → (−4,34 / −30). Skizzen-y zeigt also **entgegen** der Achse,
+Skizzen-x **entgegen** der Umfangsrichtung. Die Platzierung im Doc muss das
+spiegeln (Plan 2.5 sieht genau das vor).
+
+**6. Rundum geht nur mit einem Spalt an der Naht.** Ein Profil über exakt 360°
+ergibt „Sketch profiles create a self-intersecting body" (healthState 1). Zwei
+Hälften in **einem** Feature: derselbe Fehler – Fusion prüft den entstehenden
+Körper, nicht das einzelne Profil. Ein Profil, das etwas schmaler ist als der
+Umfang, funktioniert dagegen: 0,5 mm, 0,1 mm **und 0,02 mm** Spalt ergaben alle
+healthState 0. **Entscheidung: das Muster wird um 0,02 mm schmaler als der
+Umfang erzeugt.** Der Spalt liegt mitten in einem Nahtsteg (Nahtregel), ist
+kleiner als jede Druck- oder Frästoleranz und wird als Einschränkung
+dokumentiert. Zwei getrennte Emboss-Features wären die spaltfreie Alternative;
+der erste Durchgang war gesund, der zweite scheiterte an der Flächenauswahl des
+Skripts (nach dem ersten Emboss ist auch die Prägungs-Oberseite eine
+Zylinderfläche) – wird nachgereicht.
+
+**7. Das Emboss-Feature überlebt kein Neuzeichnen der Skizze.** Nach dem Leeren
+und Neuzeichnen: „The profile reference is lost and this feature is using cached
+geometry" (healthState 1). ⇒ **Im Re-Edit wird das Emboss gelöscht und neu
+angelegt**, Feature-Token im Doc (Plan 2.5, Variante 2).
+
+**8. Mantelflächen haben zwei Außen-Loops, keine Nahtkante.** Zylinder *und*
+Kegelstumpf: `face.loops.count == 2`, beide `isOuter == True`, je eine
+`Circle3D`-Kante, keine `Line3D`. Kriterium für die Periodizitätserkennung
+(Plan 2.4): **zwei Kreis-Loops ohne Mantellinie ⇒ voll umlaufend.** Nebenbei:
+die Annahme aus Phase 1 („genau ein `isOuter`-Loop") gilt bei Mantelflächen
+nicht – `surface_reader` darf sich nicht darauf verlassen.
+
+**9. Emboss ist schnell.** 100 Löcher 0,4 s, 300 Löcher 1,8 s, 600 Löcher 3,6 s –
+linear, rund 6 ms je Loch, alle Ergebnisse gesund. Die im Plan erwogene
+Warnschwelle „über ~60 s" wird nicht gebraucht; `ENTITY_WARN_LIMIT` genügt.
+
+**10. Flächen-Referenzen veralten nach jedem Feature.** Eine vor dem ersten
+Emboss gemerkte `BRepFace` ist danach ungültig (`InternalValidationError: face`).
+Im Add-In muss die Zielfläche vor jedem Zugriff frisch aus dem Körper geholt
+werden (oder über den Entity-Token). Das hat den ersten Spike-Lauf gekostet und
+ist die Art Fehler, die im Re-Edit sonst erst beim Nutzer auffällt.
