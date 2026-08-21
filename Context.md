@@ -1,6 +1,6 @@
 # PatternCreator – Context: die Entscheidungen und ihre Gründe
 
-**Stand: 2026-08-20.** Dieses Dokument ersetzt `PLAN.md` (Umsetzungsplan v3),
+**Stand: 2026-08-21.** Dieses Dokument ersetzt `PLAN.md` (Umsetzungsplan v3),
 `CHECKLIST.md` (Review-Checkliste v3), `PLAN-VERBINDER-OPTIMIERER.md` und
 `PLAN-VERBINDER-OPTIMIERER-findings.md`. Alle vier sind gelöscht; ihr Inhalt ist
 hier eingedampft auf das, was der Code **nicht** von selbst erzählt: warum etwas
@@ -84,8 +84,9 @@ Vieleck (3–12 Seiten). Einheitliche Schnittstelle `contains` / `clip_path` /
   **gezeichnete** Umriss bleibt ein echter Kreis- bzw. Ellipsenbogen.
 - Clipping-Modi: `cut`, `dropPartial` (ergibt ausgefranste, natürliche Ränder),
   `off`.
-- Offen geblieben (Stretch): ein bestehendes Skizzenprofil oder eine planare
-  Fläche als Container.
+- Ein bestehendes Skizzenprofil oder eine planare Fläche als Container: war
+  Stretch, ist seit 2026-08-21 geplant – Entscheidungen in Abschnitt 15,
+  Arbeitspakete in `PLAN-RAHMEN-3D.md`.
 
 ---
 
@@ -506,7 +507,9 @@ die Verbinder-Tests und die Tests der entfernten Muster).
 
 - Polygon-Vereinigung für den Strok-Pfad (Füllung *Zellen*, kein Rahmen,
   Beschnitt *Aus*) und für die Kreuzschraffur.
-- Bestehendes Skizzenprofil / planare Fläche als Container.
+- Bestehendes Skizzenprofil / planare Fläche als Container – **geplant**,
+  siehe Abschnitt 15 und `PLAN-RAHMEN-3D.md`; ebenso Mantelflächen
+  (Zylinder/Kegel) per Abwicklung.
 - `CustomFeature` statt reiner Skizzengeometrie.
 - Mehrere Text-Layer in der Oberfläche, Text auf Kreisbogen.
 - Konturparallele Schraffur.
@@ -520,3 +523,97 @@ die Verbinder-Tests und die Tests der entfernten Muster).
   fast denselben Gewinn bei einem Bruchteil der Komplexität.
 - UI-Regler für die Optimierer-Toleranz.
 - Externe Pakete oder JS-Bibliotheken, in keiner Form.
+
+---
+
+## 15. Geplant: Eigener Rahmen (1.6.0) und Mantelflächen (1.7.0)
+
+**Stand 2026-08-21, vor der Umsetzung.** Die Arbeitspakete stehen in
+`PLAN-RAHMEN-3D.md`; hier stehen die Entscheidungen, die der Plan voraussetzt,
+samt Begründung. Messwerte und Spike-Ergebnisse trägt die Umsetzung hier nach;
+`PLAN-RAHMEN-3D.md` wird danach – wie seine Vorgänger – gelöscht und hier
+eingedampft.
+
+### 15.1 Eigener Rahmen
+
+- **Quelle: Skizzenprofil oder planare Fläche, nur die Außenkontur.**
+  Innenkonturen (Löcher im Profil, Bohrungen in der Fläche) werden ignoriert.
+  Nutzerentscheidung; Grund: kleinster Umfang, robust. Löcher hießen
+  Mehrfach-Container im Clipping und eigene Rahmenstege um jedes Loch.
+- **Snapshot statt Live-Verknüpfung.** Die Kontur liegt als Punktliste im
+  PatternDoc (`container.customPoints`, lokal um den Bounding-Box-Mittelpunkt,
+  `placement.originX/Y` trägt die Lage). Re-Edit braucht die Quelle nicht;
+  „Rahmen neu einlesen" holt sie über den gespeicherten Entity-Token nach.
+  Grund: die Leitidee „ein Muster = ein Dokument" – ein Doc, das auf eine
+  gelöschte oder verschobene Skizze zeigt, wäre nicht mehr neu aufbaubar.
+- **Konkave Rahmen sind Pflicht**, nicht Kür: ein gezeichneter Rahmen ist fast
+  nie konvex. `core/clip.py` (Halbebenen) bleibt für die Standardformen und die
+  Knockout-Box; daneben kommt `core/polyclip.py` mit **Randklassifikation**
+  (Schnittpunkte bestimmen, beide Konturen dort teilen, Teilkanten über ihren
+  Mittelpunkt als innen/außen einordnen, verketten). Regel für Degenerationen:
+  Zellkante auf dem Rahmenrand zählt als **innen**, Rahmenkante auf dem
+  Zellrand als **außen** – so kommt eine gemeinsame Kante genau einmal.
+  Verworfen: Greiner–Hormann/Weiler–Atherton (brechen genau an diesen
+  Degenerationen, die hier die Regel sind: Gitterlinie exakt auf Rahmenkante)
+  und konvexe Zerlegung mit Verkleben (das Verkleben ist bei konkaven Zellen
+  eine Polygon-Vereinigung – das Thema, das das Projekt bisher meidet).
+- **Rahmendicke im konkaven Rahmen** über den Stroker-Offset (wie
+  `_shrink_cell`), nicht über `inset_polygon` (kollabiert an Einbuchtungen).
+  Wo der Rahmen schmaler ist als zweimal die Rahmendicke, lässt sich das Maß
+  nicht einhalten ⇒ Warnung, kein stiller Fehler.
+- **Bögen im Rahmen werden Linienzüge** (Fusion-Tesselierung, danach RDP auf
+  die Optimierer-Toleranz 0,02 mm). Echte Bögen im Rahmenumriss hießen
+  gemischte Linie/Bogen-Pfade in der IR – erklärtes Nicht-Ziel (Abschnitt 9).
+- **Fläche als Ziel ⇒ Skizze ohne projizierte Kanten** (`addWithoutEdges`).
+  Die von Fusion projizierten Flächenkanten lägen exakt auf dem Rahmenumriss
+  und zerstörten die Profile.
+- Nicht geplant: Rahmen direkt in der Vorschau zeichnen (der Nutzer zeichnet
+  in Fusion, dort hat er Bemaßung und Constraints).
+
+### 15.2 Mantelflächen (Zylinder, Kegel) – „sinnvoll möglich?"
+
+Prüfergebnis: **ja, für abwickelbare Flächen; nein für Kugel und Freiform.**
+
+- Fusion kann keine Skizze auf einer gekrümmten Fläche anlegen. Der gangbare
+  Weg ist **Abwicklung + Tangentialebene + Emboss**: das Add-In wickelt die
+  Mantelfläche ab (Zylinder ⇒ Rechteck, Kegel ⇒ Kreisringsektor), erzeugt die
+  Skizze auf einer Ebene tangential zur Fläche, und Fusions Emboss wickelt das
+  Profil auf die Fläche. Fusions Emboss wickelt **nur zylindrische und konische**
+  Flächen; auf Kugeln/Freiformflächen projiziert es verzerrt ⇒ dort bewusst
+  nicht unterstützt, klare Fehlermeldung.
+- **Würfel/Quader** brauchen kein Extra: Seiten sind planare Flächen, die
+  Auswahl gab es schon; mit 14.1 wird die Fläche selbst zum Rahmen.
+- **Emboss durch das Add-In, optional (Checkbox, Standard aus).**
+  Nutzerentscheidung – und die eine bewusste Ausnahme von „das Add-In erzeugt
+  nur Skizzen" (Abschnitt 6). Begründung: Extrudieren ist in Fusion ein Klick
+  auf ein Profil; das Wickeln auf eine Fläche verlangt dagegen die richtige
+  Tangentialebene, die passende Ausrichtung und – ohne Flächenmodell – die
+  Auswahl hunderter Profile. Die API (`Features.embossFeatures`, seit
+  September 2025) wird zur Laufzeit geprüft; fehlt sie, bleibt es bei der
+  abgewickelten Skizze.
+- **Nahtregel bei voller Umwicklung: „Die Naht ist immer ein Steg, und jeder
+  Generator legt eine Zellgrenze auf die Naht."** Nutzerentscheidung für
+  *nahtlos*; die Zellgröße rastet dafür auf einen Teiler des Umfangs
+  (Gitter, Rauten, Wabe, Mauer, Puzzle), organische Zellen bekommen
+  **gespiegelte Geisterpunkte** an den Fensterkanten, sodass die Naht exakt
+  eine Voronoi-Grenze ist. Grund: in einer 2D-Skizze lässt sich eine „offene"
+  Naht nicht darstellen (die Außenkontur muss geschlossen sein); ein Steg auf
+  der Naht ist nach dem Wickeln ein normaler Steg – unsichtbar, **wenn** dort
+  ohnehin eine Zellgrenze liegt. Bekannte Ausnahme: Mauer mit Versatz hat in
+  jeder zweiten Reihe eine Fuge auf der Naht.
+- **Kegel: Muster im Rechteck erzeugen, dann in den Sektor verzerren**
+  (Polar-Warp, Segmente vorher auf Toleranz unterteilen), statt im Sektor zu
+  generieren. Nur so bleiben Periodizität, Flächenmodell und alle Generatoren
+  unverändert; die Zellen werden zum Apex hin schmaler – wie eine echte
+  Abwicklung. Ob Fusions Emboss den Kegel exakt abwickelt oder nähert, klärt
+  der Spike (Plan 2.0).
+- **Spike vor dem Bau** (Plan 2.0): Tangentialebene parametrisch anlegen,
+  Abbildung Skizze ⇒ Fläche, Emboss-Dauer bei vielen Löchern, Re-Edit-Verhalten
+  des Emboss-Features. Scheitert davon etwas grundsätzlich, wird Phase 2 auf
+  „abgewickelte Skizze, Emboss manuell" zugeschnitten und trotzdem ausgeliefert.
+
+### 15.3 Was nach der Umsetzung hier stehen muss
+
+Performance-Faktor konkaver Rahmen vs. Rechteck (Plan 1.2), Punktzahl eines
+Beispielrahmens vor/nach RDP, Ergebnisse aller **[prüfen]**-Punkte, Emboss-Dauer
+je Lochzahl, Elementzuwachs durch den Kegel-Warp, gestrichene Erwartungen.
