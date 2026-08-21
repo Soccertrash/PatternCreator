@@ -451,6 +451,7 @@ def _apply_development(raw: Any, errors: Dict[str, str]) -> Optional[dict]:
         "outline": outline,
         "axisMiddle": axis_middle,
         "planeToken": str(raw.get("planeToken", "")),
+        "pointToken": str(raw.get("pointToken", "")),
         "embossTokens": tokens,
         "source": {"label": str(source.get("label", "")),
                    "token": str(source.get("token", ""))},

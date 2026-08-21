@@ -822,22 +822,41 @@ landet auf dem Zylinder als 45,837° × 25 mm = **20,000 mm Bogenlänge** bei
 10,000 mm Höhe. Nicht die Sehne (19,471 mm). Für den Zylinder ist damit alles
 geklärt: Skizzen-x ist Bogenlänge, Skizzen-y ist Achslänge, beides längentreu.
 
-Am Kegel ist die Messung **noch nicht entschieden.** Beobachtet wurde: gleiche
-Bogenlänge an beiden Rändern (20,02 mm bei r = 25,00 mm und bei r = 22,59 mm)
-bei verschiedener Winkelbreite (45,87° gegen 50,76°). Das passt auf **zwei**
-Modelle, die sich bei einem so schmalen Testrechteck nicht unterscheiden lassen:
+Am Kegel ist es die **Sektor-Abwicklung** – zwei unabhängige Messungen treffen
+sie auf drei Nachkommastellen (zweiter Lauf, 2026-08-21). Zwei Modelle standen
+zur Wahl:
 
-* *Sektor-Abwicklung* (längentreu, der Apex liegt in der Skizzenebene):
-  θ = atan(x / ρ) / sin α
-* *Bogenlängen-Wickeln* (jeder Kreis für sich abgerollt): θ = x / (ρ · sin α)
+* *Sektor-Abwicklung*: der Abstand zum Apex bleibt erhalten, der Winkel wird
+  gestaucht. Mit dem Apex bei Skizzen-y = ρ (Abstand Berührpunkt ↔ Apex entlang
+  der Mantellinie): θ = atan(x / (ρ − y)) / sin α.
+* *Bogenlängen-Wickeln*: jeder Höhenkreis für sich abgerollt,
+  θ = x / ((ρ − y) · sin α).
 
-Für x = 10 mm und ρ = 152 mm sagen beide 22,90° bzw. 22,94° voraus – gemessen
-wurden 22,935°. Erst bei einem breiten Muster gehen sie auseinander (bei
-x = 60 mm: 130,9° gegen 137,5°). Der Unterschied entscheidet, ob die Skizze für
-den Vollkegel ein **Kreisringsektor** (Plan 2.1) oder ein **Trapez** sein muss –
-und damit, wie `core/development.py` rechnet. Ein breites Testrechteck klärt es;
-bis dahin wird nur der Zylinderpfad gebaut (Plan-Reihenfolge: „Zylinder zuerst,
-Kegel-Warp danach").
+Testkörper: Kegelstumpf ⌀ 50/30 × 60 mm ⇒ Apex bei z = 150 mm, sin α = 0,16440,
+ρ am Berührpunkt (er liegt am Grundkreis) = 152,069 mm.
+
+| Messung | gemessen | Sektor | Bogenlänge |
+| --- | --- | --- | --- |
+| 20 × 30 mm, obere Ecke | 25,381° bei r = 22,594 mm | **25,381° / 22,594** | 25,426° / 22,534 |
+| 120 × 20 mm, am Grundkreis | 127,095° | **127,095°** | 137,510° |
+
+Die zweite Zeile ist der Beweis: das breite Rechteck wird am Grundkreis
+**beschnitten** (unter der Sektor-Abwicklung liegt schon x = 60 mm bei y = 0
+außerhalb, r = 26,88 mm > 25 mm). Der größte Winkel entsteht dort, wo die
+Oberkante des Rechtecks den Grundkreis kreuzt – rechnerisch bei x = 54,235 mm,
+und das ergibt genau die gemessenen 127,095°. Das Bogenlängen-Modell sagt an
+derselben Stelle 137,5° bis 147,2° voraus, liegt also 10 bis 20 Grad daneben.
+
+Das Skript selbst hat die Messung als „ungültig" abgetan: seine Kontrolle
+rechnete die Winkelbreite über den kurzen Weg (105,8° statt 254,2°) und hielt
+den Patch für beschnitten. Beschnitten war er tatsächlich – nur ist genau das
+die Aussage.
+
+**Folge für die Umsetzung:** die Skizze für einen Kegel ist ein
+**Kreisringsektor**, kein Rechteck. Das Muster muss also in Sektorkoordinaten
+gewarpt werden (Plan 2.1/2.2, `warp_to_sector`), der Rahmen ist der Sektor, und
+die Naht läuft radial. Das ist ein eigenes Paket und noch nicht gebaut; bis
+dahin lehnt das Add-In Kegelflächen mit Klartext ab.
 
 **5. Die Skizze liegt gespiegelt auf der Tangentialebene.** Gemessen: Berührpunkt
 → Skizze (0 / −30) mm; 10 mm entlang der Achse → (0 / −40); 10° in
@@ -1132,3 +1151,37 @@ Wer das nicht will, erhöht `countX`.
   überlebt das Ganze ein Re-Edit (löschen und neu anlegen)?
 * Wählt „die zwei flächengrößten Profile" wirklich die beiden Hälften des
   Stegnetzes – auch wenn die Trennlinie ein Loch kreuzt?
+
+### 15.11 Erster Lauf in Fusion (2026-08-21) – drei Fehler
+
+Der Zylinderpfad läuft: Fläche wählen, Editor, erzeugen, **prägen** – der
+Vollzylinder mit Wabe kam heraus wie gedacht. Drei Dinge gingen schief, alle
+drei mit derselben Wurzel: sie ließen sich ohne Fusion nicht sehen.
+
+1. **Die Oberfläche starb an einem Feld ohne Fehlerzeile.** `showErrors` läuft
+   über *alle* `.field`-Elemente und setzt deren `.err`-Zeile. Der Nahtwinkel
+   steht von Hand im HTML und hat keine – „Cannot set properties of null". Der
+   Editor arbeitete danach weiter, aber jede Rückmeldung war weg. Eine Abfrage
+   auf `null` genügt; die Lehre ist allgemeiner: **von Hand geschriebene Felder
+   müssen dieselbe Struktur haben wie die generierten** oder ausdrücklich
+   ausgenommen werden.
+2. **Das Re-Edit ließ Fusion minutenlang stehen.** Die Prägungen hingen noch an
+   der Skizze, während die Tangentialebene neu gesetzt und alle Kurven gelöscht
+   und neu gezeichnet wurden. Fusion rechnet jede dieser Änderungen durch beide
+   Emboss-Features – bei tausend Löchern dauert das ewig, und die Skizze kam
+   beschädigt heraus (`modelToSketchSpace` bildete anschließend zwei einen
+   Zentimeter entfernte Punkte auf denselben Skizzenpunkt ab, woran das
+   Ausrichten scheiterte). **Reihenfolge ist alles:** erst die Prägungen
+   löschen, dann Ebene und Skizze anfassen, dann neu prägen.
+3. **Fünf Timeline-Einträge für ein Muster.** Konstruktionspunkt, Ebene,
+   Skizze und zwei Prägungen standen einzeln in der Zeitleiste. Sie werden
+   jetzt zu **einer** Gruppe („Muster: …") gefaltet – aber nur, wenn ihre
+   Einträge lückenlos beieinanderliegen; sonst schlösse die Gruppe fremde
+   Features ein.
+
+Dazu zwei Vorsichtsmaßnahmen, die aus denselben Beobachtungen folgen: die
+Zielfläche wird ab dem zweiten Emboss nur noch **im selben Körper** gesucht (nach
+dem Prägen stehen dort tausende Flächen, und ein gleich großer Zylinder woanders
+im Dokument wäre ein Fehlgriff), und das Ausrichten der Skizze hat einen zweiten
+Weg über `Sketch.transform`, falls `modelToSketchSpace` wieder etwas Entartetes
+liefert.

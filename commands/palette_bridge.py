@@ -452,6 +452,13 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
             if answer != adsk.core.DialogResults.DialogYes:
                 raise _Abort("Abgebrochen – Skizze wurde nicht verändert.")
         if development:
+            # **Zuerst** die Praegungen weg. Solange sie an der Skizze haengen,
+            # rechnet Fusion jede Aenderung an Ebene und Kurven durch beide
+            # Features durch - bei tausend Loechern steht die Anwendung dabei
+            # minutenlang, und die Skizze kommt beschaedigt daraus hervor
+            # (gemessen 2026-08-21, siehe Context.md 15.11).
+            surface_target.remove(design, development.get("embossTokens") or ())
+            development["embossTokens"] = []
             surface_target.ensure_tangent_plane(design, comp, development, sketch)
         renderer.clear_pattern_geometry(sketch)
     else:
@@ -488,9 +495,55 @@ def perform_commit(app, ui, doc: Dict[str, Any]) -> str:
     if development and doc["style"].get("embossOn"):
         message += "\n" + _emboss(design, comp, sketch, doc, development)
     storage.save(sketch, doc, sketch.sketchCurves.count + sketch.sketchTexts.count)
+    if development:
+        _fold_timeline(design, sketch, development)
     for warn in result.warnings:
         message += "\n" + warn
     return message
+
+
+def _fold_timeline(design, sketch, development: dict) -> None:
+    """Ebene, Punkt, Skizze und Praegungen zu **einem** Timeline-Eintrag falten.
+
+    Ein Muster auf einer Mantelflaeche braucht fuenf Features; in der Zeitleiste
+    sahen die aus wie fuenf voneinander unabhaengige Schritte. Zusammengefasst
+    wird nur, wenn sie lueckenlos beieinanderliegen - sonst schloesse die Gruppe
+    fremde Features ein. Misslingt es, bleibt es bei einzelnen Eintraegen: das
+    ist Kosmetik und darf den Commit nicht gefaehrden.
+    """
+    name = "Muster: %s" % sketch.name
+    try:
+        timeline = design.timeline
+        for index in range(timeline.timelineGroups.count - 1, -1, -1):
+            group = timeline.timelineGroups.item(index)
+            if group.name == name:
+                group.deleteMe(False)          # Gruppe loesen, Inhalt behalten
+    except Exception:
+        pass
+
+    entities = [sketch]
+    for token in ((development.get("planeToken"), development.get("pointToken"))
+                  + tuple(development.get("embossTokens") or ())):
+        found = surface_target.find_entity(design, token)
+        if found is not None:
+            entities.append(found)
+    indices = []
+    for entity in entities:
+        try:
+            indices.append(entity.timelineObject.index)
+        except Exception:
+            return
+    if len(indices) < 2:
+        return
+    low, high = min(indices), max(indices)
+    if high - low + 1 != len(set(indices)):
+        return                                  # es liegt Fremdes dazwischen
+    try:
+        group = design.timeline.timelineGroups.add(low, high)
+        group.name = name
+        group.isCollapsed = True
+    except Exception:
+        pass
 
 
 def _emboss(design, comp, sketch, doc: Dict[str, Any], development: dict) -> str:

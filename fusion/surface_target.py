@@ -68,7 +68,8 @@ def ensure_tangent_plane(design: Any, comp: Any, development: dict,
     if existing is not None and _touches(existing, wanted):
         return existing
 
-    plane = _tangent_plane(comp, face, wanted)
+    plane, point = _tangent_plane(comp, face, wanted)
+    development["pointToken"] = _token(point)
     if existing is not None:
         if sketch is not None:
             try:
@@ -82,7 +83,7 @@ def ensure_tangent_plane(design: Any, comp: Any, development: dict,
     return plane
 
 
-def _tangent_plane(comp: Any, face: Any, where: Vector) -> Any:
+def _tangent_plane(comp: Any, face: Any, where: Vector) -> Tuple[Any, Any]:
     point = _point_entity(comp, where)
     planes = comp.constructionPlanes
     try:
@@ -92,7 +93,7 @@ def _tangent_plane(comp: Any, face: Any, where: Vector) -> Any:
     except Exception as exc:
         raise TargetError("Die Tangentialebene ließ sich nicht anlegen: %s" % exc)
     plane.name = PLANE_NAME
-    return plane
+    return plane, point
 
 
 def _point_entity(comp: Any, where: Vector) -> Any:
@@ -139,9 +140,7 @@ def sketch_placement(sketch: Any, development: dict, face: Any) -> Dict[str, flo
     radial = _radial(where, origin, axis)
     around = _cross(axis, radial)                # Umfangsrichtung (wachsendes theta)
 
-    base = _to_sketch(sketch, where)
-    along_axis = _direction(base, _to_sketch(sketch, _shift(where, axis)))
-    along_theta = _direction(base, _to_sketch(sketch, _shift(where, around)))
+    base, along_axis, along_theta = _measure(sketch, where, axis, around)
 
     handedness = along_theta[0] * along_axis[1] - along_theta[1] * along_axis[0]
     if handedness <= 0.0:
@@ -189,17 +188,61 @@ def _shift(point: Vector, direction: Vector, distance: float = 1.0) -> Vector:
     return tuple(point[i] + distance * direction[i] for i in range(3))
 
 
+def _measure(sketch: Any, where: Vector, axis: Vector, around: Vector):
+    """Beruehrpunkt und die beiden Richtungen in Skizzenkoordinaten.
+
+    Erst ueber ``modelToSketchSpace`` (der Weg aus dem Spike), und wenn dabei
+    etwas Entartetes herauskommt, ueber die Transformation der Skizze. Zwei Wege,
+    weil der erste an einer frisch umdefinierten Skizze schon einmal zwei um
+    einen Zentimeter entfernte Punkte auf denselben Skizzenpunkt abgebildet hat.
+    """
+    try:
+        base = _to_sketch(sketch, where)
+        along_axis = _unit(base, _to_sketch(sketch, _shift(where, axis)))
+        along_theta = _unit(base, _to_sketch(sketch, _shift(where, around)))
+        if along_axis is not None and along_theta is not None:
+            return base, along_axis, along_theta
+    except Exception:
+        pass
+
+    frame = _sketch_frame(sketch)
+    if frame is None:
+        raise TargetError("Die Skizze lässt sich nicht auf der Fläche "
+                          "ausrichten - bitte das Muster neu erzeugen.")
+    origin, ex, ey = frame
+    offset = tuple(where[i] - origin[i] for i in range(3))
+    base = (_dot(offset, ex), _dot(offset, ey))
+    along_axis = _unit((0.0, 0.0), (_dot(axis, ex), _dot(axis, ey)))
+    along_theta = _unit((0.0, 0.0), (_dot(around, ex), _dot(around, ey)))
+    if along_axis is None or along_theta is None:
+        raise TargetError("Die Skizze steht senkrecht auf der Fläche - bitte "
+                          "das Muster neu erzeugen.")
+    return base, along_axis, along_theta
+
+
+def _sketch_frame(sketch: Any):
+    """Ursprung und die beiden Achsen der Skizze im Modell."""
+    try:
+        m = sketch.transform.asArray()
+    except Exception:
+        return None
+    origin = (m[3], m[7], m[11])
+    return origin, (m[0], m[4], m[8]), (m[1], m[5], m[9])
+
+
+def _dot(a: Vector, b: Vector) -> float:
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
 def _to_sketch(sketch: Any, point: Vector) -> Tuple[float, float]:
     p = sketch.modelToSketchSpace(adsk.core.Point3D.create(*point))
     return (p.x, p.y)
 
 
-def _direction(a: Tuple[float, float], b: Tuple[float, float]) -> Tuple[float, float]:
+def _unit(a: Tuple[float, float], b: Tuple[float, float]):
     dx, dy = b[0] - a[0], b[1] - a[1]
     length = math.hypot(dx, dy)
-    if length < 1e-9:
-        raise TargetError("Die Skizze lässt sich nicht auf der Fläche ausrichten.")
-    return (dx / length, dy / length)
+    return None if length < 1e-9 else (dx / length, dy / length)
 
 
 # -------------------------------------------------------------- Praegung
@@ -243,8 +286,18 @@ def emboss(design: Any, comp: Any, sketch: Any, development: dict,
     texts = [sketch.sketchTexts.item(i) for i in range(sketch.sketchTexts.count)]
 
     tokens: List[str] = []
+    body_name = None
     for index, profile in enumerate(profiles):
-        face = target_face(design, development)
+        # Die Flaeche vor **jedem** Emboss frisch holen: nach dem ersten ist die
+        # alte Referenz ungueltig. Ab dem zweiten Durchgang nur noch im selben
+        # Koerper suchen - dort stehen nach dem Praegen tausende Flaechen, und
+        # ein gleich grosser Zylinder woanders im Dokument waere ein Fehlgriff.
+        face = target_face(design, development, body_name)
+        if body_name is None and face is not None:
+            try:
+                body_name = face.body.name
+            except Exception:
+                body_name = None
         if face is None:
             raise TargetError("Die Mantelfläche ist nach dem Prägen nicht mehr "
                               "auffindbar.")
@@ -288,7 +341,8 @@ def material_profiles(sketch: Any, wanted: int) -> List[Any]:
     return [item[2] for item in scored[:max(1, wanted)]]
 
 
-def target_face(design: Any, development: dict) -> Optional[Any]:
+def target_face(design: Any, development: dict,
+                body_name: Optional[str] = None) -> Optional[Any]:
     """Die Mantelflaeche - ueber den Token, sonst ueber den Radius.
 
     Nach dem ersten Praegen ist der Token oft wertlos (die Flaeche wurde
@@ -305,6 +359,8 @@ def target_face(design: Any, development: dict) -> Optional[Any]:
     best = None
     best_area = -1.0
     for body in _bodies(design):
+        if body_name is not None and body.name != body_name:
+            continue
         for candidate in body.faces:
             found = _radius_of(candidate)
             if found is None or abs(found - radius) >= RADIUS_TOL:
@@ -348,6 +404,11 @@ def remove(design: Any, tokens: Sequence[str]) -> None:
     for token in reversed(list(tokens or ())):
         feature = _by_token(design, token)
         _delete(feature)
+
+
+def find_entity(design: Any, token: Optional[str]) -> Any:
+    """Entity zu einem gespeicherten Token - ``None``, wenn es sie nicht mehr gibt."""
+    return _by_token(design, token)
 
 
 def _by_token(design: Any, token: Optional[str]) -> Any:

@@ -705,6 +705,10 @@
       var path = errorPath(f.dataset.section, f.dataset.key);
       var msg = errors[path];
       var errEl = f.querySelector('.err');
+      /* Nicht jedes Feld kommt aus dem Schema: der Nahtwinkel steht von Hand im
+         HTML und hat weder Fehlerzeile noch Feldpfad. Ohne diese Abfrage stirbt
+         die ganze Oberflaeche an ihm ("Cannot set properties of null"). */
+      if (!errEl) { return; }
       if (msg) {
         f.classList.add('invalid');
         errEl.hidden = false;
