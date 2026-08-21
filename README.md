@@ -10,11 +10,38 @@ Zellgewebe, Blattadern). Bedient wird alles über ein eigenes Editor-Fenster mit
 Zusätzlich lässt sich in jedes Muster eine **Text-Ebene** einbetten, die das Muster
 optional ausstanzt („Knockout“), damit der Text lesbar bleibt.
 
-**Inhalt:** [Installation](#installation) · [Erste Schritte](#erste-schritte-in-5-minuten) ·
+**Inhalt:** [Galerie](#galerie) · [Installation](#installation) · [Erste Schritte](#erste-schritte-in-5-minuten) ·
 [Bedienung](#bedienung) · [Grundbegriffe](#grundbegriffe) ·
 [Parameter-Referenz](#parameter-referenz) · [Fehlerbehebung](#fehlerbehebung) ·
 [Tests](#tests) · [Architektur](#architektur) ·
 [Einschränkungen](#bekannte-einschränkungen)
+
+---
+
+## Galerie
+
+Alle neun Muster, jedes in einer anderen Rahmenform. Die Bilder sind vom Add-In
+selbst erzeugt (Flächenmodus, Füllung „Stege“, gezeichneter Rahmen, Seed 7) – es
+ist exakt die Geometrie, die auch als Skizze in Fusion landet.
+
+![Übersicht: alle neun Muster in verschiedenen Rahmenformen](docs/images/00-uebersicht.png)
+
+Einzelbilder in voller Auflösung und die Einstellungen dazu:
+
+| Muster | Rahmenform | Einstellungen | Bild |
+| --- | --- | --- | --- |
+| Gitter (`grid`) | Rechteck 120 × 70 mm | Abstand 9 × 9 mm, Steg 0,9 mm | [01](docs/images/01-gitter-rechteck.png) |
+| Rauten (`rhombus`) | Achteck ⌀ 100 mm | Raute 13 × 22 mm, Steg 0,9 mm | [02](docs/images/02-rauten-vieleck.png) |
+| Wabe (`honeycomb`) | Kreis ⌀ 100 mm | Zelle 9 mm, flach, Steg 1,0 mm | [03](docs/images/03-wabe-kreis.png) |
+| Mauer (`brick`) | Ellipse 130 × 70 mm | Ziegel 22 × 9 mm, Fuge 1,4 mm, Läuferverband, Steg 0,6 mm | [04](docs/images/04-mauer-ellipse.png) |
+| Puzzle (`puzzle`) | Quadrat 90 mm, Ecken R 8 mm | 5 × 5 Teile, Nase 28 %, Hals 18 % | [05](docs/images/05-puzzle-quadrat.png) |
+| Voronoi (`voronoi`) | Rechteck 120 × 70 mm, Ecken R 6 mm | 140 Zellen, Relax 2, Steg 0,9 mm | [06](docs/images/06-voronoi-rechteck.png) |
+| Kiesel (`pebbles`) | Kreis ⌀ 100 mm | 70 Zellen, Rundung 3, Fuge 0,2 mm, Streuung 25 % | [07](docs/images/07-kiesel-kreis.png) |
+| Zellgewebe (`tissue`) | Ellipse 130 × 70 mm | 180 Zellen, 8 Reihen, Anisotropie 2,5 | [08](docs/images/08-zellgewebe-ellipse.png) |
+| Blattadern (`leaf_veins`) | Sechseck ⌀ 110 mm | 13 grobe / 9 feine Zellen, Adernverhältnis 2,6 | [09](docs/images/09-blattadern-sechseck.png) |
+
+Die Rahmenform ist frei kombinierbar: jedes Muster lässt sich in jede der fünf
+Formen (Rechteck, Quadrat, Kreis, Ellipse, Vieleck) einpassen.
 
 ---
 
@@ -633,11 +660,38 @@ knocks the pattern out around the text so the lettering stays readable.
 > parameter reference below lists the English meaning together with the German
 > label you see on screen and the internal key.
 
-**Contents:** [Setup](#setup-and-installation) · [Quick start](#quick-start-in-5-minutes) ·
+**Contents:** [Gallery](#gallery) · [Setup](#setup-and-installation) · [Quick start](#quick-start-in-5-minutes) ·
 [Using the add-in](#using-the-add-in) · [Concepts](#concepts) ·
 [Parameter reference](#parameter-reference) · [Troubleshooting](#troubleshooting) ·
 [Tests](#running-the-tests) · [Architecture](#architecture) ·
 [Limitations](#known-limitations)
+
+---
+
+## Gallery
+
+All nine patterns, each in a different container shape. The images were produced
+by the add-in itself (area mode, fill target “webs”, border drawn, seed 7) — it is
+exactly the geometry that ends up as a sketch in Fusion.
+
+![Overview: all nine patterns in different container shapes](docs/images/00-uebersicht.png)
+
+Full-resolution images and the settings behind them:
+
+| Pattern | Container shape | Settings | Image |
+| --- | --- | --- | --- |
+| Grid (`grid`) | rectangle 120 × 70 mm | spacing 9 × 9 mm, web 0.9 mm | [01](docs/images/01-gitter-rechteck.png) |
+| Rhombus (`rhombus`) | octagon ⌀ 100 mm | rhombus 13 × 22 mm, web 0.9 mm | [02](docs/images/02-rauten-vieleck.png) |
+| Honeycomb (`honeycomb`) | circle ⌀ 100 mm | cell 9 mm, flat, web 1.0 mm | [03](docs/images/03-wabe-kreis.png) |
+| Brick (`brick`) | ellipse 130 × 70 mm | brick 22 × 9 mm, joint 1.4 mm, running bond, web 0.6 mm | [04](docs/images/04-mauer-ellipse.png) |
+| Puzzle (`puzzle`) | square 90 mm, corners R 8 mm | 5 × 5 pieces, tab 28 %, neck 18 % | [05](docs/images/05-puzzle-quadrat.png) |
+| Voronoi (`voronoi`) | rectangle 120 × 70 mm, corners R 6 mm | 140 cells, relax 2, web 0.9 mm | [06](docs/images/06-voronoi-rechteck.png) |
+| Pebbles (`pebbles`) | circle ⌀ 100 mm | 70 cells, roundness 3, joint 0.2 mm, spread 25 % | [07](docs/images/07-kiesel-kreis.png) |
+| Tissue (`tissue`) | ellipse 130 × 70 mm | 180 cells, 8 rows, anisotropy 2.5 | [08](docs/images/08-zellgewebe-ellipse.png) |
+| Leaf veins (`leaf_veins`) | hexagon ⌀ 110 mm | 13 coarse / 9 fine cells, vein ratio 2.6 | [09](docs/images/09-blattadern-sechseck.png) |
+
+Shape and pattern combine freely: every pattern fits into any of the five shapes
+(rectangle, square, circle, ellipse, polygon).
 
 ---
 
