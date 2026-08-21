@@ -722,23 +722,38 @@ obwohl die Kurve selbst innen liegt. Konservativ und selten; die Alternative
 waere eine Signaturaenderung an `Container.fully_inside` und damit eine
 Aenderung in `core/build.py`.
 
-### 15.5 Offene **[prüfen]**-Punkte (Phase 1)
+### 15.5 **[prüfen]**-Punkte (Phase 1) – geprüft am 2026-08-21
 
-Diese Punkte des Plans lassen sich **nur in Fusion** klären. Der Code ist so
-gebaut, dass er in beide Richtungen funktioniert (Fallback jeweils genannt);
-sobald das Verhalten geprüft ist, gehört das Ergebnis hierher – auch wenn es
-„funktioniert wie erwartet" lautet.
+In Fusion durchgespielt (Profil als Rahmen, Auswahl aus dem Canvas, Fläche als
+Rahmen, Quelle geändert und gelöscht, verschobene Komponente). **Alle sieben
+Punkte verhalten sich wie im Plan angenommen** – die eingebauten Rückfälle
+bleiben trotzdem stehen, sie kosten nichts und decken ältere Fusion-Stände ab.
 
-| # | Frage | Wo im Code | Fallback, falls es anders ist |
-| --- | --- | --- | --- |
-| 1 | Liefert `sketch.referencePlane` die ConstructionPlane bzw. BRepFace, auf der die Skizze liegt? Und `None`, wenn die Referenz gelöscht wurde? | `fusion/frame_reader.py`, `_reference_plane` | Klartext-Fehler „Skizzenebene nicht mehr vorhanden"; Alternative wäre, die Ebene aus `sketch.transform` abzuleiten |
-| 2 | Hinterlässt eine Skizze, die innerhalb **eines** Commands angelegt und wieder gelöscht wird, keinen Timeline-Eintrag? | `frame_reader._to_sketch_space` (Hilfsskizze), `palette_bridge.PatternCreatorFrameCmd` | Skizzenrahmen aus `plane.geometry` (u/v-Richtungen) ableiten, statt eine Skizze anzulegen |
-| 3 | Hat `adsk.fusion.Profile` ein `entityToken`? | `frame_reader._token_of` | eingebaut: Token der Eltern-Skizze plus Profil-Index (`"<token>#<index>"`), `find_source` löst beides auf |
-| 4 | Gibt es `sketches.addWithoutEdges` in der installierten Fusion-Version? | `frame_reader._temporary_sketch`, `palette_bridge.perform_commit` | eingebaut: Rückfall auf `sketches.add` (dann projiziert Fusion bei Flächen die Kanten – die Profile brechen, siehe 15.1) |
-| 5 | Liefert `ui.activeSelections` die Canvas-Auswahl, während die Palette offen ist? | `frame_reader.pick_from_selection` | sonst bleibt nur der Weg über den Befehlsdialog (Auswahl vor dem Öffnen des Editors) |
-| 6 | Gibt `design.findEntityByToken` eine Liste zurück (auch bei genau einem Treffer)? | `frame_reader.find_source` | Code nimmt beides an (`list(found)`), leere Liste ⇒ Klartext-Meldung |
-| 7 | Sind die Kurvenpunkte aus `getStrokes` bei einer Fläche in **Modell**-Koordinaten (nicht Komponenten-Koordinaten mit Occurrence-Transformation)? | `frame_reader._strokes` | bei Bauteilen in Baugruppen ggf. `nativeObject`/`assemblyContext` berücksichtigen – heute nicht behandelt |
+| # | Frage | Ergebnis |
+| --- | --- | --- |
+| 1 | `sketch.referencePlane` liefert die Ebene des Profils | **ok** – Editor öffnet mit der Kontur, keine Ebenen-Meldung |
+| 2 | Hilfsskizze innerhalb eines Commands hinterlässt nichts | **ok** – weder neue Skizze im Browser noch Timeline-Eintrag |
+| 3 | `Profile.entityToken` vorhanden | **ok** – „Rahmen neu einlesen" findet die Quelle wieder; der Index-Rückfall wurde nicht gebraucht |
+| 4 | `sketches.addWithoutEdges` vorhanden | **ok** – Skizze auf einer Quaderfläche ohne projizierte Flächenkanten, Muster als **ein** Profil extrudierbar |
+| 5 | `ui.activeSelections` bei offener Palette | **ok** – „Aus Fusion-Auswahl übernehmen" liest die Canvas-Auswahl |
+| 6 | `findEntityByToken` | **ok** – Wiederfinden klappt, gelöschte Quelle ergibt die Klartext-Meldung |
+| 7 | `getStrokes` in Modellkoordinaten | **ok** – Rahmen aus einer verschobenen und gedrehten Komponente liegt deckungsgleich auf der Quelle |
 
-Zusätzlich beim ersten Lauf zu messen: Punktzahl einer echten, tessellierten
-Rahmenkontur vor und nach der Vereinfachung (die Werte in 15.4 stammen aus
-synthetischen Konturen).
+Ebenfalls bestätigt: Schnappschuss-Verhalten (geänderte Quell-Skizze lässt das
+Muster unverändert, „Rahmen neu einlesen" zieht nach), Klartext-Meldung bei
+gelöschter Quelle, Warnbanner bei zu großer Rahmendicke.
+
+**Ein Fehler kam dabei heraus:** das Kontrollkästchen *„Kontur als Rahmen
+verwenden"* war im Befehlsdialog **nie zu sehen**. Der Rahmen wurde trotzdem
+übernommen (der Standardwert ist *an*) – abwählen ließ er sich aber nicht. Der
+Plan sah vor, das Kästchen unsichtbar anzulegen und im `inputChanged`-Handler
+einzublenden; in Fusion bleibt ein so angelegtes Kästchen dauerhaft unsichtbar.
+Umgedreht: es startet jetzt **sichtbar** und wird nur ausgeblendet, wenn die
+Auswahl eine reine Konstruktionsebene ist. Damit ist die sichere Richtung auch
+die Rückfallrichtung – misslingt das Ausblenden, steht das Kästchen bloß dort,
+wo es nichts bewirkt (der Hilfetext sagt das).
+
+**Messwert aus der Praxis:** eine von Hand gezeichnete Rahmenkontur
+(85,5 × 110 mm) landet nach der Vereinfachung bei **7 Punkten**. Die Werte in
+15.4 stammen aus synthetischen Konturen und sind der ungünstige Fall; echte
+Rahmen sind eher klein, und der Rechenaufwand ist damit praktisch nicht messbar.

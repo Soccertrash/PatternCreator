@@ -39,12 +39,19 @@ class _CreatedHandler(adsk.core.CommandCreatedEventHandler):
             sel.addSelectionFilter("PlanarFaces")
             sel.addSelectionFilter("Profiles")
             sel.setSelectionLimits(0, 1)
+            # Das Kaestchen startet **sichtbar** und wird erst ausgeblendet,
+            # wenn die Auswahl eine reine Konstruktionsebene ist. Andersherum
+            # (unsichtbar anlegen, spaeter einblenden) blieb es in Fusion
+            # dauerhaft unsichtbar - gepruefte Beobachtung 2026-08-21, siehe
+            # Context.md 15.5. Der Rueckfall ist damit die sichere Richtung:
+            # schlimmstenfalls steht das Kaestchen da, wo es nichts bewirkt.
             frame = inputs.addBoolValueInput(
                 "useAsFrame", "Kontur als Rahmen verwenden", True, "", True)
-            frame.isVisible = False
             frame.tooltip = ("Die Außenkontur der Fläche bzw. des Profils wird "
                              "zum Rahmen des Musters. Innenkonturen bleiben "
-                             "unberücksichtigt.")
+                             "unberücksichtigt. Bei einer Konstruktionsebene "
+                             "gibt es keine Kontur - dann bleibt der bisherige "
+                             "Rahmen.")
             inputs.addTextBoxCommandInput(
                 "hint", "", "Nach OK öffnet sich der Muster-Editor.", 2, True)
 
@@ -60,17 +67,22 @@ class _CreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class _InputChangedHandler(adsk.core.InputChangedEventHandler):
-    """Das Rahmen-Kästchen gibt es nur, wenn die Auswahl eine Kontur hat."""
+    """Das Rahmen-Kästchen verschwindet nur bei einer reinen Ebene."""
 
     def notify(self, args):
         try:
-            inputs = adsk.core.InputChangedEventArgs.cast(args).inputs
+            changed = adsk.core.InputChangedEventArgs.cast(args)
+            if changed.input.id != "planeSel":
+                return
+            inputs = changed.inputs
             sel = inputs.itemById("planeSel")
             frame = inputs.itemById("useAsFrame")
             if sel is None or frame is None:
                 return
             entity = sel.selection(0).entity if sel.selectionCount > 0 else None
-            frame.isVisible = entity is not None and frame_reader.is_supported(entity)
+            # Ohne Auswahl sichtbar lassen: das Kaestchen soll nie fehlen, wenn
+            # es gebraucht wird.
+            frame.isVisible = entity is None or frame_reader.is_supported(entity)
         except Exception:
             pass          # Sichtbarkeit ist Komfort, kein Grund zum Abbruch
 
