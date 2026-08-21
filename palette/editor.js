@@ -32,6 +32,11 @@
   var preview = null;
   var el = {};
 
+  /* Das Dropdown zeigt schon "Eigener Rahmen", das Doc aber noch nicht: ohne
+     Kontur waere ``shape: custom`` ein Feldfehler. Erst nach erfolgreichem
+     Einlesen wird die Form wirklich umgestellt. */
+  var customPending = false;
+
   /* ------------------------------------------------------- Fusion-Brücke */
 
   function fusionReady() {
@@ -78,6 +83,7 @@
         else if (action === 'preview') { onPreview(payload); }
         else if (action === 'busy') { setBusy(true, payload.message); }
         else if (action === 'done') { onDone(payload); }
+        else if (action === 'frame') { onFrame(payload); }
         return 'OK';
       } catch (e) {
         showGlobalError('Fehler in der Editor-Oberfläche: ' + e);
@@ -143,6 +149,70 @@
       return ps ? ps.params : [];
     }
     return schema[section] || [];
+  }
+
+  /* ------------------------------------------------------- Eigener Rahmen */
+
+  function customPoints() {
+    var pts = doc && doc.container ? doc.container.customPoints : null;
+    return (pts && pts.length >= 3) ? pts : null;
+  }
+
+  function customSource() {
+    return (doc && doc.container && doc.container.customSource) || {};
+  }
+
+  function shownShape() {
+    return customPending ? 'custom' : (doc.container.shape || 'rect');
+  }
+
+  function fmtMm(cm) {
+    return (cm * 10).toFixed(1).replace('.', ',');
+  }
+
+  function updateCustomFrameBox() {
+    if (!el.customFrameBox) { return; }
+    var show = shownShape() === 'custom';
+    el.customFrameBox.hidden = !show;
+    if (!show) { return; }
+    var pts = customPoints();
+    var info = el.customFrameInfo;
+    if (!pts) {
+      info.className = 'missing';
+      info.textContent = 'Im Fusion-Canvas ein geschlossenes Skizzenprofil oder '
+        + 'eine ebene Fläche auswählen, dann „Aus Fusion-Auswahl übernehmen“.';
+    } else {
+      var xs = pts.map(function (p) { return p[0]; });
+      var ys = pts.map(function (p) { return p[1]; });
+      var w = Math.max.apply(null, xs) - Math.min.apply(null, xs);
+      var h = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+      var label = customSource().label || 'eingelesene Kontur';
+      info.className = '';
+      info.textContent = 'Quelle: ' + label + ' · ' + pts.length + ' Punkte · '
+        + fmtMm(w) + ' × ' + fmtMm(h) + ' mm';
+    }
+    el.rereadFrameBtn.disabled = !customSource().token;
+  }
+
+  function requestFrame(action) {
+    setStatus(action === 'pickFrame'
+      ? 'Auswahl wird gelesen …' : 'Rahmen wird neu eingelesen …');
+    sendToFusion(action, {});
+  }
+
+  function onFrame(payload) {
+    if (!payload.ok) {
+      setStatus(payload.message || 'Rahmen konnte nicht eingelesen werden.', true);
+      return;
+    }
+    customPending = false;
+    doc.container = payload.doc.container;
+    doc.placement = payload.doc.placement;
+    if (payload.target) { el.targetLabel.textContent = payload.target; }
+    renderAll();
+    pushHistory();
+    setStatus(payload.message || '');
+    requestPreview(true);
   }
 
   function errorPath(section, key) {
@@ -272,6 +342,7 @@
     buildSection(el.styleFields, 'style');
     buildSection(el.textFields, 'text');
     buildPresets();
+    updateCustomFrameBox();
     el.seedInput.value = doc.seed;
     updateHelp();
     updateHistoryButtons();
@@ -349,14 +420,27 @@
       wrap.appendChild(label);
 
       if (param.type === 'choice') {
+        var isShape = section === 'container' && param.key === 'shape';
+        var shown = isShape ? shownShape() : value;
         var sel = document.createElement('select');
         (param.choices || []).forEach(function (c) {
           var o = document.createElement('option');
           o.value = c.value; o.textContent = c.label;
-          if (c.value === value) { o.selected = true; }
+          if (c.value === shown) { o.selected = true; }
           sel.appendChild(o);
         });
         sel.addEventListener('change', function () {
+          if (isShape) {
+            /* "Eigener Rahmen" ohne Kontur bleibt reine Oberflaeche: das Doc
+               behaelt seine bisherige Form, sonst kaeme ein Feldfehler zurueck
+               und die Vorschau bliebe stehen. */
+            customPending = sel.value === 'custom' && !customPoints();
+            if (customPending) {
+              updateCustomFrameBox();
+              applyVisibilityAll();
+              return;
+            }
+          }
           data[param.key] = sel.value;
           if (section === 'container' || section === 'style' || section === 'pattern') {
             applyVisibilityAll();
@@ -430,13 +514,17 @@
       if (!f.dataset.visibleIf) { return; }
       var cond = JSON.parse(f.dataset.visibleIf);
       var show = Object.keys(cond).every(function (k) {
-        return cond[k].indexOf(data[k]) >= 0;
+        /* Solange nur das Dropdown auf "Eigener Rahmen" steht, sollen die
+           Massfelder trotzdem schon verschwinden. */
+        var v = (section === 'container' && k === 'shape') ? shownShape() : data[k];
+        return cond[k].indexOf(v) >= 0;
       });
       f.hidden = !show;
     });
   }
 
   function applyVisibilityAll() {
+    updateCustomFrameBox();
     applyVisibility(el.patternFields, 'pattern');
     applyVisibility(el.containerFields, 'container');
     applyVisibility(el.placementFields, 'placement');
@@ -607,9 +695,18 @@
     var params = sectionParams(section);
     var data = sectionData(section);
     params.forEach(function (p) { data[p.key] = p.default; });
+    if (section === 'container') { forgetCustomFrame(); }
     if (section === 'style') { ensureFillTarget(); }
     renderAll();
     changed(true);
+  }
+
+  function forgetCustomFrame() {
+    /* Zuruecksetzen heisst zuruecksetzen: die eingelesene Kontur bleibt nicht
+       im Doc liegen. */
+    customPending = false;
+    delete doc.container.customPoints;
+    delete doc.container.customSource;
   }
 
   function resetAll() {
@@ -618,6 +715,7 @@
       var data = sectionData(s);
       params.forEach(function (p) { data[p.key] = p.default; });
     });
+    forgetCustomFrame();
     doc.seed = schema.seed.default;
     ensureFillTarget();
     renderAll();
@@ -658,6 +756,10 @@
     el.cancelBtn = document.getElementById('cancelBtn');
     el.resetBtn = document.getElementById('resetBtn');
     el.fitBtn = document.getElementById('fitBtn');
+    el.customFrameBox = document.getElementById('customFrameBox');
+    el.customFrameInfo = document.getElementById('customFrameInfo');
+    el.pickFrameBtn = document.getElementById('pickFrameBtn');
+    el.rereadFrameBtn = document.getElementById('rereadFrameBtn');
 
     preview = new Preview(document.getElementById('preview'));
     preview.onTextMove = function (dx, dy) {
@@ -686,6 +788,8 @@
       if (!isNaN(v)) { doc.seed = v; changed(); }
     });
     el.diceBtn.addEventListener('click', rollSeed);
+    el.pickFrameBtn.addEventListener('click', function () { requestFrame('pickFrame'); });
+    el.rereadFrameBtn.addEventListener('click', function () { requestFrame('rereadFrame'); });
     el.fitBtn.addEventListener('click', function () { preview.fit(); });
     el.undoBtn.addEventListener('click', function () { applyHistory(historyIndex - 1); });
     el.redoBtn.addEventListener('click', function () { applyHistory(historyIndex + 1); });

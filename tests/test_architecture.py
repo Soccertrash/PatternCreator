@@ -160,3 +160,24 @@ def test_every_registered_command_is_unregistered_on_stop():
         assert "palette_bridge.unregister_%s_command" % name in source, name
     for module in ("create_command", "edit_command"):
         assert "%s.unregister(ui)" % module in source, module
+
+
+def test_editor_offers_the_custom_frame_controls():
+    """Die zwei Knöpfe und die Infozeile sind der einzige Weg zum eigenen
+    Rahmen - ohne sie ist die Form im Dropdown eine Sackgasse."""
+    html = read(os.path.join(ROOT, "palette", "editor.html"))
+    js = read(os.path.join(ROOT, "palette", "editor.js"))
+    for needle in ("customFrameBox", "customFrameInfo", "pickFrameBtn",
+                   "rereadFrameBtn"):
+        assert needle in html, needle
+        assert needle in js, needle
+    assert "'pickFrame'" in js and "'rereadFrame'" in js
+    assert "action === 'frame'" in js
+
+
+def test_bridge_answers_the_editor_frame_actions():
+    source = read(os.path.join(ROOT, "commands", "palette_bridge.py"))
+    assert '"pickFrame"' in source and '"rereadFrame"' in source
+    assert '_send(ui, "frame"' in source
+    # Auf einer Flaeche darf Fusion keine Kanten projizieren
+    assert "addWithoutEdges" in source
