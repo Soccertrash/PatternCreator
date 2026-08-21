@@ -349,6 +349,15 @@ Was dabei zu wissen ist:
   nicht zu sehen.
 * **Teilflächen** (Halbzylinder, ausgeschnittene Stücke) gehen ebenfalls – dort
   ist der Rahmen die abgewickelte Kontur und läuft ein Rahmenband rundum.
+* **Beschnitt *Aus* gibt es hier nicht.** Ohne Beschnitt reicht das Muster über
+  den Umlauf hinaus und läge nach dem Wickeln auf sich selbst; auf einer
+  Mantelfläche wird deshalb immer am Rand beschnitten. Das Feld verschwindet aus
+  dem Formular.
+* **Die Fläche ist ein Schnappschuss**, genau wie der eigene Rahmen: Maße,
+  Öffnungswinkel und ein Verweis auf die Fläche stehen im Muster, nicht die
+  Fläche selbst. Änderst du den Körper später, rechnet das Muster weiter mit den
+  alten Maßen und sagt es beim nächsten Erzeugen – *Fläche aus Auswahl
+  übernehmen* liest sie neu ein.
 * **Kegel** wickeln sich als **Kreisringsektor** ab, nicht als Rechteck – der
   Abstand zur Spitze bleibt erhalten, der Winkel wird gestaucht. Der Editor
   zeigt diesen Sektor, und in der Flächenzeile steht, wie weit er reicht
@@ -360,6 +369,29 @@ Was dabei zu wissen ist:
   * **Text wird nur gedreht und verschoben, nicht gebogen.** Fusions
     Skizzentext lässt sich nicht krümmen; bei großen Buchstaben ist das zu
     sehen.
+
+**Die Naht nachmessen.** Am Bauteil ist die Naht nicht zu finden – das ist ja
+der Zweck. Nachmessen lässt sie sich trotzdem, und zwar in der **flachen
+Skizze**, wo sie am linken und rechten Rand liegt:
+
+1. Muster erzeugen. Im Browser den Körper ausblenden, sodass nur noch die
+   Skizze „Muster …" zu sehen ist.
+2. Ganz an den **linken Rand** des Musters zoomen. Die Kante dort läuft im
+   Zickzack an den Zellwänden entlang – das ist die eine Hälfte der Naht.
+3. **Dienstprogramme → PRÜFEN → Messen**. Die Randkante anklicken und dann die
+   Kante des Lochs daneben.
+4. Erwartet wird die **halbe** eingestellte Stegdicke: 0,40 mm bei 0,8 mm
+   Stegdicke. Am rechten Rand dasselbe – die beiden Hälften ergeben nach dem
+   Wickeln einen ganzen Steg.
+
+Zur Kontrolle: oben und unten misst man an derselben Stelle die volle
+**Rahmendicke** (1,00 mm bei Standardwerten), denn dort läuft das Rahmenband und
+nicht die Naht.
+
+Wer die Naht am fertigen Teil *sehen* will: sie liegt der Berührlinie der
+Tangentialebene genau gegenüber. Die Ebene heißt im Browser „PatternCreator
+Tangente" – einblenden, auf die andere Seite des Zylinders drehen, dort sitzt
+sie. Wenn man sie auch dann nicht erkennt, hat sie ihre Aufgabe erfüllt.
 
 ### Vorhandenes Muster bearbeiten
 
@@ -693,6 +725,11 @@ Zusätzlich zu prüfen:
 | **Extrusion findet keine Profile** | Der **Linienmodus** erzeugt offene Kurven. Für extrudierbare Profile den **Flächenmodus** verwenden. |
 | **Die Schriftart sieht in Fusion anders aus als in der Vorschau** | Die Vorschau rendert mit der Browser-Schrift. Unbekannte Schriftarten fallen in Fusion automatisch auf *Arial* zurück (mit Hinweis). |
 | **„Skizze wurde von Hand verändert“** | Erwartetes Verhalten: beim Neuaufbau gehen manuelle Änderungen an dieser Skizze verloren. Abbrechen und die Änderungen in eine eigene Skizze auslagern. |
+| **„Die gewählte Fläche hat sich geändert“** | Der Körper wurde nach dem Erzeugen verändert. Das Muster ist ein Schnappschuss und rechnet noch mit den alten Maßen. Im Editor *Fläche aus Auswahl übernehmen* und die Fläche erneut anklicken. |
+| **„Die Mantelfläche ist nicht mehr auffindbar“** | Der Körper wurde gelöscht oder neu aufgebaut. Das Muster neu erzeugen. |
+| **„Die Fläche läuft in die Spitze des Kegels“** | An der Spitze hätte ein Muster keine Breite mehr. Einen Kegel**stumpf** verwenden. |
+| **Prägen bleibt aus, obwohl angehakt** | *Prägen* braucht das Flächenmodell. Steht die Vorschau auf *Linien*, Füllung *Zellen* oder ist *Rahmen zeichnen* aus, verschwindet das Feld – der angehakte Wert bleibt aber stehen. Die Vorschau sagt es dann im Klartext. |
+| **Fusion reagiert nicht mehr** | Das Add-In schreibt vor jedem heiklen Schritt eine Zeile nach `~/Desktop/PatternCreator-Log.txt` – ungepuffert, also auch während eines Hängers lesbar. Die **letzte Zeile** nennt den Schritt, an dem es steht; die Abstände dazwischen sind die Dauern. Bei einer Fehlermeldung diese Datei mitschicken. |
 | **Nach dem Bearbeiten verwaist die Extrusion** | Sollte nicht vorkommen – der Re-Commit baut dieselbe Skizze neu auf, eine darauf aufgebaute Extrusion rechnet neu. Falls doch: Fusion-Timeline auf Fehler prüfen und den Fall mit den verwendeten Parametern melden. |
 
 ---
@@ -749,6 +786,10 @@ PatternDoc (JSON)  ──►  Generator  ──►  IR (Fusion-frei)  ──┬�
 * **`fusion/surface_reader.py`** – liest eine Zylinder- oder Kegelmantelfläche ein.
 * **`fusion/surface_target.py`** – Tangentialebene, Lage der Skizze auf ihr und
   die Prägung.
+* **`fusion/trace.py`** – schreibt vor jedem heiklen Schritt eine Zeile nach
+  `~/Desktop/PatternCreator-Log.txt`. Fusion kennt keinen Abbruch; bleibt ein
+  API-Aufruf stehen, ist die letzte Zeile in dieser Datei die Antwort auf die
+  Frage, welcher es war.
 * **`generators/`** – ein Modul je Muster; die organische Familie teilt sich
   `organic_cells.py` (Voronoi, Lloyd, Eckenrundung, Anisotropie, Fuge).
 * **`fusion/`** – der einzige Ort mit `adsk`-Aufrufen.
@@ -823,8 +864,16 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
   Skizze bleibt ein zusätzlicher Strich.
 * **Findet sich keine Naht entlang der Zellwände**, bleibt es beim geraden
   Schnitt; die Vorschau sagt es an.
-* Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster erscheint
-  nicht als eigener Timeline-Eintrag (siehe `Context.md`).
+* **Auf einer Mantelfläche wird immer beschnitten.** Beschnitt *Aus* würde das
+  Muster nach dem Wickeln auf sich selbst legen; das Feld entfällt dort.
+* **Die Mantelfläche ist ein Schnappschuss** wie der eigene Rahmen. Änderungen am
+  Körper wirken erst nach *Fläche aus Auswahl übernehmen*; bis dahin meldet das
+  Erzeugen im Klartext, dass sich die Fläche geändert hat.
+* Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster ist
+  kein eigener, aufklappbarer Timeline-Eintrag und wird über **Muster
+  bearbeiten** geöffnet, nicht per Doppelklick in der Zeitleiste (siehe
+  `Context.md`). Auf einer Mantelfläche werden die fünf entstehenden Features
+  immerhin zu **einer** Gruppe „Muster: …" zusammengefasst.
 
 ---
 
@@ -1186,6 +1235,14 @@ Worth knowing:
   the part.
 * **Partial faces** (half cylinders, cut-out pieces) work as well — there the
   container is the developed contour and a border band runs all the way around.
+* **Clipping *Aus* does not exist here.** Without clipping the pattern reaches
+  beyond one turn and would lie on top of itself after wrapping, so a curved
+  face is always clipped at the edge. The field disappears from the form.
+* **The face is a snapshot**, just like the custom container: sizes, opening
+  angle and a reference to the face are stored in the pattern, not the face
+  itself. Change the body later and the pattern keeps working with the old
+  numbers — it says so on the next create, and *Fläche aus Auswahl übernehmen*
+  reads the face again.
 * **Cones** develop into a **circular ring sector**, not a rectangle — the
   distance to the apex is preserved, the angle is compressed. The editor shows
   that sector, and the face line says how far it reaches ("Sektor 71°"). Two
@@ -1196,6 +1253,29 @@ Worth knowing:
     them — a warning says how thin they get.
   * **Text is only moved and turned, not bent.** Fusion sketch text cannot be
     curved; with large letters this is visible.
+
+**Measuring the seam.** On the part the seam cannot be found — that is the whole
+point. It can still be measured, in the **flat sketch**, where it sits at the
+left and right edge:
+
+1. Create the pattern. Hide the body in the browser so only the sketch
+   „Muster …" remains.
+2. Zoom all the way to the **left edge** of the pattern. The edge there
+   zigzags along the cell walls — that is one half of the seam.
+3. **UTILITIES → INSPECT → Measure**. Click the boundary edge, then the edge of
+   the hole next to it.
+4. Expected is **half** the web thickness you set: 0.40 mm for a 0.8 mm web.
+   The right edge gives the same — the two halves make one full web after
+   wrapping.
+
+As a cross-check, measuring at the top or bottom in the same way gives the full
+**border width** (1.00 mm with the defaults), because that is the border band
+and not the seam.
+
+To *see* the seam on the finished part: it sits exactly opposite the line where
+the tangent plane touches. That plane is called „PatternCreator Tangente" in the
+browser — show it, turn to the other side of the cylinder, and that is where the
+seam is. If you cannot make it out even then, it has done its job.
 
 ### Editing an existing pattern
 
@@ -1522,6 +1602,11 @@ For the custom container in addition:
 
 | Symptom | Cause and remedy |
 | --- | --- |
+| **„Die gewählte Fläche hat sich geändert“** | The body was changed after the pattern was created. The pattern is a snapshot and still works with the old numbers. Use *Fläche aus Auswahl übernehmen* in the editor and click the face again. |
+| **„Die Mantelfläche ist nicht mehr auffindbar“** | The body was deleted or rebuilt. Create the pattern again. |
+| **„Die Fläche läuft in die Spitze des Kegels“** | At the tip a pattern would have no width left. Use a truncated cone. |
+| **Embossing does not happen although it is ticked** | *Prägen* needs the face model. In *Linien* mode, with fill *Zellen* or with *Rahmen zeichnen* off the field disappears — but the ticked value stays. The preview then says so in plain text. |
+| **Fusion stops responding** | Before every risky step the add-in writes a line to `~/Desktop/PatternCreator-Log.txt`, unbuffered, so it can be read even while Fusion hangs. The **last line** names the step it is stuck on; the gaps between lines are the durations. Please attach that file to any bug report. |
 | **PatternCreator does not show up in the add-in list** | Folder name ≠ `PatternCreator`, or wrong target folder. The folder must sit directly under `…/API/AddIns/` and be named exactly like `PatternCreator.py`/`.manifest`. Restart Fusion afterwards. |
 | **No buttons at all** | The add-in is not running. Because of `runOnStartup: false` it has to be started once after every Fusion start via **UTILITIES → ADD-INS → Scripts and Add-Ins … → Add-Ins → Run**. For good: tick **Run on Startup**. |
 | **The buttons are missing after clicking Run** | They are on the **SOLID** tab, **CREATE** panel, at the very bottom — open the **CREATE ▾** drop-down if needed. They do not appear in other workspaces (e.g. Render). |
@@ -1585,6 +1670,9 @@ PatternDoc (JSON)  ──►  generator  ──►  IR (Fusion-free)  ──┬�
 * **`fusion/surface_reader.py`** — reads a cylindrical or conical face.
 * **`fusion/surface_target.py`** — tangent plane, placement of the sketch on it,
   and the emboss.
+* **`fusion/trace.py`** — writes a line to `~/Desktop/PatternCreator-Log.txt`
+  before every risky step. Fusion has no way to interrupt an API call; if one
+  hangs, the last line in that file answers the question which one it was.
 * **`core/containers.py` / `core/clip.py`** — container shapes and half-plane
   clipping.
 * **`core/polyclip.py`** — clipping against arbitrary, possibly concave containers
@@ -1663,8 +1751,21 @@ and help text are derived from the class.
 * **A heavily jagged custom container costs time.** An outline with several hundred
   corners doubles the computation time compared with a rectangle (measurements in
   `Context.md`); ordinary contours are barely slower.
-* The add-in creates sketch geometry, **not** a CustomFeature — the pattern does not
-  appear as its own timeline entry (see `Context.md`).
+* **On a cone the cells get narrower towards the pointed end.** That is not an
+  inaccuracy but the development itself: the same number of cells on every
+  circle, but less circumference. A warning says how thin the webs get there.
+* **Text on a cone is not bent**, only moved and turned — Fusion sketch text
+  cannot be curved.
+* **A curved face is always clipped.** Clipping *Aus* would make the pattern lie
+  on top of itself after wrapping, so the field disappears there.
+* **The curved face is a snapshot** like the custom container. Changes to the
+  body only take effect after *Fläche aus Auswahl übernehmen*; until then
+  creating says in plain text that the face has changed.
+* The add-in creates sketch geometry, **not** a CustomFeature — the pattern is
+  not its own collapsible timeline entry and is opened through **Muster
+  bearbeiten**, not by double-clicking in the timeline (see `Context.md`). On a
+  curved face the five resulting features are at least folded into **one** group
+  named „Muster: …".
 
 ---
 
