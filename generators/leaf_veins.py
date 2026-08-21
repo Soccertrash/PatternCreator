@@ -75,6 +75,16 @@ class LeafVeinsGenerator(OrganicGenerator):
                                    role=ir.ROLE_REGION))
         return out
 
+    def seam_cells(self, params: Dict[str, Any], ctx: GenContext):
+        """Die Grobzellen: ihre Waende **sind** die Hauptadern.
+
+        Genau dort gehoert die Naht hin. Laeuft sie mitten durch eine Hauptader,
+        treffen sich nach dem Wickeln deren beide Haelften und niemand sieht,
+        wo der Schnitt war.
+        """
+        return build_cells(ctx, count=int(params.get("coarseCells", 14)),
+                           relax=int(params.get("relax", 2)))
+
     @staticmethod
     def _sub_cells(cell: Sequence[Point], count: int, rnd) -> List[List[Point]]:
         """Grobzelle in Feinzellen unterteilen (leere Liste = Zelle bleibt ganz)."""

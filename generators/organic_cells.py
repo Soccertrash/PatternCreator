@@ -24,19 +24,25 @@ MAX_CELLS = 500          # harte Obergrenze (Performance-Schutz, siehe README)
 
 # ------------------------------------------------------------------ Voronoi
 
-def voronoi_cells(sites: Sequence[Point], bbox: BBox) -> List[List[Point]]:
+def voronoi_cells(sites: Sequence[Point], bbox: BBox,
+                  ghosts: Sequence[Point] = ()) -> List[List[Point]]:
     """Voronoi-Zellen der Punkte, begrenzt durch ``bbox``.
 
     Halbebenen-Schnitt je Zelle. Durch Vorsortieren der Nachbarn nach Abstand und
     fruehen Abbruch bleibt das auch fuer einige hundert Punkte schnell genug.
+
+    ``ghosts`` sind Punkte, die die Zellen **begrenzen**, aber selbst keine Zelle
+    bekommen. Damit rechnet der periodische Modus so, als ginge das Muster
+    jenseits der Naht unveraendert weiter (siehe :func:`ghost_sites`).
     """
     x0, y0, x1, y1 = bbox
     base = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
     n = len(sites)
+    pool = list(sites) + list(ghosts)
     cells: List[List[Point]] = []
     for i, s in enumerate(sites):
         others = sorted(
-            ((dist(s, sites[j]), sites[j]) for j in range(n) if j != i),
+            ((dist(s, pool[j]), pool[j]) for j in range(len(pool)) if j != i),
             key=lambda t: t[0])
         poly = list(base)
         for d, o in others:
@@ -58,19 +64,80 @@ def voronoi_cells(sites: Sequence[Point], bbox: BBox) -> List[List[Point]]:
     return cells
 
 
-def lloyd_relax(sites: Sequence[Point], bbox: BBox, iterations: int = 1) -> List[Point]:
-    """Lloyd-Relaxation: Punkte in ihre Zellschwerpunkte ziehen (gleichmaessiger)."""
+def lloyd_relax(sites: Sequence[Point], bbox: BBox, iterations: int = 1,
+                period: float = 0.0, band: float = 0.0) -> List[Point]:
+    """Lloyd-Relaxation: Punkte in ihre Zellschwerpunkte ziehen (gleichmaessiger).
+
+    Im periodischen Modus (``period`` > 0) laufen die Geisterpunkte in jeder
+    Iteration mit und die Zellen werden **nicht** an der Naht abgeschnitten -
+    sonst zoege der abgeschnittene Schwerpunkt die Punkte vom Rand weg und die
+    Zellen am Nahtband wuerden groesser als der Rest.
+    """
     pts = list(sites)
+    x0 = bbox[0]
+    box = bbox if period <= EPS else (bbox[0] - band, bbox[1], bbox[2] + band, bbox[3])
     for _ in range(max(0, int(iterations))):
-        cells = voronoi_cells(pts, bbox)
+        ghosts = ghost_sites(pts, x0, period, band) if period > EPS else ()
+        cells = voronoi_cells(pts, box, ghosts)
         if len(cells) != len(pts):
             break
         pts = [centroid(c) for c in cells]
+        if period > EPS:
+            pts = [wrap_x(p, x0, period) for p in pts]
     return pts
 
 
+# ------------------------------------------------------------- periodischer Modus
+
+#: Wie weit reicht das Nahtband, gemessen in mittleren Zellradien. Nur Punkte
+#: darin bekommen einen Geisterpunkt - Punkte weiter weg koennen die Zellen an
+#: der Naht nicht mehr beruehren. 4 Radien sind grosszuegig; der Test
+#: ``test_band_ghosts_match_full_ghosts`` haelt das nach.
+SEAM_BAND_RADII = 4.0
+
+
+def wrap_x(p: Point, x0: float, period: float) -> Point:
+    """Punkt in das Fenster ``[x0, x0 + period)`` zurueckholen."""
+    if period <= EPS:
+        return p
+    return (x0 + (p[0] - x0) % period, p[1])
+
+
+def seam_band(bbox: BBox, count: int, period: float) -> float:
+    """Breite des Bandes an jeder Fensterkante, in dem Geisterpunkte entstehen."""
+    if period <= EPS:
+        return 0.0
+    w = max(bbox[2] - bbox[0], EPS)
+    h = max(bbox[3] - bbox[1], EPS)
+    radius = math.sqrt(w * h / float(max(1, count)))
+    return min(period, SEAM_BAND_RADII * radius)
+
+
+def ghost_sites(sites: Sequence[Point], x0: float, period: float,
+                band: float) -> List[Point]:
+    """Kopien der randnahen Punkte, um **genau eine Periode** versetzt.
+
+    Der Plan sah gespiegelte Geisterpunkte vor. Verschobene sind besser: sie
+    machen das Muster echt periodisch (nach dem Wickeln setzt es sich fort statt
+    sich zu spiegeln), die Zellenzahl bleibt unangetastet, und die Naht selbst
+    muss keine Zellgrenze mehr sein - die sucht sich ``core/seam.py`` entlang
+    der vorhandenen Waende. Begruendung in ``Context.md`` 15.7.
+    """
+    if period <= EPS or band <= 0.0:
+        return []
+    x1 = x0 + period
+    out: List[Point] = []
+    for p in sites:
+        if p[0] < x0 + band:
+            out.append((p[0] + period, p[1]))
+        if p[0] > x1 - band:
+            out.append((p[0] - period, p[1]))
+    return out
+
+
 def sample_sites(bbox: BBox, count: int, rnd, anisotropy: float = 1.0,
-                 rows: int = 0, jitter: float = 1.0) -> List[Point]:
+                 rows: int = 0, jitter: float = 1.0,
+                 period: float = 0.0) -> List[Point]:
     """Zufaellige Saatpunkte; ``rows`` > 0 erzwingt eine Reihenstruktur (Gewebe)."""
     x0, y0, x1, y1 = bbox
     count = max(1, min(MAX_CELLS, int(count)))
@@ -85,11 +152,34 @@ def sample_sites(bbox: BBox, count: int, rnd, anisotropy: float = 1.0,
                 px = x0 + (i + 0.5) * dx + offset + (rnd.random() - 0.5) * dx * jitter * 0.6
                 py = y0 + (j + 0.5) * dy + (rnd.random() - 0.5) * dy * jitter * 0.4
                 pts.append((px, py))
+        # Der Reihenversatz und die Unruhe schieben Punkte ueber die Naht
+        # hinaus; periodisch gehoeren sie auf die andere Seite des Fensters.
+        if period > EPS:
+            return [wrap_x(p, x0, period) for p in pts]
         return pts
-    return scatter_sites(bbox, count, rnd)
+    return scatter_sites(bbox, count, rnd, period=period)
 
 
-def scatter_sites(bbox: BBox, count: int, rnd) -> List[Point]:
+def _bucket(p: Point, origin: Point, cell: float) -> Tuple[int, int]:
+    return (int(math.floor((p[0] - origin[0]) / cell)),
+            int(math.floor((p[1] - origin[1]) / cell)))
+
+
+def _crowded(p: Point, grid: Dict[Tuple[int, int], List[Point]], origin: Point,
+             cell: float, radius: float, shifts: Sequence[float]) -> bool:
+    """Liegt ``p`` - oder eine seiner Kopien jenseits der Naht - zu dicht?"""
+    for shift in shifts:
+        q = (p[0] + shift, p[1])
+        gx, gy = _bucket(q, origin, cell)
+        for iy in range(gy - 1, gy + 2):
+            for ix in range(gx - 1, gx + 2):
+                for other in grid.get((ix, iy), ()):
+                    if dist(q, other) < radius:
+                        return True
+    return False
+
+
+def scatter_sites(bbox: BBox, count: int, rnd, period: float = 0.0) -> List[Point]:
     """``count`` Punkte mit Mindestabstand streuen.
 
     Rein zufaellige Punkte liegen paarweise fast aufeinander; die Voronoi-Zelle
@@ -104,26 +194,18 @@ def scatter_sites(bbox: BBox, count: int, rnd) -> List[Point]:
         return [(x0 + rnd.random() * w, y0 + rnd.random() * h) for _ in range(max(1, count))]
     radius = 0.75 * math.sqrt(w * h / float(count))
     cell = max(radius, 1e-9)
+    # Periodisch zaehlt der Abstand ueber die Naht hinweg mit: sonst landen ein
+    # Punkt am linken und einer am rechten Rand nach dem Wickeln aufeinander.
+    shifts = (0.0,) if period <= EPS else (0.0, period, -period)
     grid: Dict[Tuple[int, int], List[Point]] = {}
     pts: List[Point] = []
     misses = 0
     while len(pts) < count:
         p = (x0 + rnd.random() * w, y0 + rnd.random() * h)
-        gx, gy = int((p[0] - x0) / cell), int((p[1] - y0) / cell)
-        ok = True
-        for iy in range(gy - 1, gy + 2):
-            for ix in range(gx - 1, gx + 2):
-                for q in grid.get((ix, iy), ()):
-                    if dist(p, q) < radius:
-                        ok = False
-                        break
-                if not ok:
-                    break
-            if not ok:
-                break
+        ok = not _crowded(p, grid, (x0, y0), cell, radius, shifts)
         if ok:
             pts.append(p)
-            grid.setdefault((gx, gy), []).append(p)
+            grid.setdefault(_bucket(p, (x0, y0), cell), []).append(p)
             misses = 0
         else:
             misses += 1
@@ -226,10 +308,20 @@ def build_cells(ctx: GenContext, count: int, relax: int = 0, anisotropy: float =
     ax = max(0.05, float(anisotropy))
     x0, y0, x1, y1 = ctx.bbox
     work_bbox = (x0 / ax, y0, x1 / ax, y1)
-    sites = sample_sites(work_bbox, count, ctx.rnd, rows=rows, jitter=jitter)
+    # Die Anisotropie staucht x - die Periode macht das mit.
+    period = ctx.period_x / ax if ctx.periodic else 0.0
+    band = seam_band(work_bbox, count, period)
+    sites = sample_sites(work_bbox, count, ctx.rnd, rows=rows, jitter=jitter,
+                         period=period)
     if relax > 0:
-        sites = lloyd_relax(sites, work_bbox, relax)
-    cells = voronoi_cells(sites, work_bbox)
+        sites = lloyd_relax(sites, work_bbox, relax, period=period, band=band)
+    # Periodisch duerfen die Zellen ueber die Naht hinausragen: sie werden
+    # **ganz** gebraucht, damit die Nahtbahn um sie herumlaufen kann statt sie
+    # zu zerschneiden. Das Zuschneiden auf den Rahmen macht ohnehin build.py.
+    clip_box = (work_bbox if period <= EPS
+                else (work_bbox[0] - band, y0, work_bbox[2] + band, y1))
+    cells = voronoi_cells(sites, clip_box,
+                          ghost_sites(sites, work_bbox[0], period, band))
     out: List[List[Point]] = []
     for cell in cells:
         # Reihenfolge: erst die konvexe Zelle verkleinern, dann runden. Umgekehrt
@@ -291,4 +383,14 @@ class OrganicGenerator(Generator):
             rows=int(params.get("rows", 0)),
             smooth=int(params.get("roundness", 0)),
             inset=float(params.get("inset", 0.0)),
+            jitter=float(params.get("rowJitter", 1.0)),
         )
+
+    def seam_cells(self, params: Dict[str, Any], ctx: GenContext):
+        """Die Zellen, bevor einzelne von ihnen noch einmal geschrumpft werden.
+
+        Bei den Kieseln verkleinert die Groessenstreuung jede Zelle um einen
+        eigenen Betrag - danach haben zwei Nachbarn keine gemeinsame Wand mehr,
+        an der die Naht entlanglaufen koennte.
+        """
+        return self.cells_for(params, ctx)

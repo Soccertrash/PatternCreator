@@ -78,6 +78,24 @@ class Generator:
     def generate(self, params: Dict[str, Any], ctx: GenContext) -> List[Any]:
         raise NotImplementedError
 
+    def seam_cells(self, params: Dict[str, Any], ctx: GenContext):
+        """Netz, an dem die Naht entlanglaufen soll - ``None`` = die Zellen selbst.
+
+        Fuer fast alle Muster sind die Loecher auch das Netz, an dem sich die
+        Naht entlanghangelt. Nicht so, wo zwischen den Loechern **verschieden
+        breite** Fugen liegen: bei den Blattadern trennt eine Hauptader die
+        Grobzellen und eine duenne Nebenader die Feinzellen darin. Ein einziges
+        Aufweiten (``core/seam.py``) kann nicht beide schliessen - es klebt die
+        Feinzellen zusammen, bevor die Hauptader zu ist. Solche Generatoren
+        liefern hier das Netz, in dem die Naht verschwinden soll (bei den
+        Blattadern: die Grobzellen, deren Waende die Hauptadern sind).
+
+        Der Aufrufer muss einen Kontext mit **frischem** Zufallsgenerator
+        (gleicher Seed) uebergeben - sonst kaeme ein anderes Netz heraus als das,
+        das ``generate`` erzeugt hat.
+        """
+        return None
+
     def gap(self, params: Dict[str, Any]) -> float:
         """Fugenbreite, die der Generator **selbst** zwischen den Zellen laesst.
 

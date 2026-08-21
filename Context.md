@@ -867,8 +867,8 @@ derselben x-Position hat. Das ist der Fall bei:
 
 * **Gitter** (rechtwinklig), **Mauer ohne Versatz**, **Puzzle** – dort rastet die
   Zellgröße auf einen Teiler des Umfangs und die Naht fällt exakt auf eine Wand.
-* **Organische Zellen** – dort entsteht die Grenze durch gespiegelte
-  Geisterpunkte (Paket 2.2, zweiter Teil).
+* **Organische Zellen** – dort sorgen Geisterpunkte dafür, dass das Muster
+  über die Naht hinweg weiterläuft (Paket 2.2, dritter Teil, siehe 15.8).
 
 Nicht der Fall ist es bei **Wabe** (beide Ausrichtungen), **Rauten**, **schiefem
 Gitter** und **Mauer mit Versatz**: dort sind die Reihen um eine halbe Zelle
@@ -901,9 +901,8 @@ Drei Wege stehen offen, die Entscheidung liegt beim Nutzer:
 Beim Bauen zeigte sich, dass sie **billiger** ist als gedacht: die Bahn muss
 nicht von jedem Generator geliefert werden, sondern lässt sich im fertigen
 Zellnetz suchen (`core/seam.py`). Eine Kürzeste-Wege-Suche über die Zellkanten,
-beschränkt auf ein schmales Band um die Naht und auf Schritte, die nicht nach
-unten führen; die Kosten sind Kantenlänge plus Aufschlag für den Abstand zur
-Ideallinie. Damit gilt:
+beschränkt auf ein schmales Band um die Naht; die Kosten sind Kantenlänge plus
+Aufschlag für den Abstand zur Ideallinie. Damit gilt:
 
 * **Kein Generator weiß etwas von Nähten** – die Leitidee „neues Muster = neue
   Datei" bleibt unangetastet, und künftige Muster bekommen die saubere Naht
@@ -927,3 +926,64 @@ Zwei Dinge waren dabei nicht offensichtlich:
 Kosten: 35 ms für ein feines Wabenmuster (1200 Zellen), nachdem die Auswertung
 auf das Band um die Naht beschränkt ist – ohne diese Beschränkung waren es
 300 ms und die Vorschau hätte gestockt.
+
+### 15.8 Organische Muster periodisch (Paket 2.2, dritter Teil)
+
+**Stand 2026-08-21.** Der Plan sah für Voronoi, Kiesel, Gewebe und Blattadern
+**gespiegelte** Geisterpunkte an den Fensterkanten vor, damit dort eine
+Zellgrenze entsteht. Umgesetzt sind **verschobene** (Saatpunkt plus eine
+Periode). Begründung:
+
+* Verschieben macht das Muster **echt periodisch**: nach dem Wickeln setzt es
+  sich fort. Spiegeln erzeugt an der Naht ein Spiegelbild – bei zufälligen
+  Zellen kaum zu sehen, aber es ist eine andere Zusicherung.
+* Die Zellenzahl bleibt unangetastet. Beim Spiegeln hätten die Punkte im
+  rechten Randband **ersetzt** werden müssen (nicht ergänzt), sonst stimmt die
+  Zahl nicht – ein Sonderfall weniger.
+* Die Naht muss gar keine Zellgrenze mehr sein: die sucht sich `core/seam.py`
+  entlang der vorhandenen Wände. Nötig ist nur, dass das Zellnetz periodisch
+  ist – dann ist die um eine Periode versetzte Bahn wieder eine Bahn auf Wänden.
+
+Fünf Dinge, die beim Bauen nicht offensichtlich waren:
+
+1. **Der Mindestabstand muss über die Naht hinweg gelten.** Sonst landen ein
+   Punkt am linken und einer am rechten Rand nach dem Wickeln fast aufeinander;
+   gemessen sank der kleinste Abstand auf ein Viertel (0,089 statt 0,326 cm),
+   und genau dort entsteht ein Zellsplitter.
+2. **Die Zellen dürfen an der Naht nicht abgeschnitten werden.** Sie werden
+   ganz gebraucht, damit die Bahn um sie herumlaufen kann; das Zuschneiden auf
+   den Rahmen macht ohnehin `core/build.py`. Am Fensterrand abgeschnitten wäre
+   ebenfalls lückenlos, aber die Zellen an der Naht wären halbe.
+3. **Die Suche braucht die Zellen der anderen Nahtseite.** Die Liste enthält
+   jede Zelle genau einmal, links der Naht klafft dadurch eine Lücke, wo in
+   Wirklichkeit das Muster weitergeht – und die Suche legt die Bahn seelenruhig
+   mitten hindurch. Zerschnitten wird dann nichts, was in der Liste steht, aber
+   nach dem Wickeln sehr wohl. `seam.periodic_cells` legt die Kopien dazu.
+   Aufgefallen ist das nur, weil der Test die **versetzte** Bahn mitprüft.
+4. **Gerundete Zellen brauchen eine nicht-monotone Suche.** Um eine Ausbuchtung
+   herum führt kein Weg, der nie nach unten geht. Erster Anlauf bleibt monoton
+   (eine solche Bahn kann sich unmöglich selbst kreuzen), erst der zweite gibt
+   die Richtung frei und prüft das Ergebnis auf Selbstkreuzung.
+5. **Das Netz für die Naht ist nicht immer das Netz der Löcher.** Bei den
+   Blattadern liegen zwischen den Löchern **verschieden breite** Fugen –
+   Hauptadern zwischen den Grobzellen, Nebenadern zwischen den Feinzellen. Ein
+   einziges Aufweiten kann nicht beide schließen: es verklebt die Feinzellen,
+   bevor die Hauptader zu ist. Deshalb hat `Generator` jetzt den Haken
+   `seam_cells`, mit dem ein Muster das Netz melden kann, in dem die Naht
+   verschwinden soll (Blattadern: die Grobzellen; Kiesel: die Zellen vor der
+   Größenstreuung). Standard ist `None` – dann sind es die Löcher selbst.
+
+Zwei Zahlen für den Aufrufer (`core/build.py`, Paket 2.3):
+
+* Das Suchband darf nicht zu schmal sein – es zählen nur Kanten, die **ganz**
+  darin liegen, und die langen Wände grober Zellen fallen sonst heraus.
+  `seam.suggest_offset` schlägt drei Zellbreiten vor, höchstens ein Viertel
+  Umlauf.
+* Aufgeweitet wird um **genau** die halbe Fuge (`Generator.gap()/2`). Mehr
+  lässt die Zellen einander überlappen, das Kantennetz zerfällt und es gibt gar
+  keine Bahn mehr.
+
+Kosten (Umfang 15 cm, Höhe 6 cm): Zellbau im periodischen Modus etwa ein
+Viertel teurer als ohne (500 Zellen: 0,20 statt 0,17 s), Nahtsuche 2–16 ms.
+Das Aufteilen der Kanten an fremden Knoten war anfangs 98 % der Suchzeit
+(0,31 s); mit einem nach x sortierten Knotenindex sind es 16 ms.

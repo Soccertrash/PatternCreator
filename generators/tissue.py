@@ -30,15 +30,5 @@ class TissueGenerator(OrganicGenerator):
     ]
 
     def generate(self, params: Dict[str, Any], ctx: GenContext) -> List[Any]:
-        from .organic_cells import build_cells
-        cells = build_cells(
-            ctx,
-            count=int(params.get("cellCount", 160)),
-            relax=int(params.get("relax", 1)),
-            anisotropy=float(params.get("anisotropy", 2.5)),
-            rows=int(params.get("rows", 8)),
-            smooth=int(params.get("roundness", 2)),
-            inset=float(params.get("inset", 0.0)),
-            jitter=float(params.get("rowJitter", 0.7)),
-        )
-        return [ir.path(c, closed=True, role=ir.ROLE_REGION) for c in cells]
+        return [ir.path(c, closed=True, role=ir.ROLE_REGION)
+                for c in self.cells_for(params, ctx)]
