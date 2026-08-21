@@ -26,10 +26,10 @@ from typing import Any, List, Optional, Sequence, Tuple
 import adsk.core
 import adsk.fusion
 
-from core.development import (KIND_CONE, KIND_CYLINDER, PERIODIC_TOL, axis_frame,
-                              describe, normalized, surface_coords,
-                              theta_coverage, touch_point, unwrap_angles,
-                              usable_span)
+from core.development import (KIND_CONE, KIND_CYLINDER, PERIODIC_TOL,
+                              axial_radii, axis_frame, describe, normalized,
+                              surface_coords, taper, theta_coverage,
+                              touch_point, unwrap_angles, usable_span)
 from core.optimize import TOL
 
 Point = Tuple[float, float]
@@ -107,11 +107,15 @@ def read_surface(entity: Any) -> SurfaceSnapshot:
     if not loops:
         raise SurfaceError("Die Fläche hat keine auswertbaren Randkurven.")
     if kind == KIND_CONE:
+        samples = axial_radii(_flat(world), origin, axis)
+        if samples and min(r for _s, r in samples) <= 1e-6:
+            raise SurfaceError("Die Fläche läuft in die Spitze des Kegels – "
+                               "dort hätte ein Muster keine Breite mehr. Bitte "
+                               "einen Kegelstumpf wählen.")
         # Welche Richtung die Flaeche weiter wird, sagt die Geometrie selbst -
         # nicht das Vorzeichen aus ``getData``. Ein geratenes Vorzeichen haette
         # das Muster auf den Kopf gestellt.
-        half_angle = math.copysign(half_angle,
-                                   _taper(_flat(world), origin, axis) or 1.0)
+        half_angle = math.copysign(half_angle, taper(samples) or 1.0)
 
     periodic = _is_full_wrap(loops)
     if periodic:
@@ -193,32 +197,6 @@ def _loop_points(face) -> List[List[Vector]]:
 
 def _flat(loops: Sequence[Sequence[Vector]]) -> List[Vector]:
     return [p for loop in loops for p in loop]
-
-
-def _taper(points: Sequence[Vector], origin: Vector, axis: Vector) -> float:
-    """Wie stark waechst der Radius entlang der Achse? (Ausgleichsgerade)
-
-    Beim Kegel ist der Radius **linear** in der Achslage, die Gerade trifft also
-    exakt; der Ausgleich glaettet nur das Abtastrauschen der Randkurven. Das
-    Vorzeichen des Ergebnisses ist die eigentliche Auskunft: es sagt, auf
-    welcher Seite der Apex liegt.
-    """
-    a = normalized(axis)
-    samples = []
-    for p in points:
-        v = (p[0] - origin[0], p[1] - origin[1], p[2] - origin[2])
-        s = sum(v[i] * a[i] for i in range(3))
-        radial = tuple(v[i] - s * a[i] for i in range(3))
-        samples.append((s, math.sqrt(sum(c * c for c in radial))))
-    if len(samples) < 2:
-        return 0.0
-    n = float(len(samples))
-    mean_s = sum(s for s, _ in samples) / n
-    mean_r = sum(r for _, r in samples) / n
-    spread = sum((s - mean_s) ** 2 for s, _ in samples)
-    if spread <= 1e-12:
-        return 0.0
-    return sum((s - mean_s) * (r - mean_r) for s, r in samples) / spread
 
 
 def _strokes(edge) -> List[Vector]:

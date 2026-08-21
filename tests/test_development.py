@@ -246,3 +246,48 @@ def test_describe_speaks_millimetres():
         {"kind": "cylinder", "radius": 1.25, "length": 3.0, "periodic": False}
     ) == "Zylinder r = 12.5 mm, L = 30 mm, Teilfläche"
     assert dev.describe(None) == ""
+
+
+# ------------------------------------------------ Radius entlang der Achse
+
+def test_axial_radii_measure_along_and_away_from_the_axis():
+    points = [(2.0, 0.0, 0.0), (0.0, 3.0, 5.0), (0.0, 0.0, -1.0)]
+    samples = dev.axial_radii(points, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    assert samples[0] == pytest.approx((0.0, 2.0))
+    assert samples[1] == pytest.approx((5.0, 3.0))
+    assert samples[2] == pytest.approx((-1.0, 0.0))
+
+
+def test_taper_finds_the_slope_of_a_cone_exactly():
+    """Der Radius ist linear in der Achslage - die Ausgleichsgerade trifft."""
+    slope = -0.25
+    samples = [(s / 10.0, 3.0 + slope * s / 10.0) for s in range(-30, 31)]
+    assert dev.taper(samples) == pytest.approx(slope)
+
+
+def test_taper_says_on_which_side_the_apex_is():
+    """Genau dafür wird sie gebraucht: ``getData`` verrät es nicht."""
+    widening = [(0.0, 1.0), (6.0, 2.0)]
+    narrowing = [(0.0, 2.0), (6.0, 1.0)]
+    assert dev.taper(widening) > 0.0
+    assert dev.taper(narrowing) < 0.0
+
+
+def test_taper_of_a_cylinder_is_zero():
+    assert dev.taper([(0.0, 2.5), (3.0, 2.5), (6.0, 2.5)]) == pytest.approx(0.0)
+
+
+def test_taper_survives_degenerate_input():
+    assert dev.taper([]) == 0.0
+    assert dev.taper([(1.0, 2.0)]) == 0.0
+    assert dev.taper([(1.0, 2.0), (1.0, 3.0)]) == 0.0     # alles auf einer Höhe
+
+
+def test_taper_shrugs_off_sampling_noise():
+    """Die Randkurven werden nur mit 0,02 mm Toleranz abgetastet."""
+    import random
+    rnd = random.Random(4)
+    slope = 0.1666
+    samples = [(s / 10.0, 2.5 + slope * s / 10.0 + rnd.uniform(-2e-3, 2e-3))
+               for s in range(-30, 31)]
+    assert dev.taper(samples) == pytest.approx(slope, abs=1e-3)

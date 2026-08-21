@@ -232,6 +232,39 @@ def surface_coords(points: Sequence[Vector], origin: Vector, axis: Vector,
     return out
 
 
+def axial_radii(points: Sequence[Vector], origin: Vector,
+                axis: Vector) -> List[Tuple[float, float]]:
+    """Zu jedem Punkt: Lage auf der Achse und Abstand von ihr."""
+    a = normalized(axis)
+    out: List[Tuple[float, float]] = []
+    for p in points:
+        v = (p[0] - origin[0], p[1] - origin[1], p[2] - origin[2])
+        s = dot3(v, a)
+        radial = (v[0] - s * a[0], v[1] - s * a[1], v[2] - s * a[2])
+        out.append((s, math.sqrt(dot3(radial, radial))))
+    return out
+
+
+def taper(samples: Sequence[Tuple[float, float]]) -> float:
+    """Wie stark waechst der Radius entlang der Achse? (Ausgleichsgerade)
+
+    Beim Kegel ist der Radius **linear** in der Achslage, die Gerade trifft
+    also exakt; der Ausgleich glaettet nur das Abtastrauschen der Randkurven.
+    Das Vorzeichen ist die eigentliche Auskunft: es sagt, auf welcher Seite der
+    Apex liegt. Fusions ``getData`` liefert den Halbwinkel ohne verlaessliches
+    Vorzeichen - geraten haette es jeden zweiten Kegel auf den Kopf gestellt.
+    """
+    if len(samples) < 2:
+        return 0.0
+    n = float(len(samples))
+    mean_s = sum(s for s, _ in samples) / n
+    mean_r = sum(r for _, r in samples) / n
+    spread = sum((s - mean_s) ** 2 for s, _ in samples)
+    if spread <= 1e-12:
+        return 0.0
+    return sum((s - mean_s) * (r - mean_r) for s, r in samples) / spread
+
+
 def usable_span(loop_spans: Sequence[Tuple[float, float]]
                 ) -> Optional[Tuple[float, float]]:
     """Groesstes Achsenstueck, das **jede** Randkurve freilaesst.

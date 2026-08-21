@@ -1386,3 +1386,26 @@ nicht und fallen sauber auf `radius` zurück. Aufgefallen wäre der Fehler erst 
 Fusion, und zwar als „Die Mantelfläche ist nach dem Prägen nicht mehr
 auffindbar" – ein Satz, der in die Irre geführt hätte, weil die Fläche ja da
 war.
+
+### 15.17 Zwei bewusste Abweichungen vom Plan (Paket 2.7)
+
+**Die Prägen-Checkbox wird nicht ausgegraut**, wenn Fusion die Emboss-API nicht
+kennt – der Plan sah das vor. Stattdessen entsteht die Skizze, und statt der
+Prägung kommt ein Klartext-Satz („Diese Fusion-Version kennt ‚Prägen' nicht.
+Das Muster liegt als Skizze auf der Tangentialebene."). Grund: dieser Weg
+existiert und ist getestet; das Ausgrauen bräuchte eine Sonderregel im generisch
+aus dem Schema gebauten Formular und einen Fusion-Durchlauf zum Prüfen – für
+einen Fall, der nur auf alten Versionen auftritt. Der Nutzer erfährt dasselbe,
+nur eine Sekunde später.
+
+**Der Kegel wird nicht im Sektor erzeugt, sondern im Rechteck und danach
+gebogen** – das sah der Plan zwar so vor (2.1), aber mit einer anderen
+Begründung („Zellen werden zum Apex hin schmaler, genau so sieht eine Abwicklung
+aus"). Der eigentliche Grund ist zwingender: die Periodizität ist im Rechteck
+eine **Verschiebung**, im Sektor eine Drehung. Die gesamte Nahtsuche, alle neun
+Generatoren und das Flächenmodell rechnen mit Verschiebungen. Siehe 15.14.
+
+Ebenfalls aus dem Plan, aber anders gelöst: die Rechnung „Radius über Achslage"
+liegt in `core/development.py` (`axial_radii`, `taper`) statt im Leser. Der
+Modulkopf von `fusion/surface_reader.py` sagt selbst, dass dort nur API-Arbeit
+stehen soll – und ohne Fusion prüfbar ist die Ausgleichsgerade nur in `core/`.
