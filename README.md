@@ -231,8 +231,9 @@ Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablau
    Muster. Schieberegler und Zahlenfelder sind auf den erlaubten Bereich begrenzt;
    die Vorschau aktualisiert sich 150 ms nach der letzten Änderung.
    Über **Fein / Mittel / Grob** gibt es je Muster fertige Vorgaben.
-3. **Rahmen** – Form (Rechteck, Quadrat, Kreis, Ellipse, Vieleck), Maße, Ursprung,
-   Drehung des Rahmens und – davon unabhängig – Drehung des Musters im Rahmen.
+3. **Rahmen** – Form (Rechteck, Quadrat, Kreis, Ellipse, Vieleck oder **Eigener
+   Rahmen**), Maße, Ursprung, Drehung des Rahmens und – davon unabhängig – Drehung
+   des Musters im Rahmen. Zum eigenen Rahmen siehe den nächsten Abschnitt.
 4. **Stil** – *Linien* für Gravuren, *Flächen* für extrudierbare Profile. Im
    Flächenmodus bestimmt **Dicke** die Stegbreite; **Füllung** schaltet zwischen
    *Stegen* (Wände zwischen den Zellen) und *Zellen* (die Zellflächen selbst) um.
@@ -251,6 +252,46 @@ Ziel: ein Untersetzer mit Wabenmuster – als Beispiel für den kompletten Ablau
 Das Add-In erzeugt ausschließlich Skizzen. Zum Volumenkörper wird das Muster mit
 Fusions eigenem **Extrudieren** – so bleibt die volle Kontrolle über Tiefe,
 Richtung und Vorgang bei dir.
+
+### Eigener Rahmen
+
+Statt einer der fünf Grundformen kann die **Außenkontur eines geschlossenen
+Skizzenprofils oder einer ebenen Fläche** der Rahmen sein – also jede Form, die
+sich in Fusion zeichnen lässt, auch stark konkave. Es gibt zwei Wege dorthin:
+
+**Weg 1 – beim Erstellen.** Im Dialog **Muster erstellen** ist die Auswahl
+„Ebene, Fläche oder Profil". Wird eine Fläche oder ein Profil gewählt, erscheint
+das Kontrollkästchen **Kontur als Rahmen verwenden** (standardmäßig an). Nach
+*OK* öffnet der Editor mit dieser Kontur als Rahmen, und die Skizze entsteht
+später auf derselben Ebene bzw. auf der Fläche.
+
+**Weg 2 – im Editor.** In der Gruppe *Rahmen* die Form **Eigener Rahmen** wählen.
+Darunter erscheinen eine Infozeile und zwei Knöpfe:
+
+* **Aus Fusion-Auswahl übernehmen** – liest, was gerade im Fusion-Canvas
+  ausgewählt ist (ein geschlossenes Profil oder eine ebene Fläche).
+* **Rahmen neu einlesen** – liest die gespeicherte Quelle erneut, zum Beispiel
+  nachdem die Rahmen-Skizze in Fusion geändert wurde.
+
+Die Infozeile nennt Quelle, Punktzahl und Maße:
+`Quelle: Skizze1 / Profil · 213 Punkte · 54,2 × 31,0 mm`.
+
+Was dabei zu wissen ist:
+
+* Der Rahmen ist ein **Schnappschuss**. Die Kontur steht als Punktliste im
+  Dokument; ein Re-Edit funktioniert auch dann noch, wenn die Quell-Skizze
+  gelöscht oder verschoben wurde. Nachziehen lässt sich das jederzeit mit
+  *Rahmen neu einlesen*.
+* Nur die **Außenkontur** zählt. Löcher im Profil oder Bohrungen in der Fläche
+  bleiben unberücksichtigt.
+* **Bögen werden zu Linienzügen** (Toleranz 0,02 mm) – dieselbe Toleranz, mit
+  der auch der Elemente-Optimierer arbeitet.
+* Alles andere funktioniert wie in den Grundformen: Muster, Stil, Schraffur,
+  Text, Flächenmodell, Rahmendicke, Beschnitt und Re-Edit.
+* Ist der Rahmen an einer Stelle schmaler als zweimal die **Rahmendicke**, lässt
+  sich das Maß dort nicht einhalten. Das Muster entsteht trotzdem, die Vorschau
+  warnt aber ausdrücklich – still danebenliegen soll das Ergebnis nicht.
+* **Zurücksetzen** in der Gruppe *Rahmen* wirft die eingelesene Kontur weg.
 
 ### Vorhandenes Muster bearbeiten
 
@@ -300,6 +341,7 @@ Grenze Editor ↔ Dokument: eine Eingabe von `10 mm` steht als `1.0` im PatternD
 | Begriff | Bedeutung |
 | --- | --- |
 | **Rahmen (Container)** | Rechteck (optional mit Eckenradius), Quadrat, Kreis, Ellipse oder Vieleck (3–12 Seiten), in das das Muster eingepasst wird. |
+| **Eigener Rahmen** | Außenkontur eines geschlossenen Skizzenprofils oder einer ebenen Fläche als Rahmen – auch konkav. Wird als Punktliste ins Dokument übernommen (Schnappschuss), nicht als Verknüpfung. |
 | **Linienmodus** | Es entstehen reine Kurven – für Gravuren und dekorative Skizzen. |
 | **Flächenmodus** | Jede Kurve wird über die **Dicke** zu einem geschlossenen Streifen, jede Zelle zu einem geschlossenen Polygon → direkt extrudierbar. |
 | **Stege / Zellen** | Im Flächenmodus wahlweise die Wände *zwischen* den Zellen oder die Zellflächen selbst. |
@@ -521,6 +563,17 @@ ersten Lauf auf der eigenen Installation nachvollziehen und das Ergebnis eintrag
 | Zellgewebe | 8 Reihen, Streckung 2,5 | 80 Reihen, Streckung 10 | deutlich längliche Zellen in Reihen |
 | Blattadern | 14 / 9 Zellen | 120 / 40, Verhältnis 8 | Hauptadern klar dicker als Nebenadern |
 
+Für den eigenen Rahmen zusätzlich:
+
+| Fall | Vorgehen | Erwartet |
+| --- | --- | --- |
+| Konkaver Rahmen | L- oder herzförmiges Profil, Wabe im Flächenmodell | Rahmen liegt deckungsgleich auf der Quelle, kein Loch ragt heraus, Rahmendicke rundum eingehalten |
+| Fläche als Rahmen | Seitenfläche eines Quaders wählen | Skizze **ohne** projizierte Flächenkanten, Muster als **ein** Profil wählbar |
+| Re-Edit nach Änderung der Quelle | Rahmen-Skizze in Fusion ändern → *Muster bearbeiten* → erzeugen | Muster bleibt unverändert (Schnappschuss); erst *Rahmen neu einlesen* zieht nach |
+| Quelle gelöscht | Rahmen-Skizze löschen → *Rahmen neu einlesen* | Klartext-Meldung „Quelle nicht mehr vorhanden", Muster bleibt benutzbar |
+| Zu dicker Rand | Rahmendicke größer als die halbe schmalste Stelle | Warnbanner in der Vorschau, Muster entsteht trotzdem |
+| Extrusion | Flächenmodell im konkaven Rahmen extrudieren | **ein** Körper, STL ohne Reparaturhinweis |
+
 Zusätzlich zu prüfen:
 
 - **Re-Edit-Zyklus:** erzeugen → in Fusion extrudieren → *Muster bearbeiten* →
@@ -582,7 +635,12 @@ PatternDoc (JSON)  ──►  Generator  ──►  IR (Fusion-frei)  ──┬�
 * **`core/build.py`** – die Pipeline: Generator → Musterdrehung → Clipping →
   Text-Knockout → Stil (Stroker/Inset) → Rahmen → Platzierung.
 * **`core/containers.py` / `core/clip.py`** – Rahmenformen und Halbebenen-Clipping.
-* **`core/stroker.py`** – Linien → geschlossene Streifen (Gehrung mit Begrenzung).
+* **`core/polyclip.py`** – Clipping gegen beliebige, auch konkave Rahmen
+  (Randklassifikation plus Beschleunigungsraster) – für den eigenen Rahmen.
+* **`core/stroker.py`** – Linien → geschlossene Streifen (Gehrung mit Begrenzung),
+  dazu der Versatz einer Kontur nach innen (`shrink_polygon`).
+* **`fusion/frame_reader.py`** – liest die Außenkontur eines Profils oder einer
+  planaren Fläche aus Fusion ein.
 * **`generators/`** – ein Modul je Muster; die organische Familie teilt sich
   `organic_cells.py` (Voronoi, Lloyd, Eckenrundung, Anisotropie, Fuge).
 * **`fusion/`** – der einzige Ort mit `adsk`-Aufrufen.
@@ -629,6 +687,18 @@ Vorgaben und Hilfetext entstehen aus der Klasse.
   *Splines* umzuwandeln würde deutlich mehr sparen, hielte diese Toleranz aber nicht
   ein – das passiert deshalb nur dort, wo es nachweislich innerhalb der Toleranz
   bleibt.
+* **Eigener Rahmen: nur die Außenkontur.** Innenkonturen (Löcher im Profil,
+  Bohrungen in der Fläche) werden ignoriert.
+* **Bögen im eigenen Rahmen werden zu Linienzügen** mit 0,02 mm Toleranz – echte
+  Bögen im Umriss bräuchten gemischte Linie/Bogen-Pfade in der IR (Nicht-Ziel,
+  siehe `Context.md`).
+* **Der eigene Rahmen ist ein Schnappschuss**, keine Verknüpfung: Änderungen an
+  der Quell-Skizze wirken erst nach *Rahmen neu einlesen*.
+* **Rahmendicke an engen Stellen.** Ist der Rahmen irgendwo schmaler als zweimal
+  die Rahmendicke, lässt sich das Maß dort nicht einhalten; die Vorschau warnt.
+* **Ein sehr zerklüfteter eigener Rahmen kostet Rechenzeit.** Ein Umriss mit
+  einigen hundert Ecken verdoppelt die Rechenzeit gegenüber einem Rechteck
+  (Messwerte in `Context.md`); übliche Konturen sind kaum langsamer.
 * Das Add-In erzeugt Skizzengeometrie, **kein** CustomFeature – das Muster erscheint
   nicht als eigener Timeline-Eintrag (siehe `Context.md`).
 
@@ -877,9 +947,10 @@ Goal: a coaster with a honeycomb pattern — as an example of the complete workf
    pattern. Sliders and number fields are clamped to the allowed range; the preview
    refreshes 150 ms after the last change. **Fein / Mittel / Grob** (fine / medium /
    coarse) offer ready-made presets per pattern.
-3. **Container** (*Rahmen*) — shape (rectangle, square, circle, ellipse, polygon),
-   dimensions, origin, rotation of the container and — independently — rotation of
-   the pattern inside it.
+3. **Container** (*Rahmen*) — shape (rectangle, square, circle, ellipse, polygon
+   or **Eigener Rahmen**, a custom container), dimensions, origin, rotation of the
+   container and — independently — rotation of the pattern inside it. See the next
+   section for custom containers.
 4. **Style** (*Stil*) — *Linien* (lines) for engravings, *Flächen* (faces) for
    extrudable profiles. In face mode **Dicke** (thickness) defines the web width;
    **Füllung** (fill) switches between *Stege* (the walls between the cells) and
@@ -900,6 +971,45 @@ Goal: a coaster with a honeycomb pattern — as an example of the complete workf
 
 The add-in only ever creates sketches. Turning the pattern into a solid is done with
 Fusion's own **Extrude** — depth, direction and operation stay fully under your control.
+
+### Custom container (*Eigener Rahmen*)
+
+Instead of one of the five basic shapes, the **outer contour of a closed sketch
+profile or of a planar face** can be the container — any shape you can draw in
+Fusion, concave ones included. There are two ways in:
+
+**Way 1 — while creating.** In the **Muster erstellen** dialog the selection now
+reads „Ebene, Fläche oder Profil" (plane, face or profile). Picking a face or a
+profile reveals the check box **Kontur als Rahmen verwenden** (use contour as
+container, on by default). After *OK* the editor opens with that contour as its
+container, and the sketch is later created on the same plane resp. on the face.
+
+**Way 2 — inside the editor.** Pick the shape **Eigener Rahmen** in the *Rahmen*
+group. An info line and two buttons appear below it:
+
+* **Aus Fusion-Auswahl übernehmen** — reads whatever is currently selected in the
+  Fusion canvas (a closed profile or a planar face).
+* **Rahmen neu einlesen** — reads the stored source again, for instance after the
+  container sketch was changed in Fusion.
+
+The info line names source, point count and size:
+`Quelle: Skizze1 / Profil · 213 Punkte · 54,2 × 31,0 mm`.
+
+Worth knowing:
+
+* The container is a **snapshot**. The contour is stored as a point list in the
+  document, so re-editing still works after the source sketch was deleted or
+  moved. *Rahmen neu einlesen* pulls in changes whenever you want them.
+* Only the **outer contour** counts. Holes in the profile or in the face are
+  ignored.
+* **Arcs become polylines** (tolerance 0.02 mm) — the same tolerance the sketch
+  element optimiser works with.
+* Everything else behaves as with the basic shapes: pattern, style, hatching,
+  text, face model, border width, clipping and re-edit.
+* Where the container is narrower than twice the **border width**, that width
+  cannot be kept. The pattern is still created, but the preview says so
+  explicitly — a silently wrong result is not acceptable.
+* **Zurücksetzen** in the *Rahmen* group discards the contour that was read in.
 
 ### Editing an existing pattern
 
@@ -948,6 +1058,7 @@ editor ↔ document boundary: an input of `10 mm` is stored as `1.0` in the Patt
 | Term | Meaning |
 | --- | --- |
 | **Container** (*Rahmen*) | Rectangle (optionally with corner radius), square, circle, ellipse or polygon (3–12 sides) the pattern is fitted into. |
+| **Custom container** (*Eigener Rahmen*) | The outer contour of a closed sketch profile or of a planar face as the container — concave shapes included. Stored as a point list in the document (a snapshot), not as a link. |
 | **Line mode** (*Linien*) | Produces pure curves — for engravings and decorative sketches. |
 | **Face mode** (*Flächen*) | Every curve becomes a closed strip via the **thickness**, every cell a closed polygon → directly extrudable. |
 | **Webs / cells** (*Stege / Zellen*) | In face mode either the walls *between* the cells or the cell faces themselves. |
@@ -1191,6 +1302,17 @@ Also worth checking:
 - **All container shapes** with clipping `cut`, `dropPartial`, `off` (spot check:
   circle + honeycomb).
 
+For the custom container in addition:
+
+| Case | Steps | Expected |
+| --- | --- | --- |
+| Concave container | L- or heart-shaped profile, honeycomb in face mode | container sits exactly on its source, no hole sticks out, border width kept all around |
+| Face as container | pick a side face of a box | sketch **without** projected face edges, pattern selectable as **one** profile |
+| Re-edit after the source changed | change the container sketch → *Muster bearbeiten* → create | pattern unchanged (snapshot); only *Rahmen neu einlesen* pulls it in |
+| Source deleted | delete the container sketch → *Rahmen neu einlesen* | plain-text message „source no longer available", pattern stays usable |
+| Border too thick | border width larger than half the narrowest spot | warning banner in the preview, pattern is still created |
+| Extrusion | extrude the face model in a concave container | **one** solid, STL without repair hints |
+
 ---
 
 ## Troubleshooting
@@ -1244,7 +1366,12 @@ PatternDoc (JSON)  ──►  generator  ──►  IR (Fusion-free)  ──┬�
   text knockout → style (stroker/inset) → container → placement.
 * **`core/containers.py` / `core/clip.py`** — container shapes and half-plane
   clipping.
-* **`core/stroker.py`** — lines → closed strips (miter with limit).
+* **`core/polyclip.py`** — clipping against arbitrary, possibly concave containers
+  (boundary classification plus an acceleration grid) — for the custom container.
+* **`core/stroker.py`** — lines → closed strips (miter with limit), plus offsetting
+  a contour inwards (`shrink_polygon`).
+* **`fusion/frame_reader.py`** — reads the outer contour of a profile or a planar
+  face from Fusion.
 * **`generators/`** — one module per pattern; the organic family shares
   `organic_cells.py` (Voronoi, Lloyd, corner rounding, anisotropy, joint).
 * **`fusion/`** — the only place with `adsk` calls.
@@ -1290,6 +1417,18 @@ and help text are derived from the class.
   10–25 % fewer entities). Turning smooth contours into *splines* would save
   considerably more but would not hold that tolerance — so it only happens where it
   provably stays within it.
+* **Custom container: outer contour only.** Holes in the profile or bores in the
+  face are ignored.
+* **Arcs in a custom container become polylines** with 0.02 mm tolerance — real arcs
+  in the outline would require mixed line/arc paths in the IR (a deliberate
+  non-goal, see `Context.md`).
+* **The custom container is a snapshot**, not a link: changes to the source sketch
+  only take effect after *Rahmen neu einlesen*.
+* **Border width at narrow spots.** Where the container is narrower than twice the
+  border width, that width cannot be kept; the preview warns.
+* **A heavily jagged custom container costs time.** An outline with several hundred
+  corners doubles the computation time compared with a rectangle (measurements in
+  `Context.md`); ordinary contours are barely slower.
 * The add-in creates sketch geometry, **not** a CustomFeature — the pattern does not
   appear as its own timeline entry (see `Context.md`).
 

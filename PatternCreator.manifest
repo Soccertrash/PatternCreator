@@ -4,9 +4,9 @@
     "id": "b0f4a4d2-9a1c-4a4e-9a2f-6d3f1c7b4e21",
     "author": "Manfred Pauli",
     "description": {
-        "": "Parametrische 2D-Muster als extrudierbare Skizzen: technische Raster (Gitter, Rauten, Wabe, Mauer, Puzzle) und organische Zellmuster (Voronoi, Kiesel, Zellgewebe, Blattadern) mit Live-Vorschau, optionaler Schraffur der Zellflaechen und optionaler Text-Ebene."
+        "": "Parametrische 2D-Muster als extrudierbare Skizzen: technische Raster (Gitter, Rauten, Wabe, Mauer, Puzzle) und organische Zellmuster (Voronoi, Kiesel, Zellgewebe, Blattadern) mit Live-Vorschau, optionaler Schraffur der Zellflaechen und optionaler Text-Ebene. Als Rahmen dienen wahlweise Grundformen oder eigene Rahmen aus Skizzenprofilen oder ebenen Flaechen (auch konkav)."
     },
-    "version": "1.5.0",
+    "version": "1.6.0",
     "runOnStartup": false,
     "supportedOS": "windows|mac",
     "editEnabled": true

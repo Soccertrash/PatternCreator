@@ -84,9 +84,11 @@ Vieleck (3–12 Seiten). Einheitliche Schnittstelle `contains` / `clip_path` /
   **gezeichnete** Umriss bleibt ein echter Kreis- bzw. Ellipsenbogen.
 - Clipping-Modi: `cut`, `dropPartial` (ergibt ausgefranste, natürliche Ränder),
   `off`.
-- Ein bestehendes Skizzenprofil oder eine planare Fläche als Container: war
-  Stretch, ist seit 2026-08-21 geplant – Entscheidungen in Abschnitt 15,
-  Arbeitspakete in `PLAN-RAHMEN-3D.md`.
+- **Eigener Rahmen** (seit 1.6.0): die Außenkontur eines Skizzenprofils oder
+  einer planaren Fläche, als Punktliste im Doc (`container.customPoints`,
+  `shape: "custom"`). Darf konkav sein und benutzt deshalb `core/polyclip.py`
+  statt der Halbebenen. Entscheidungen in Abschnitt 15.1, Messwerte und
+  Abweichungen in 15.4.
 
 ---
 
@@ -424,6 +426,22 @@ durchgegangen werden sollte:
 - Re-Edit-Zyklus: erzeugen → extrudieren → bearbeiten → die Extrusion rechnet neu.
 - Zweimal Laden/Entladen des Add-Ins: keine doppelten Buttons, keine Fehler.
 
+Für den **eigenen Rahmen** (1.6.0):
+
+- Der Rahmen liegt **deckungsgleich** auf seiner Quelle (Skizzenprofil bzw.
+  Fläche) – Ursprung und Drehung stimmen ohne Nachjustieren.
+- Fläche als Ziel: die Skizze enthält **keine** projizierten Flächenkanten.
+- Muster im konkaven Rahmen ist als **ein** Profil wählbar; die Extrusion ergibt
+  **einen** Körper, STL ohne Reparaturhinweis.
+- Rahmendicke im konkaven Rahmen nachmessen – auch in Einbuchtungen.
+- Re-Edit nach Verschieben oder Ändern der Quell-Skizze: der Schnappschuss bleibt
+  wie er war; „Rahmen neu einlesen" zieht nach.
+- „Rahmen neu einlesen" bei gelöschter Quelle: Klartext-Meldung, kein Absturz,
+  Muster bleibt benutzbar.
+- Zu große Rahmendicke: Warnbanner erscheint, Muster entsteht trotzdem.
+- Der Rahmen-Befehl (`PatternCreatorFrameCmd`) hinterlässt keinen
+  Timeline-Eintrag und keine Hilfsskizze.
+
 ---
 
 ## 13. Chronik der Entfernungen
@@ -507,9 +525,11 @@ die Verbinder-Tests und die Tests der entfernten Muster).
 
 - Polygon-Vereinigung für den Strok-Pfad (Füllung *Zellen*, kein Rahmen,
   Beschnitt *Aus*) und für die Kreuzschraffur.
-- Bestehendes Skizzenprofil / planare Fläche als Container – **geplant**,
-  siehe Abschnitt 15 und `PLAN-RAHMEN-3D.md`; ebenso Mantelflächen
-  (Zylinder/Kegel) per Abwicklung.
+- Mantelflächen (Zylinder/Kegel) per Abwicklung – **geplant**, siehe Abschnitt
+  15.2 und `PLAN-RAHMEN-3D.md`. (Bestehendes Skizzenprofil / planare Fläche als
+  Container ist mit 1.6.0 erledigt.)
+- Innenkonturen im eigenen Rahmen (Löcher im Profil) – bewusst nicht umgesetzt,
+  siehe 15.1.
 - `CustomFeature` statt reiner Skizzengeometrie.
 - Mehrere Text-Layer in der Oberfläche, Text auf Kreisbogen.
 - Konturparallele Schraffur.
@@ -697,3 +717,24 @@ Verbindung vom letzten zum ersten Punkt aus dem Rahmen liefe, faellt weg,
 obwohl die Kurve selbst innen liegt. Konservativ und selten; die Alternative
 waere eine Signaturaenderung an `Container.fully_inside` und damit eine
 Aenderung in `core/build.py`.
+
+### 15.5 Offene **[prüfen]**-Punkte (Phase 1)
+
+Diese Punkte des Plans lassen sich **nur in Fusion** klären. Der Code ist so
+gebaut, dass er in beide Richtungen funktioniert (Fallback jeweils genannt);
+sobald das Verhalten geprüft ist, gehört das Ergebnis hierher – auch wenn es
+„funktioniert wie erwartet" lautet.
+
+| # | Frage | Wo im Code | Fallback, falls es anders ist |
+| --- | --- | --- | --- |
+| 1 | Liefert `sketch.referencePlane` die ConstructionPlane bzw. BRepFace, auf der die Skizze liegt? Und `None`, wenn die Referenz gelöscht wurde? | `fusion/frame_reader.py`, `_reference_plane` | Klartext-Fehler „Skizzenebene nicht mehr vorhanden"; Alternative wäre, die Ebene aus `sketch.transform` abzuleiten |
+| 2 | Hinterlässt eine Skizze, die innerhalb **eines** Commands angelegt und wieder gelöscht wird, keinen Timeline-Eintrag? | `frame_reader._to_sketch_space` (Hilfsskizze), `palette_bridge.PatternCreatorFrameCmd` | Skizzenrahmen aus `plane.geometry` (u/v-Richtungen) ableiten, statt eine Skizze anzulegen |
+| 3 | Hat `adsk.fusion.Profile` ein `entityToken`? | `frame_reader._token_of` | eingebaut: Token der Eltern-Skizze plus Profil-Index (`"<token>#<index>"`), `find_source` löst beides auf |
+| 4 | Gibt es `sketches.addWithoutEdges` in der installierten Fusion-Version? | `frame_reader._temporary_sketch`, `palette_bridge.perform_commit` | eingebaut: Rückfall auf `sketches.add` (dann projiziert Fusion bei Flächen die Kanten – die Profile brechen, siehe 15.1) |
+| 5 | Liefert `ui.activeSelections` die Canvas-Auswahl, während die Palette offen ist? | `frame_reader.pick_from_selection` | sonst bleibt nur der Weg über den Befehlsdialog (Auswahl vor dem Öffnen des Editors) |
+| 6 | Gibt `design.findEntityByToken` eine Liste zurück (auch bei genau einem Treffer)? | `frame_reader.find_source` | Code nimmt beides an (`list(found)`), leere Liste ⇒ Klartext-Meldung |
+| 7 | Sind die Kurvenpunkte aus `getStrokes` bei einer Fläche in **Modell**-Koordinaten (nicht Komponenten-Koordinaten mit Occurrence-Transformation)? | `frame_reader._strokes` | bei Bauteilen in Baugruppen ggf. `nativeObject`/`assemblyContext` berücksichtigen – heute nicht behandelt |
+
+Zusätzlich beim ersten Lauf zu messen: Punktzahl einer echten, tessellierten
+Rahmenkontur vor und nach der Vereinfachung (die Werte in 15.4 stammen aus
+synthetischen Konturen).
