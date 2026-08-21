@@ -110,3 +110,84 @@ def test_parse_strict_raises_with_error_map():
     with pytest.raises(pd.ValidationError) as exc:
         pd.parse_strict(raw)
     assert "style.thickness" in exc.value.errors
+
+
+# ------------------------------------------------------------ Eigener Rahmen
+
+L_FRAME = [[0.0, 0.0], [6.0, 0.0], [6.0, 2.0], [2.0, 2.0], [2.0, 6.0], [0.0, 6.0]]
+
+
+def custom_doc():
+    raw = pd.default_doc("grid")
+    raw["container"].update(shape="custom", customPoints=[list(p) for p in L_FRAME],
+                            customSource={"kind": "profile",
+                                          "label": "Skizze1 / Profil 2",
+                                          "token": "abc123"})
+    return raw
+
+
+def test_custom_shape_is_offered_in_the_schema():
+    shape = next(p for p in pd.schema()["container"] if p["key"] == "shape")
+    assert "custom" in [c["value"] for c in shape["choices"]]
+
+
+def test_custom_frame_survives_a_roundtrip():
+    doc, errors = pd.parse(custom_doc())
+    assert errors == {}
+    assert doc["container"]["shape"] == "custom"
+    assert doc["container"]["customPoints"] == L_FRAME
+    assert doc["container"]["customSource"]["token"] == "abc123"
+    assert pd.deserialize(pd.serialize(doc)) == doc
+
+
+def test_custom_points_are_normalised_on_parse():
+    """Schließpunkt, Dublette und Uhrzeigersinn kommen aus Fusion vor."""
+    raw = custom_doc()
+    raw["container"]["customPoints"] = [[0, 0], [0, 4], [0, 4], [4, 4], [4, 0], [0, 0]]
+    doc, errors = pd.parse(raw)
+    assert errors == {}
+    pts = doc["container"]["customPoints"]
+    assert len(pts) == 4
+    from core.geom import polygon_area
+    assert polygon_area([tuple(p) for p in pts]) > 0        # gegen den Uhrzeigersinn
+
+
+@pytest.mark.parametrize("points", [
+    [[0, 0], [1, 0]],                          # zu wenige Punkte
+    [[0, 0], [1, 0], [2, 0]],                  # keine Fläche
+    [[0, 0], [1, 0], [1, "x"]],                # keine Zahlen
+])
+def test_invalid_custom_points_report_a_field_error_and_fall_back(points):
+    raw = custom_doc()
+    raw["container"]["customPoints"] = points
+    doc, errors = pd.parse(raw)
+    assert "container.customPoints" in errors
+    assert doc["container"]["shape"] == "rect"
+
+
+def test_custom_shape_without_points_falls_back_to_rect():
+    raw = pd.default_doc("grid")
+    raw["container"]["shape"] = "custom"
+    doc, errors = pd.parse(raw)
+    assert "container.customPoints" in errors
+    assert doc["container"]["shape"] == "rect"
+
+
+def test_documents_without_the_new_fields_still_load():
+    doc, errors = pd.parse(pd.default_doc("grid"))
+    assert errors == {}
+    assert "customPoints" not in doc["container"]
+    assert "customSource" not in doc["container"]
+
+
+def test_default_doc_stays_a_rectangle():
+    assert pd.default_doc("grid")["container"]["shape"] == "rect"
+
+
+def test_custom_points_are_kept_for_other_shapes():
+    """Formwechsel im Editor darf die eingelesene Kontur nicht wegwerfen."""
+    raw = custom_doc()
+    raw["container"]["shape"] = "circle"
+    doc, errors = pd.parse(raw)
+    assert errors == {}
+    assert doc["container"]["customPoints"] == L_FRAME

@@ -358,6 +358,13 @@ MAX_FRAME_POINTS = 5000
 MIN_FRAME_AREA = 1e-8
 
 
+#: Die Vorschau parst das Dokument bei jeder Reglerbewegung neu, die
+#: Rahmenkontur bleibt dabei dieselbe. Ohne Cache liefe RDP und die
+#: Schleifensuche jedes Mal erneut ueber ein paar hundert Punkte.
+_NORMALIZE_CACHE: dict = {}
+NORMALIZE_CACHE_LIMIT = 16
+
+
 def normalize_frame(points: Sequence[Point]) -> List[Point]:
     """Rohe Konturpunkte in die Form bringen, die der Container erwartet.
 
@@ -378,6 +385,10 @@ def normalize_frame(points: Sequence[Point]) -> List[Point]:
         pts = [(float(x), float(y)) for x, y in points]
     except (TypeError, ValueError):
         raise ValueError("Die Rahmenkontur enthält ungültige Punkte.")
+    key = tuple(pts)
+    hit = _NORMALIZE_CACHE.get(key)
+    if hit is not None:
+        return list(hit)
     if len(pts) > MAX_FRAME_POINTS:
         raise ValueError("Die Rahmenkontur hat mehr als %d Punkte."
                          % MAX_FRAME_POINTS)
@@ -399,7 +410,10 @@ def normalize_frame(points: Sequence[Point]) -> List[Point]:
     pts = ensure_ccw(clean_polygon(pts))
     if len(pts) < 3 or abs(polygon_area(pts)) <= MIN_FRAME_AREA:
         raise ValueError("Die Rahmenkontur umschließt keine Fläche.")
-    return pts
+    if len(_NORMALIZE_CACHE) >= NORMALIZE_CACHE_LIMIT:
+        _NORMALIZE_CACHE.pop(next(iter(_NORMALIZE_CACHE)))
+    _NORMALIZE_CACHE[key] = pts
+    return list(pts)
 
 
 def make_container(cfg: dict) -> Container:

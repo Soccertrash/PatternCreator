@@ -93,8 +93,11 @@ def _fmt(v: float) -> str:
 CONTAINER_PARAMS: List[Param] = [
     Param("shape", "Form", T_CHOICE, "rect", choices=[
         ("rect", "Rechteck"), ("square", "Quadrat"), ("circle", "Kreis"),
-        ("ellipse", "Ellipse"), ("polygon", "Vieleck")],
-        help="Rahmenform, in die das Muster eingepasst wird."),
+        ("ellipse", "Ellipse"), ("polygon", "Vieleck"),
+        ("custom", "Eigener Rahmen")],
+        help="Rahmenform, in die das Muster eingepasst wird. „Eigener Rahmen“ "
+             "übernimmt die Außenkontur eines Skizzenprofils oder einer ebenen "
+             "Fläche aus Fusion."),
     Param("width", "Breite", T_LENGTH, 10.0, min=0.5, max=200.0, step=0.1,
           visible_if={"shape": ["rect", "ellipse"]}),
     Param("height", "Höhe", T_LENGTH, 6.0, min=0.5, max=200.0, step=0.1,
@@ -335,6 +338,10 @@ def parse(raw: Any) -> Tuple[dict, Dict[str, str]]:
 
     doc["seed"] = _coerce(SEED_PARAM, raw.get("seed", SEED_PARAM.default), "seed", errors)
 
+    # Eigener Rahmen: Punktliste und Quelle liegen neben den Formularfeldern,
+    # weil sie kein Formular haben - der Editor zeigt sie als Infozeile.
+    _apply_custom_frame(doc["container"], raw.get("container"), errors)
+
     # Querbezuege
     c = doc["container"]
     if c["shape"] in ("rect", "square"):
@@ -346,6 +353,38 @@ def parse(raw: Any) -> Tuple[dict, Dict[str, str]]:
                 % _fmt(min(w, h) / 2.0 * 10))
             c["cornerRadius"] = min(w, h) / 2.0
     return doc, errors
+
+
+def _apply_custom_frame(container: Dict[str, Any], raw: Any,
+                        errors: Dict[str, str]) -> None:
+    """``customPoints`` / ``customSource`` uebernehmen und pruefen.
+
+    Die Punkte werden dabei normalisiert (Duplikate weg, gegen den
+    Uhrzeigersinn, Selbstschnitte weg, auf die Optimierer-Toleranz
+    vereinfacht) - siehe ``containers.normalize_frame``. Ein ``shape ==
+    "custom"`` ohne brauchbare Kontur ist ein Feldfehler; das Doc faellt dann
+    auf ``rect`` zurueck und bleibt benutzbar.
+    """
+    from .containers import normalize_frame
+
+    raw = raw if isinstance(raw, dict) else {}
+    points = raw.get("customPoints")
+    if points:
+        try:
+            container["customPoints"] = [[x, y] for x, y in normalize_frame(points)]
+        except (ValueError, TypeError) as exc:
+            errors["container.customPoints"] = str(exc)
+    source = raw.get("customSource")
+    if isinstance(source, dict):
+        container["customSource"] = {
+            "kind": str(source.get("kind", "")),
+            "label": str(source.get("label", "")),
+            "token": str(source.get("token", "")),
+        }
+    if container.get("shape") == "custom" and not container.get("customPoints"):
+        errors.setdefault("container.customPoints",
+                          "Für „Eigener Rahmen“ fehlt eine gültige Kontur.")
+        container["shape"] = "rect"
 
 
 def validate(raw: Any) -> Dict[str, str]:
